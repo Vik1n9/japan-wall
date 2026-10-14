@@ -1,0 +1,11 @@
+type: photo
+date: "2026-10-06"
+time: null   # 照片上傳時 EXIF 已遺失；有原始檔後補上
+title: 超級任天堂世界 入口
+place: 日本環球影城 超級任天堂世界
+note: 入口是一條綠色水管造型的隧道，上方掛著 5 週年標誌。
+media: media/2026-10-06/usj-nintendo-gate.webp
+width: 1200
+height: 1600
+source: null
+draft: true   # 照片順序與說明尚待 Viking 確認

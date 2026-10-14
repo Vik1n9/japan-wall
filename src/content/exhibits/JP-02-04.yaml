@@ -1,0 +1,12 @@
+type: photo
+date: "2026-10-06"
+time: null   # 照片上傳時 EXIF 已遺失；有原始檔後補上
+title: 園區裡的路燈
+place: 日本環球影城 超級任天堂世界
+note: 淺綠色的星星路燈，背景是草地山丘造景，很多遊客戴著角色頭飾。
+media: media/2026-10-06/usj-nintendo-lamps.webp
+width: 1600
+height: 1200
+source: null
+draft: true   # 照片順序與說明尚待 Viking 確認
+remarks: 畫面有多位路人正臉，公開前需確認。

@@ -1,0 +1,13 @@
+# 依賴與建置輸出
+node_modules/
+dist/
+.astro/
+
+# 原始照片與短片：含拍攝地點與完整解析度，不進版本控制
+raw/*
+!raw/README.md
+
+# 匯入腳本的暫存
+.tmp/
+
+.DS_Store

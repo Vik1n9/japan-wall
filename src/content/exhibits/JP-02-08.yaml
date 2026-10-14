@@ -1,0 +1,11 @@
+type: photo
+date: "2026-10-06"
+time: null   # 照片上傳時 EXIF 已遺失；有原始檔後補上
+title: 浣熊市警察局
+place: 日本環球影城
+note: 招牌寫著 RACCOON POLICE 的場景布置，紫紅色燈光下有持槍角色與殭屍造型。
+media: media/2026-10-06/usj-raccoon.webp
+width: 1600
+height: 1200
+source: null
+draft: true   # 照片順序與說明尚待 Viking 確認

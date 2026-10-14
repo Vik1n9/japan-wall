@@ -1,0 +1,16 @@
+---
+import { asset, type Exhibit } from '../lib/wall';
+interface Props { exhibit: Exhibit }
+const { exhibit: e } = Astro.props;
+---
+<figure class="plate" style={`aspect-ratio:${e.width}/${e.height}`}>
+  {e.type === 'video' ? (
+    <>
+      <video data-auto src={asset(e.media)} poster={e.poster ? asset(e.poster) : undefined} muted loop playsinline preload="metadata"></video>
+      {e.duration && <span class="dur">▶ {e.duration}</span>}
+      {e.source && <span class="file">{e.source}</span>}
+    </>
+  ) : (
+    <img src={asset(e.media)} alt={e.title || e.id} width={e.width} height={e.height} loading="lazy" decoding="async" />
+  )}
+</figure>

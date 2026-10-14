@@ -1,0 +1,401 @@
+<title>日本旅行 展覽牆</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&family=Zilla+Slab:wght@600;700&display=swap">
+<style>
+/* Layout: a gallery wall you pan sideways — hanging title banners, an intro panel, then city "eras" whose rule line steps upward left to right; each day is a sub-marker with columns of labels and framed photos/clips. Reading mode restacks the same wall vertically. */
+:root{
+  --page:#DAD8D2; --wall:#EDEDEA; --panel:#F8F8F6; --ink:#1C1A18; --muted:#5C5953; --rule:#B7B4AC; --hair:#D7D5CF;
+  --red:#C2332A; --bink:#1A100E; --glow:rgba(255,255,255,.95); --track:#2A2826; --lamp:#3B3936; --floor:#CDCAC2;
+  --shade:rgba(0,0,0,.42);
+  --f-era:"Zilla Slab","Rockwell","Georgia",serif;
+  --f-display:"Noto Serif TC","Songti TC","PMingLiU",serif;
+  --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --colw:240px; --step:34px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --page:#0F1011; --wall:#25262A; --panel:#2E3034; --ink:#ECEAE4; --muted:#A8A59E; --rule:#4A4B50; --hair:#34363A;
+    --red:#D44A3F; --glow:rgba(255,230,185,.11); --track:#09090A; --lamp:#4A4845; --floor:#17181A; --shade:rgba(0,0,0,.7); color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --page:#0F1011; --wall:#25262A; --panel:#2E3034; --ink:#ECEAE4; --muted:#A8A59E; --rule:#4A4B50; --hair:#34363A;
+  --red:#D44A3F; --glow:rgba(255,230,185,.11); --track:#09090A; --lamp:#4A4845; --floor:#17181A; --shade:rgba(0,0,0,.7); color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--page);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.7;padding-inline:16px;padding-block:0 40px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--page);margin-inline:-16px;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--rule)}
+.bar .t{font-family:var(--f-display);font-weight:900;font-size:1.05rem;letter-spacing:.1em;margin-right:auto}
+.bar .t small{font-family:var(--f-mono);font-weight:400;font-size:.68rem;color:var(--muted);letter-spacing:.06em;margin-left:8px}
+.seg{display:inline-flex;border:1px solid var(--ink)}
+.seg button{background:none;border:0;padding:4px 12px;font-size:.78rem;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--page)}
+.pan{display:inline-flex;gap:6px}
+.pan button{width:32px;height:30px;border:1px solid var(--rule);background:var(--panel);cursor:pointer;font-family:var(--f-mono)}
+
+/* wall */
+.hall{margin-inline:-16px;margin-top:18px}
+.scroller{overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;overscroll-behavior-x:contain}
+.wall{position:relative;display:flex;align-items:flex-start;width:max-content;min-width:100%;padding-block:16px 40px;padding-inline:32px 56px;
+  background:radial-gradient(ellipse 210px 440px at 50% 0,var(--glow),transparent 72%) 0 0/420px 100% repeat-x,var(--wall);
+  box-shadow:0 34px 40px -34px var(--shade)}
+.track{position:absolute;left:0;right:0;top:0;height:18px;pointer-events:none;
+  background:repeating-linear-gradient(90deg,transparent 0 200px,var(--lamp) 200px 220px,transparent 220px 420px) 0 5px/100% 13px no-repeat,
+  linear-gradient(var(--track),var(--track)) 0 2px/100% 3px no-repeat}
+.floor{height:26px;background:linear-gradient(var(--floor),var(--page))}
+
+/* prelude */
+.prelude{display:flex;align-items:flex-start;gap:26px;padding-top:52px;margin-right:56px;flex:none}
+.banner{position:relative;flex:none;width:92px;height:400px;background:var(--red);box-shadow:inset 0 0 0 7px var(--red),inset 0 0 0 10px var(--bink),0 16px 24px -14px var(--shade);display:grid;place-items:center}
+.banner::before,.banner::after{content:"";position:absolute;top:-38px;width:1px;height:38px;background:var(--muted)}
+.banner::before{left:22%}.banner::after{right:22%}
+.banner span{writing-mode:vertical-rl;font-family:var(--f-display);font-weight:900;font-size:2.7rem;letter-spacing:.18em;color:var(--bink)}
+.banner.photo{width:150px;background:var(--hair);overflow:visible;box-shadow:0 16px 24px -14px var(--shade)}
+.banner.photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.banner.photo em{position:absolute;left:0;right:0;bottom:0;text-align:center;font-style:normal;font-family:var(--f-mono);font-size:.6rem;letter-spacing:.2em;color:#F4F1EA;background:rgba(10,10,12,.55);padding:4px 0}
+
+.intro{width:300px;flex:none;padding-top:8px}
+.eyebrow{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.intro h1{font-family:var(--f-display);font-weight:900;font-size:2.6rem;line-height:1.1;letter-spacing:.08em;margin:8px 0 4px}
+.intro .span{font-family:var(--f-mono);font-size:.74rem;color:var(--muted)}
+.intro p{font-size:.86rem;margin:14px 0}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:2px solid var(--ink);border-bottom:1px solid var(--rule)}
+.stats div{padding:6px 0 4px;display:flex;flex-direction:column}
+.stats strong{font-family:var(--f-era);font-weight:700;font-size:1.45rem;line-height:1.1;font-variant-numeric:tabular-nums}
+.stats span{font-size:.66rem;color:var(--muted)}
+.howto{list-style:none;padding:0;margin:14px 0 0;font-size:.8rem;color:var(--muted);display:grid;gap:4px}
+.howto li::before{content:"— ";color:var(--red)}
+.g{font-family:var(--f-mono);color:var(--red);font-size:.72rem}
+
+/* eras */
+.era{flex:none;display:flex;flex-direction:column;padding-top:calc(24px + var(--s) * var(--step))}
+.era-head{position:relative;height:70px;display:flex;align-items:flex-end;gap:12px;padding-bottom:4px;border-bottom:3px solid var(--ink)}
+.era + .era .era-head::before{content:"";position:absolute;left:-3px;top:100%;width:3px;height:var(--step);background:var(--ink)}
+.era-num{font-family:var(--f-era);font-weight:700;font-size:3.6rem;line-height:.95;font-variant-numeric:tabular-nums}
+.era-city{font-family:var(--f-display);font-weight:900;font-size:1.5rem;letter-spacing:.16em;line-height:1.2;padding-bottom:4px}
+.era.pending .era-num,.era.pending .era-city{color:var(--muted)}
+.era.pending .era-head{border-bottom-style:dashed;border-bottom-color:var(--rule)}
+.era-range{font-family:var(--f-mono);font-size:.66rem;color:var(--muted);padding-bottom:8px;margin-left:auto;padding-right:32px;white-space:nowrap}
+.days{display:flex;gap:30px;padding-top:20px;padding-right:32px}
+.day{border-left:1px solid var(--ink);padding-left:12px}
+.era.pending .day{border-left:1px dashed var(--rule)}
+.dh{display:flex;align-items:baseline;gap:6px}
+.dnum{font-family:var(--f-era);font-weight:700;font-size:1.55rem;line-height:1;font-variant-numeric:tabular-nums}
+.dwd{font-family:var(--f-display);font-weight:700;font-size:.9rem}
+.dmeta{font-family:var(--f-mono);font-size:.64rem;color:var(--muted);margin-top:3px;letter-spacing:.02em}
+.cols{display:flex;gap:22px;margin-top:14px}
+.col{width:var(--colw);display:flex;flex-direction:column;gap:14px;min-width:0}
+
+/* items */
+.it-text .tm{font-family:var(--f-mono);font-size:.66rem;color:var(--red);font-variant-numeric:tabular-nums}
+.it-text .tm.unk{color:var(--muted)}
+.it-text h4{font-family:var(--f-display);font-weight:700;font-size:.98rem;line-height:1.35;margin:0 0 2px}
+.it-text p{margin:0;font-size:.8rem;line-height:1.62;color:var(--muted)}
+.it-slot{border:1.5px dashed var(--rule);padding:10px 12px;font-family:var(--f-display);font-weight:700;color:var(--muted);font-size:.92rem;line-height:1.5}
+.it-slot small{display:block;font-family:var(--f-mono);font-weight:400;font-size:.62rem;margin-top:4px}
+.it-media{display:block;width:100%;padding:0;border:0;background:none;text-align:left;cursor:zoom-in}
+.it-media:hover .plate{transform:translateY(-2px);box-shadow:0 2px 0 rgba(0,0,0,.06),0 20px 26px -16px var(--shade)}
+.cap{display:block;font-size:.72rem;line-height:1.45;margin-top:6px}
+.cap b{font-family:var(--f-mono);font-weight:500;font-size:.62rem;color:var(--muted);margin-right:4px}
+.bay{width:250px;height:290px;border:1.5px dashed var(--rule);display:grid;place-items:center;text-align:center;padding:20px;color:var(--muted);font-size:.82rem;line-height:1.6}
+.bay strong{display:block;font-family:var(--f-display);font-weight:900;font-size:1.15rem;color:var(--ink);letter-spacing:.12em;margin-bottom:4px}
+
+.plate{position:relative;margin:0;width:100%;max-width:100%;overflow:hidden;background:var(--hair);box-shadow:0 1px 0 rgba(0,0,0,.06),0 14px 22px -16px var(--shade);transition:transform .2s,box-shadow .2s}
+.plate img,.plate video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.file{position:absolute;left:0;bottom:0;font-family:var(--f-mono);font-size:.56rem;letter-spacing:.05em;color:#F3F2EC;background:rgba(12,14,18,.6);padding:2px 6px}
+.dur{position:absolute;right:0;top:0;font-family:var(--f-mono);font-size:.6rem;color:#F3F2EC;background:rgba(12,14,18,.6);padding:2px 6px}
+@media (prefers-reduced-motion:reduce){.it-media .plate{transition:none}}
+
+/* end panel */
+.finale{flex:none;width:240px;padding-top:150px;font-size:.8rem;color:var(--muted)}
+.finale h2{font-family:var(--f-display);font-weight:900;font-size:1.5rem;color:var(--ink);letter-spacing:.12em;margin:6px 0 10px}
+.finale dl{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;margin:0 0 14px}
+.finale dt{font-family:var(--f-mono);font-size:.66rem}
+.finale dd{margin:0;color:var(--ink)}
+
+/* floor plan */
+.map{position:relative;height:42px;margin-top:6px;cursor:pointer;touch-action:none}
+.map .sg{position:absolute;top:8px;height:28px;border-top:3px solid var(--rule);font-family:var(--f-mono);font-size:.64rem;color:var(--muted);padding-top:3px;overflow:hidden;white-space:nowrap}
+.map .sg.live{border-top-color:var(--ink);color:var(--ink)}
+.map .vp{position:absolute;top:2px;height:38px;border:2px solid var(--red);background:color-mix(in srgb,var(--red) 8%,transparent);pointer-events:none}
+
+/* registry */
+.registry{max-width:1080px;margin:40px auto 0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px 40px;align-items:start}
+.registry h2{font-family:var(--f-display);font-weight:900;font-size:1.4rem;margin:6px 0 8px}
+.registry p{font-size:.88rem;margin:0 0 10px;max-width:34em}
+.code{background:var(--panel);border-left:3px solid var(--red);overflow-x:auto}
+.code pre{margin:0;padding:14px 16px;font-family:var(--f-mono);font-size:.76rem;line-height:1.7}
+.code .k{color:var(--muted)}
+
+/* lightbox */
+.lb{position:fixed;inset:0;z-index:50;background:rgba(8,9,10,.86);display:grid;place-items:center;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px calc(env(safe-area-inset-bottom,0px) + 16px)}
+.lb-card{position:relative;width:min(1040px,100%);max-height:100%;overflow:auto;background:var(--panel);display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}
+.lb-media{background:#0d0e10;display:grid;place-items:center;min-height:280px}
+.lb-media img,.lb-media video{display:block;max-width:100%;max-height:76dvh;width:auto;height:auto}
+.lb-label{padding:28px 24px 20px;display:flex;flex-direction:column;font-size:.9rem}
+.lb-label .no{font-family:var(--f-mono);font-size:.7rem;letter-spacing:.1em;color:var(--muted)}
+.lb-label h3{font-family:var(--f-display);font-weight:900;font-size:1.6rem;line-height:1.3;margin:4px 0 6px;text-wrap:balance}
+.lb-label .place{color:var(--muted)}
+.lb-label .medium{font-family:var(--f-mono);font-size:.72rem;color:var(--muted);border-bottom:1px solid var(--rule);padding-bottom:10px;margin:4px 0 12px}
+.lb-label p{margin:0 0 20px}
+.lb-nav{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;font-family:var(--f-mono);font-size:.72rem;color:var(--muted)}
+.lb-nav button{border:1px solid var(--ink);background:none;padding:6px 10px;cursor:pointer;font-size:.78rem}
+.lb-x{position:absolute;right:8px;top:8px;width:36px;height:36px;border:0;background:var(--panel);font-size:1.4rem;line-height:1;cursor:pointer;z-index:1}
+
+/* reading mode */
+.read .hall{margin-inline:0}
+.read .scroller{overflow:visible}
+.read .wall{width:auto;min-width:0;flex-direction:column;padding-inline:16px;padding-block:24px 32px}
+.read .track,.read .map,.read .pan{display:none}
+.read .prelude{flex-wrap:wrap;padding-top:20px;margin-right:0;gap:18px}
+.read .banner{height:200px;width:72px}
+.read .banner span{font-size:2rem}
+.read .banner.photo{width:150px}
+.read .banner::before,.read .banner::after{display:none}
+.read .intro{width:min(100%,420px)}
+.read .era{padding-top:36px;width:100%}
+.read .era-head::before{display:none}
+.read .days,.read .cols{flex-wrap:wrap}
+.read .days{padding-right:0}
+.read .col{width:min(100%,340px)!important}
+.read .bay{width:min(100%,340px);height:auto}
+.read .finale{padding-top:36px;width:auto}
+
+@media (max-width:760px){
+  :root{--colw:200px;--step:26px}
+  .bar .t small{display:none}
+  .banner{width:74px;height:320px}
+  .banner span{font-size:2.1rem}
+  .banner.photo{width:120px}
+  .intro{width:250px}
+  .intro h1{font-size:2.1rem}
+  .prelude{padding-top:46px;margin-right:40px}
+  .era-num{font-size:2.8rem}
+  .era-city{font-size:1.25rem}
+  .era-head{height:60px}
+  .lb-card{grid-template-columns:1fr}
+  .lb-media{min-height:0}
+  .lb-media img,.lb-media video{max-height:58dvh}
+  .lb-label{padding:18px 18px 16px}
+  .lb-label h3{font-size:1.35rem}
+  .registry{grid-template-columns:1fr}
+  .read .col{width:100%!important}
+}
+</style>
+
+<header class="bar">
+  <div class="t">日本旅行<small>展覽牆 · 第二天已展出</small></div>
+  <div class="pan" aria-label="左右移動牆面"><button id="pl" aria-label="往左">←</button><button id="pr" aria-label="往右">→</button></div>
+  <div class="seg" role="group" aria-label="觀看方式"><button id="m-wall" aria-pressed="true">牆面</button><button id="m-read" aria-pressed="false">閱讀</button></div>
+</header>
+
+<div class="hall">
+  <div class="scroller" id="scroller" tabindex="0" aria-label="展覽牆，可左右捲動">
+    <div class="wall" id="wall">
+      <div class="track"></div>
+      <div class="prelude" id="prelude">
+        <div class="banner"><span>日本旅行</span></div>
+        <div class="banner photo"><img src="media/d2-nintendo-gate.webp" alt="超級任天堂世界入口"><em>2026 · 秋</em></div>
+        <div class="intro">
+          <div class="eyebrow">特展 · 布展中</div>
+          <h1>日本旅行</h1>
+          <div class="span">2026.10.05 起</div>
+          <p>依時間排成的一面牆。每座城市是一個年代，每一天是一個刻度，照片與短片是展品。目前掛上的是第二天：日本環球影城。</p>
+          <div class="stats" id="stats"></div>
+          <ul class="howto"><li>左右滑動牆面，或點下方平面圖跳轉</li><li>點擊任一影像，打開展品說明卡</li><li>右上角可切換成直向閱讀</li></ul>
+        </div>
+      </div>
+      <div id="eras" style="display:contents"></div>
+      <div class="finale" id="finale">
+        <div class="eyebrow">展覽結束</div>
+        <h2>謝謝觀賞</h2>
+        <dl><dt>策展</dt><dd>（你的名字）</dd><dt>攝影</dt><dd>（你的名字）</dd><dt>器材</dt><dd>iPhone 16 Pro</dd></dl>
+        <div>短片已去除聲音並壓縮，照片已轉檔並移除位置資訊。</div>
+      </div>
+    </div>
+  </div>
+  <div class="floor"></div>
+</div>
+<nav class="map" id="map" aria-label="展覽平面圖"></nav>
+
+<section class="registry">
+  <div>
+    <div class="eyebrow">展品登錄卡</div>
+    <h2>一件展品，一筆資料</h2>
+    <p>牆上每一欄都由同一組欄位生成。改用 Astro 時，每件展品是 content collection 的一筆條目，<code>col</code> 決定它掛在當天的第幾欄。</p>
+    <p>短片的拍攝時刻是從檔案本身讀出的；照片上傳時時間資訊被移除了，所以照片的時刻暫時空著。</p>
+  </div>
+  <div class="code"><pre><span class="k"># src/content/exhibits/JP-02-07.yaml</span>
+no: JP-02-07
+day: 2026-10-06
+time: "13:34"         <span class="k"># 讀自 IMG_7399.MOV</span>
+city: 大阪
+col: 5                <span class="k"># 當天第幾欄</span>
+type: video           <span class="k"># photo | video | text</span>
+title: 耀西冒險
+place: 日本環球影城 超級任天堂世界
+media: ./media/IMG_7399.MOV
+note: 坐在耀西造型的車上，
+      沿著園區上層的軌道繞行。</pre></div>
+</section>
+
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-labelledby="lb-title">
+  <div class="lb-card">
+    <div class="lb-media" id="lb-media"></div>
+    <div class="lb-label">
+      <div class="no" id="lb-no"></div>
+      <h3 id="lb-title"></h3>
+      <div class="place" id="lb-place"></div>
+      <div class="medium" id="lb-medium"></div>
+      <p id="lb-p"></p>
+      <div class="lb-nav"><button id="lb-prev">← 上一件</button><span id="lb-count"></span><button id="lb-next">下一件 →</button></div>
+    </div>
+    <button class="lb-x" id="lb-x" aria-label="關閉說明卡">×</button>
+  </div>
+</div>
+
+<script>
+const T=(t,h,p)=>({k:"text",t,h,p});
+const P=(no,h,src,w,hgt,place,p)=>({k:"photo",no,h,src:"media/"+src,w,hh:hgt,place,p});
+const V=(no,t,h,src,w,hgt,dur,file,place,p)=>({k:"video",no,t,h,src:"media/"+src+".mp4",poster:"media/"+src+"-poster.webp",w,hh:hgt,dur,file,place,p});
+const USJ="日本環球影城";
+const ERAS=[
+ {num:"10.05",city:"待補",range:"第一天",pending:true,days:[{d:"10.05",wd:"一",n:1,bay:"上傳第一天的照片與短片，這裡就會掛上。"}]},
+ {num:"10.06",city:"大阪",range:USJ,days:[
+  {d:"10.06",wd:"二",n:2,meta:`${USJ} · 7 張照片 · 3 支短片`,cols:[
+   {w:300,items:[
+    P("JP-02-01","入園","d2-gate.webp",1600,1200,`${USJ} 正門`,"入口拱門掛著 25 週年的彩色裝飾，當時是陰天，人潮剛開始往裡走。"),
+    T(null,"入園","拱門上方是 25 週年的花飾，兩側燈柱掛著週年旗幟。")]},
+   {w:420,items:[
+    P("JP-02-02","潟湖","d2-lagoon.webp",1600,621,`${USJ} 園內潟湖`,"對岸是綠色的雲霄飛車軌道與叢林風格建築，右側是木造碼頭。原照片下方有一道遮擋，這裡裁成橫幅。"),
+    T(null,"潟湖","天氣轉晴，對岸的雲霄飛車軌道倒映在水面上。"),
+    {k:"slot",p:"（一句當天的心得，由你填寫）"}]},
+   {w:240,items:[
+    P("JP-02-03","超級任天堂世界 入口","d2-nintendo-gate.webp",1200,1600,`${USJ} 超級任天堂世界`,"入口是一條綠色水管造型的隧道，上方掛著 5 週年標誌。"),
+    T(null,"走進水管","入口是一條綠色水管隧道，上方掛著 5 週年標誌。")]},
+   {w:260,items:[
+    P("JP-02-04","園區裡的路燈","d2-nintendo-lamps.webp",1600,1200,`${USJ} 超級任天堂世界`,"淺綠色的星星路燈，背景是草地山丘造景，很多遊客戴著角色頭飾。"),
+    P("JP-02-05","俯瞰園區","d2-nintendo-view.webp",1600,1200,`${USJ} 超級任天堂世界`,"從高處往下看，遠處是城堡，下方是繞行的遊樂設施。"),
+    T(null,"超級任天堂世界","從入口走到上層，可以看到整個園區。")]},
+   {w:280,items:[
+    P("JP-02-06","庫巴城","d2-bowser.webp",1600,1200,`${USJ} 超級任天堂世界`,"城堡內部，頂上是五角形天井，下方是巨大的庫巴石像。"),
+    V("JP-02-07","13:34","耀西冒險","d2-yoshi",1280,720,"0:12","IMG_7399.MOV",`${USJ} 超級任天堂世界`,"坐在耀西造型的車上，沿著園區上層的軌道繞行。"),
+    T("13:34","耀西冒險","坐在耀西車上繞行園區上層。")]},
+   {w:260,items:[
+    P("JP-02-08","浣熊市警察局","d2-raccoon.webp",1600,1200,USJ,"招牌寫著 RACCOON POLICE 的場景布置，紫紅色燈光下有持槍角色與殭屍造型。"),
+    T(null,"浣熊市警察局","紫紅燈光下的場景布置。")]},
+   {w:200,items:[
+    V("JP-02-09","18:39","活米村","d2-hogsmeade",720,1280,"0:05","IMG_7408.MOV",`${USJ} 哈利波特魔法世界`,"傍晚六點半，天色轉暗，街上的店鋪亮起燈。"),
+    T("18:39","活米村","天色轉暗，店鋪亮燈。")]},
+   {w:200,items:[
+    V("JP-02-10","18:41","霍格華茲城堡","d2-hogwarts",720,1280,"0:10","IMG_7409.MOV",`${USJ} 哈利波特魔法世界`,"從活米村走到城堡前，鏡頭由左往右帶到城堡全景。"),
+    T("18:41","霍格華茲城堡","兩分鐘後走到城堡前。")]}
+  ]}]},
+ {num:"10.07",city:"待補",range:"之後的日子",pending:true,days:[{d:"10.07",wd:"三",n:3,bay:"之後每一天都是一個新的刻度，城市不同就會開始新的年代。"}]}
+];
+
+const MEDIA=[];
+function plate(m){
+ const r=`aspect-ratio:${m.w}/${m.hh}`;
+ if(m.k==="video")return `<figure class="plate" style="${r}"><video data-auto src="${m.src}" poster="${m.poster}" muted loop playsinline preload="metadata"></video><span class="dur">▶ ${m.dur}</span><span class="file">${m.file}</span></figure>`;
+ return `<figure class="plate" style="${r}"><img src="${m.src}" alt="${m.h}" loading="lazy" decoding="async"></figure>`;
+}
+function item(it,day,city){
+ if(it.k==="text")return `<div class="it it-text"><div class="tm${it.t?"":" unk"}">${it.t||"時刻待補"}</div><h4>${it.h}</h4><p>${it.p}</p></div>`;
+ if(it.k==="slot")return `<div class="it it-slot">${it.p}<small>心得欄位</small></div>`;
+ it.day=day;it.city=city;const i=MEDIA.push(it)-1;
+ return `<button class="it it-media" data-i="${i}" aria-label="查看展品 ${it.h}">${plate(it)}<span class="cap"><b><span class="g">${it.k==="video"?"▶":"■"}</span> ${it.no}</b>${it.h}</span></button>`;
+}
+document.getElementById("eras").innerHTML=ERAS.map((e,ei)=>`
+ <section class="era${e.pending?" pending":""}" data-label="${e.pending?"待補":e.city}" style="--s:${ERAS.length-1-ei}">
+  <div class="era-head"><span class="era-num">${e.num}</span><span class="era-city">${e.city}</span><span class="era-range">${e.range}</span></div>
+  <div class="days">${e.days.map(d=>`
+   <div class="day" id="d${d.n}">
+    <div class="dh"><span class="dnum">${d.d}</span><span class="dwd">${d.wd}</span></div>
+    <div class="dmeta">DAY ${d.n}${d.meta?" · "+d.meta:" · 布展中"}</div>
+    ${d.bay?`<div class="cols"><div class="bay"><div><strong>展區布置中</strong>${d.bay}</div></div></div>`:
+    `<div class="cols">${d.cols.map(c=>`<div class="col" style="--colw:${c.w}px">${c.items.map(it=>item(it,d,e.city)).join("")}</div>`).join("")}</div>`}
+   </div>`).join("")}
+  </div>
+ </section>`).join("");
+
+const vids=MEDIA.filter(m=>m.k==="video").length;
+document.getElementById("stats").innerHTML=[["1","展出日"],[MEDIA.length,"展品"],[MEDIA.length-vids,"照片"],[vids,"短片"]]
+ .map(([v,l])=>`<div><strong>${v}</strong><span>${l}</span></div>`).join("");
+
+/* clips play only while on screen */
+const reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+const autos=[...document.querySelectorAll("video[data-auto]")];
+if("IntersectionObserver" in window&&!reduce){
+ const vo=new IntersectionObserver(es=>es.forEach(en=>{const v=en.target;if(en.isIntersecting){v.play().catch(()=>{})}else v.pause()}),{threshold:.35});
+ autos.forEach(v=>vo.observe(v));
+}
+
+/* mode toggle */
+const btnW=document.getElementById("m-wall"),btnR=document.getElementById("m-read");
+function setMode(m){document.body.classList.toggle("read",m==="read");btnW.setAttribute("aria-pressed",m!=="read");btnR.setAttribute("aria-pressed",m==="read");try{localStorage.setItem("wall-mode",m)}catch(e){}requestAnimationFrame(buildMap)}
+btnW.onclick=()=>setMode("wall");btnR.onclick=()=>setMode("read");
+let saved=null;try{saved=localStorage.getItem("wall-mode")}catch(e){}
+if(saved==="read")setMode("read");
+
+/* panning */
+const sc=document.getElementById("scroller"),wall=document.getElementById("wall");
+const smooth=reduce?"auto":"smooth";
+document.getElementById("pl").onclick=()=>sc.scrollBy({left:-sc.clientWidth*.8,behavior:smooth});
+document.getElementById("pr").onclick=()=>sc.scrollBy({left:sc.clientWidth*.8,behavior:smooth});
+sc.addEventListener("wheel",e=>{
+ if(document.body.classList.contains("read"))return;
+ if(Math.abs(e.deltaY)<=Math.abs(e.deltaX))return;
+ const max=sc.scrollWidth-sc.clientWidth;
+ if((e.deltaY<0&&sc.scrollLeft<=0)||(e.deltaY>0&&sc.scrollLeft>=max-1))return;
+ e.preventDefault();sc.scrollLeft+=e.deltaY;
+},{passive:false});
+
+/* floor plan */
+const map=document.getElementById("map");
+function buildMap(){
+ if(document.body.classList.contains("read"))return;
+ const W=wall.scrollWidth;if(!W)return;
+ const segs=[[document.getElementById("prelude"),"序",false],...[...document.querySelectorAll(".era")].map(s=>[s,s.dataset.label,!s.classList.contains("pending")]),[document.getElementById("finale"),"終",false]];
+ map.innerHTML=segs.map(([el,l,live])=>`<div class="sg${live?" live":""}" style="left:${el.offsetLeft/W*100}%;width:${el.offsetWidth/W*100}%">${l}</div>`).join("")+`<div class="vp" id="vp"></div>`;
+ syncVP();
+}
+function syncVP(){const vp=document.getElementById("vp");if(!vp)return;const W=sc.scrollWidth;vp.style.left=sc.scrollLeft/W*100+"%";vp.style.width=Math.min(100,sc.clientWidth/W*100)+"%"}
+sc.addEventListener("scroll",syncVP,{passive:true});
+function jump(e){const r=map.getBoundingClientRect();const x=(e.clientX-r.left)/r.width;sc.scrollTo({left:x*sc.scrollWidth-sc.clientWidth/2,behavior:e.type==="pointerdown"?smooth:"auto"})}
+let dragging=false;
+map.addEventListener("pointerdown",e=>{dragging=true;try{map.setPointerCapture(e.pointerId)}catch(_){}jump(e)});
+map.addEventListener("pointermove",e=>{if(dragging)jump(e)});
+map.addEventListener("pointerup",()=>dragging=false);
+map.addEventListener("pointercancel",()=>dragging=false);
+addEventListener("resize",buildMap);
+addEventListener("load",buildMap);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(buildMap);
+buildMap();
+
+/* lightbox */
+const lb=document.getElementById("lb");let cur=0,lastFocus=null;
+const $=id=>document.getElementById(id);
+function show(i){
+ cur=(i+MEDIA.length)%MEDIA.length;const m=MEDIA[cur];
+ $("lb-media").innerHTML=m.k==="video"
+  ?`<video src="${m.src}" poster="${m.poster}" controls muted loop playsinline autoplay></video>`
+  :`<img src="${m.src}" alt="${m.h}">`;
+ $("lb-no").textContent=m.no;$("lb-title").textContent=m.h;
+ $("lb-place").textContent=`${m.place} · 2026.${m.day.d}（${m.day.wd}）${m.t?" "+m.t:" · 時刻待補"}`;
+ $("lb-medium").textContent=(m.k==="video"?`短片 · ${m.dur} · 已去除聲音 · ${m.file}`:`照片 · ${m.w}×${m.hh}`)+` · DAY ${m.day.n} ${m.city}`;
+ $("lb-p").textContent=m.p;$("lb-count").textContent=`${cur+1} / ${MEDIA.length}`;
+}
+function open(i){lastFocus=document.activeElement;show(i);lb.hidden=false;document.body.style.overflow="hidden";$("lb-x").focus()}
+function close(){lb.hidden=true;$("lb-media").innerHTML="";document.body.style.overflow="";lastFocus&&lastFocus.focus()}
+wall.addEventListener("click",e=>{const b=e.target.closest(".it-media");if(b)open(+b.dataset.i)});
+$("lb-x").onclick=close;$("lb-prev").onclick=()=>show(cur-1);$("lb-next").onclick=()=>show(cur+1);
+lb.addEventListener("click",e=>{if(e.target===lb)close()});
+addEventListener("keydown",e=>{if(lb.hidden)return;if(e.key==="Escape")close();if(e.key==="ArrowLeft")show(cur-1);if(e.key==="ArrowRight")show(cur+1)});
+</script>

@@ -1,0 +1,17 @@
+# 整趟旅行的設定
+title: 日本旅行
+eyebrow: 特展 · 布展中
+start: "2026-10-05"   # DAY 1。第二天（環球影城）是 2026-10-06，讀自短片 metadata
+prefix: JP
+intro: >-
+  依時間排成的一面牆。每座城市是一個年代，每一天是一個刻度，照片與短片是展品。
+  目前掛上的是第二天：日本環球影城。
+banner:
+  text: 日本旅行
+  photo: media/2026-10-06/usj-nintendo-gate.webp
+  caption: 2026 · 秋
+credits:
+  - { label: 策展, value: （你的名字） }
+  - { label: 攝影, value: （你的名字） }
+  - { label: 器材, value: iPhone 16 Pro }
+footnote: 短片已去除聲音並壓縮，照片已轉檔並移除位置資訊。

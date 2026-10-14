@@ -1,0 +1,37 @@
+---
+import Plate from './Plate.astro';
+import type { Day } from '../lib/wall';
+interface Props { day: Day }
+const { day } = Astro.props;
+const meta = day.status === 'pending'
+  ? '布展中'
+  : [day.place, day.counts.photo && `${day.counts.photo} 張照片`, day.counts.video && `${day.counts.video} 支短片`].filter(Boolean).join(' · ');
+---
+<div class="day" id={`day-${day.n}`}>
+  <div class="dh"><span class="dnum">{day.label}</span><span class="dwd">{day.weekday}</span></div>
+  <div class="dmeta">DAY {day.n} · {meta}</div>
+  <div class="cols">
+    {day.status === 'pending' ? (
+      <div class="bay"><div><strong>展區布置中</strong>{day.note}</div></div>
+    ) : day.columns.map((col) => (
+      <div class:list={['col', { unsorted: col.unsorted }]} style={`--colw:${col.width}px`}>
+        {col.items.map((it) => {
+          if (it.kind === 'text') return (
+            <div class="it it-text">
+              <div class:list={['tm', { unk: !it.time }]}>{it.time ?? '時刻待補'}</div>
+              <h4>{it.title}</h4><p>{it.body}</p>
+            </div>
+          );
+          if (it.kind === 'slot') return <div class="it it-slot">{it.text}<small>心得欄位</small></div>;
+          const e = it.exhibit;
+          return (
+            <button class="it it-media" data-i={it.index} aria-label={`查看展品 ${e.title || e.id}`}>
+              <Plate exhibit={e} />
+              <span class="cap"><b><span class="g">{e.type === 'video' ? '▶' : '■'}</span> {e.id}</b>{e.title ? e.title : <span class="untitled">（待命名）</span>}</span>
+            </button>
+          );
+        })}
+      </div>
+    ))}
+  </div>
+</div>

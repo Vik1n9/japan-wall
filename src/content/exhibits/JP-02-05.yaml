@@ -1,0 +1,11 @@
+type: photo
+date: "2026-10-06"
+time: null   # 照片上傳時 EXIF 已遺失；有原始檔後補上
+title: 俯瞰園區
+place: 日本環球影城 超級任天堂世界
+note: 從高處往下看，遠處是城堡，下方是繞行的遊樂設施。
+media: media/2026-10-06/usj-nintendo-view.webp
+width: 1600
+height: 1200
+source: null
+draft: true   # 照片順序與說明尚待 Viking 確認
