@@ -1,0 +1,16 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: photo
+date: "2026-10-05"
+time: "12:39"
+title: "石頭壓著的紙"
+place: 大鳥大社
+note: "寫滿字的紙張用石頭壓在台面上，旁邊放著一瓶綠茶。"
+media: media/2026-10-05/img_7370.webp
+width: 1600
+height: 1200
+source: IMG_7370.jpeg
+clip: null
+crop: null
+draft: true
+remarks: 紙張內容待確認

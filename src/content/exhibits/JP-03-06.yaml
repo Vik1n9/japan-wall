@@ -1,0 +1,17 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: video
+date: "2026-10-07"
+time: "12:47"
+title: "現烤點心"
+place: 勝尾寺
+note: "店員將麵糊倒入鐵板模具，烤製小點心。"
+media: media/2026-10-07/img_7425.mp4
+poster: media/2026-10-07/img_7425-poster.webp
+width: 1280
+height: 720
+duration: "0:23"
+source: IMG_7425.MOV
+clip: null
+crop: null
+draft: true

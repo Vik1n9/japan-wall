@@ -1,3 +1,36 @@
+# 欄位由左到右，依拍攝時間排列；width 是欄寬（px）。2026-10-14 Viking 確認排版
+
 date: "2026-10-05"
-status: pending
-note: 上傳第一天的照片與短片，這裡就會掛上。
+city: 堺
+place: 大鳥大社
+columns:
+  - width: 420
+    items:
+      - exhibit: JP-01-01
+      - text:
+          time: "06:46"
+          title: 出發
+          body: 機艙窗外的機翼與雲層。時刻為台灣時間。
+  - width: 300
+    items:
+      - exhibit: JP-01-02
+      - exhibit: JP-01-03
+      - text:
+          time: "12:13"
+          title: 大鳥大社
+          body: 社殿前掛著寫有地名的燈籠。
+  - width: 420
+    items:
+      - exhibit: JP-01-04
+      - slot: （一句當天的心得，由你填寫）
+  - width: 260
+    items:
+      - exhibit: JP-01-05
+  - width: 280
+    items:
+      - exhibit: JP-01-06
+      - exhibit: JP-01-07
+      - text:
+          time: "24:10"
+          title: 深夜
+          body: 實際是 10-06 凌晨 0:10，依 30 小時制記入本日。

@@ -1,0 +1,17 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: video
+date: "2026-10-07"
+time: "11:10"
+title: "山門"
+place: 勝尾寺
+note: "紅色山門與石板參道，晴天。"
+media: media/2026-10-07/img_7410.mp4
+poster: media/2026-10-07/img_7410-poster.webp
+width: 720
+height: 1280
+duration: "0:11"
+source: IMG_7410.MOV
+clip: null
+crop: null
+draft: true

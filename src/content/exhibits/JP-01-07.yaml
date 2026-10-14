@@ -1,0 +1,16 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: photo
+date: "2026-10-05"
+time: "24:30"
+title: "湯餃子"
+place: 居酒屋
+note: "陶碗裡清湯中的餃子。"
+media: media/2026-10-05/img_7376.webp
+width: 1600
+height: 1200
+source: IMG_7376.jpeg
+clip: null
+crop: null
+draft: true
+remarks: 拍攝於 10-06 00:30，依 30 小時制記為 10-05 24:30

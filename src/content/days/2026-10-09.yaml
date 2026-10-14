@@ -1,0 +1,40 @@
+# 欄位由左到右，依拍攝時間排列；width 是欄寬（px）。2026-10-14 Viking 確認排版
+
+date: "2026-10-09"
+city: 泉佐野
+place: 臨空城
+columns:
+  - width: 200
+    items:
+      - exhibit: JP-05-01
+  - width: 420
+    items:
+      - exhibit: JP-05-02
+      - exhibit: JP-05-03
+      - text:
+          time: "12:33"
+          title: 臨空城
+          body: 從摩天輪車廂望向海面與長橋。
+  - width: 300
+    items:
+      - exhibit: JP-05-04
+      - slot: （一句當天的心得，由你填寫）
+  - width: 420
+    items:
+      - exhibit: JP-05-05
+  - width: 200
+    items:
+      - exhibit: JP-05-06
+  - width: 300
+    items:
+      - exhibit: JP-05-07
+  - width: 420
+    items:
+      - exhibit: JP-05-08
+      - text:
+          time: "17:42"
+          title: 關西國際機場
+          body: 停機坪上的長榮航空客機。
+  - width: 200
+    items:
+      - exhibit: JP-05-09

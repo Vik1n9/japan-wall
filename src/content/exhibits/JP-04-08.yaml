@@ -1,0 +1,15 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: photo
+date: "2026-10-08"
+time: "11:51"
+title: "天守與石垣"
+place: 大阪城公園
+note: "石垣上方露出天守閣，晴空。"
+media: media/2026-10-08/img_7462.webp
+width: 1600
+height: 1200
+source: IMG_7462.jpeg
+clip: null
+crop: null
+draft: true

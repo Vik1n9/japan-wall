@@ -1,0 +1,16 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: photo
+date: "2026-10-08"
+time: "11:43"
+title: "石垣"
+place: 大阪城公園
+note: "從護城河仰望高聳的石垣，石塊大小不一。"
+media: media/2026-10-08/img_7451.webp
+width: 1200
+height: 1600
+source: IMG_7451.jpeg
+clip: null
+crop: null
+draft: true
+remarks: 網站牆腳石垣素材的參考照

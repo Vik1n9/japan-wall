@@ -1,0 +1,16 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: photo
+date: "2026-10-05"
+time: "12:13"
+title: "鳥居前"
+place: 大鳥大社
+note: "石板參道上的鳥居，兩位同行友人撐著黃色雨傘走過。"
+media: media/2026-10-05/img_7366.webp
+width: 1600
+height: 1200
+source: IMG_7366.jpeg
+clip: null
+crop: null
+draft: true
+remarks: 畫面中兩位為同行友人，Viking 確認可展出

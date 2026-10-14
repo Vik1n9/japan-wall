@@ -1,0 +1,16 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: photo
+date: "2026-10-05"
+time: "24:10"
+title: "日本酒"
+place: 居酒屋
+note: "桌上排著多瓶日本酒、小酒杯與一碟小菜。"
+media: media/2026-10-05/img_7371.webp
+width: 1600
+height: 1200
+source: IMG_7371.jpeg
+clip: null
+crop: null
+draft: true
+remarks: 拍攝於 10-06 00:10，依 30 小時制記為 10-05 24:10

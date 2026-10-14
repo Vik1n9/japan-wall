@@ -1,13 +1,15 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
 type: photo
 date: "2026-10-06"
-time: null   # 照片上傳時 EXIF 已遺失；有原始檔後補上
-title: 潟湖
-place: 日本環球影城 園內潟湖
-note: 對岸是綠色的雲霄飛車軌道與叢林風格建築，右側是木造碼頭。
-media: media/2026-10-06/usj-lagoon.webp
-width: 1600
-height: 621
-source: null
-crop: { top: 0.093, bottom: 0.611 }   # 重新匯入原始檔時沿用
-draft: true   # 照片順序與說明尚待 Viking 確認
-remarks: 原圖下方有一道白色遮擋（推測是手指或吊繩），已從 2576×1932 原圖裁取 y=180～1180。
+time: "09:47"
+title: "E.T. 地磚"
+place: 日本環球影城
+note: "花崗岩地磚上嵌著寫有「E.T.」的圓形金屬牌。"
+media: media/2026-10-06/img_7384.webp
+width: 1200
+height: 1600
+source: IMG_7384.jpeg
+clip: null
+crop: null
+draft: true

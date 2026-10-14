@@ -1,0 +1,17 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: video
+date: "2026-10-07"
+time: "20:47"
+title: "通天閣"
+place: 新世界
+note: "夜晚點燈的通天閣與「Welcome to OSAKA」字樣。"
+media: media/2026-10-07/img_7431.mp4
+poster: media/2026-10-07/img_7431-poster.webp
+width: 720
+height: 1280
+duration: "0:09"
+source: IMG_7431.MOV
+clip: null
+crop: null
+draft: true

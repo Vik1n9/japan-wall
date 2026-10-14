@@ -1,0 +1,18 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: video
+date: "2026-10-07"
+time: "12:31"
+title: "紅色鳥居"
+place: 勝尾寺
+note: "紅色鳥居與朱紅色的社殿。"
+media: media/2026-10-07/img_7424.mp4
+poster: media/2026-10-07/img_7424-poster.webp
+width: 1280
+height: 720
+duration: "0:11"
+source: IMG_7424.MOV
+clip: null
+crop: null
+draft: true
+remarks: 封面取在第 1 秒，畫面模糊，剪輯時一併重選

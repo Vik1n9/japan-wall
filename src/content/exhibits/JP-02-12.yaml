@@ -1,0 +1,17 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: video
+date: "2026-10-06"
+time: "18:41"
+title: "霍格華茲城堡"
+place: 日本環球影城 哈利波特魔法世界
+note: "從活米村走到城堡前，鏡頭由左往右帶到城堡全景。"
+media: media/2026-10-06/img_7409.mp4
+poster: media/2026-10-06/img_7409-poster.webp
+width: 720
+height: 1280
+duration: "0:10"
+source: IMG_7409.MOV
+clip: null
+crop: null
+draft: true

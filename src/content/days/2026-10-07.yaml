@@ -1,4 +1,38 @@
-# 佔位用：有真實內容後改成實際日期與城市，或刪除本檔
+# 欄位由左到右，依拍攝時間排列；width 是欄寬（px）。2026-10-14 Viking 確認排版
+
 date: "2026-10-07"
-status: pending
-note: 之後每一天都是一個新的刻度，城市不同就會開始新的年代。
+city: 箕面・大阪
+place: 勝尾寺／新世界
+columns:
+  - width: 200
+    items:
+      - exhibit: JP-03-01
+      - text:
+          time: "11:10"
+          title: 勝尾寺
+          body: 紅色山門與石板參道。
+  - width: 300
+    items:
+      - exhibit: JP-03-02
+      - exhibit: JP-03-03
+  - width: 300
+    items:
+      - exhibit: JP-03-04
+      - slot: （一句當天的心得，由你填寫）
+  - width: 420
+    items:
+      - exhibit: JP-03-05
+      - exhibit: JP-03-06
+  - width: 260
+    items:
+      - exhibit: JP-03-07
+  - width: 200
+    items:
+      - exhibit: JP-03-08
+      - text:
+          time: "20:47"
+          title: 新世界
+          body: 夜晚點燈的通天閣。
+  - width: 260
+    items:
+      - exhibit: JP-03-09

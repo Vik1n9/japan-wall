@@ -1,0 +1,20 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: video
+date: "2026-10-06"
+time: "18:39"
+title: "活米村"
+place: 日本環球影城 哈利波特魔法世界
+note: "傍晚六點半，天色轉暗，街上的店鋪亮起燈。"
+media: media/2026-10-06/img_7408.mp4
+poster: media/2026-10-06/img_7408-poster.webp
+width: 720
+height: 1280
+duration: "0:05"
+source: IMG_7408.MOV
+clip:
+  start: 6
+  duration: 5
+crop: null
+draft: true
+remarks: 只取原片第 6 秒起 5 秒：開頭晃動嚴重，且拍到一位路人的正臉。

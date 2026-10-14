@@ -1,0 +1,51 @@
+# 欄位由左到右，依拍攝時間排列；width 是欄寬（px）。2026-10-14 Viking 確認排版
+
+date: "2026-10-08"
+city: 大阪
+place: 大阪城／道頓堀
+columns:
+  - width: 200
+    items:
+      - exhibit: JP-04-01
+  - width: 300
+    items:
+      - exhibit: JP-04-02
+      - exhibit: JP-04-03
+      - text:
+          time: "10:09"
+          title: 大阪城公園
+          body: 晴空下的天守閣與城內建築。
+  - width: 260
+    items:
+      - exhibit: JP-04-04
+      - exhibit: JP-04-05
+  - width: 420
+    items:
+      - exhibit: JP-04-06
+      - text:
+          time: "11:42"
+          title: 護城河
+          body: 從船上拍攝護城河的水面與岸邊。
+  - width: 220
+    items:
+      - exhibit: JP-04-07
+      - slot: （一句當天的心得，由你填寫）
+  - width: 300
+    items:
+      - exhibit: JP-04-08
+  - width: 200
+    items:
+      - exhibit: JP-04-09
+  - width: 300
+    items:
+      - exhibit: JP-04-10
+      - text:
+          time: "14:45"
+          title: 道頓堀
+          body: 固力果跑者看板前。
+  - width: 200
+    items:
+      - exhibit: JP-04-11
+  - width: 420
+    items:
+      - exhibit: JP-04-12

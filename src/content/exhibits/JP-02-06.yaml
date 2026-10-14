@@ -1,11 +1,15 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
 type: photo
 date: "2026-10-06"
-time: null   # 照片上傳時 EXIF 已遺失；有原始檔後補上
-title: 庫巴城
+time: "12:51"
+title: "庫巴城"
 place: 日本環球影城 超級任天堂世界
-note: 城堡內部，頂上是五角形天井，下方是巨大的庫巴石像。
-media: media/2026-10-06/usj-bowser.webp
+note: "城堡內部，頂上是五角形天井，下方是巨大的庫巴石像。"
+media: media/2026-10-06/img_7395.webp
 width: 1600
 height: 1200
-source: null
-draft: true   # 照片順序與說明尚待 Viking 確認
+source: IMG_7395.jpeg
+clip: null
+crop: null
+draft: true

@@ -8,6 +8,7 @@
 //
 // 原則：
 //   - 拍攝時刻只從檔案 metadata 讀取；讀不到就是 null，不猜。
+//   - 日期用日本式 30 小時制：凌晨 0:00–5:59 歸前一天，時刻寫成 24:00–29:59；深夜素材要放進前一天的 raw 資料夾。
 //   - 已存在的展品檔不覆寫（保護人工寫的標題與說明）；--redo 只更新媒體相關欄位。
 //   - 輸出檔一律移除 metadata（含 GPS）；短片去除音軌與 Apple 附帶的資料軌。
 //   - 新展品放在當天最後一欄（unsorted: true），排版由人決定。
@@ -66,10 +67,22 @@ function quote(doc, keys) {
 }
 const slug = (name) => basename(name, extname(name)).toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
 
+/** 日本式 30 小時制：凌晨 0:00–5:59 算前一天，寫成 24:00–29:59（例：10-06 00:10 → 10-05 24:10） */
+const DAY_ENDS_AT = 6;
+function to27h(taken) {
+  if (!taken) return null;
+  const h = Number(taken.time.slice(0, 2));
+  if (h >= DAY_ENDS_AT) return taken;
+  const d = new Date(`${taken.date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return { date: d.toISOString().slice(0, 10), time: `${pad(h + 24)}${taken.time.slice(2)}` };
+}
+
 /** 照片拍攝時間：回傳 { date: 'YYYY-MM-DD', time: 'HH:MM' } 或 null。直接取字串，不做時區換算（即拍攝地當地時間）。 */
 async function photoTime(file) {
   try {
-    const t = await exifr.parse(file, { pick: ['DateTimeOriginal', 'CreateDate'], reviveValues: false });
+    // 先讀成 Buffer：直接給路徑時，exifr 留下未關閉的 FileHandle，Node 26 在垃圾回收時會讓整個程序崩潰（try/catch 擋不住）
+    const t = await exifr.parse(await readFile(file), { pick: ['DateTimeOriginal', 'CreateDate'], reviveValues: false });
     const raw = t?.DateTimeOriginal ?? t?.CreateDate;
     const m = typeof raw === 'string' && raw.match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2})/);
     return m ? { date: `${m[1]}-${m[2]}-${m[3]}`, time: `${m[4]}:${m[5]}` } : null;
@@ -90,7 +103,24 @@ function videoSize(file) {
   return { width: j.streams[0].width, height: j.streams[0].height, duration: Number(j.format.duration) };
 }
 
-async function convertPhoto(src, out, crop) {
+/** 路人臉部虛化：boxes 是 [x, y, w, h]（轉正後整張圖的比例），每框向外擴 35% 再模糊 */
+async function blurRegions(buf, boxes) {
+  const { width: W, height: H } = await sharp(buf).metadata();
+  const overlays = [];
+  for (const [x, y, w, h] of boxes) {
+    const pad = 0.35;
+    const left = Math.max(0, Math.round((x - w * pad) * W));
+    const top = Math.max(0, Math.round((y - h * pad) * H));
+    const width = Math.min(W - left, Math.round(w * (1 + 2 * pad) * W));
+    const height = Math.min(H - top, Math.round(h * (1 + 2 * pad) * H));
+    if (width < 2 || height < 2) continue;
+    const sigma = Math.max(3, Math.min(width, height) / 5);
+    overlays.push({ input: await sharp(buf).extract({ left, top, width, height }).blur(sigma).toBuffer(), left, top });
+  }
+  return overlays.length ? sharp(buf).composite(overlays).jpeg({ quality: 95 }).toBuffer() : buf;
+}
+
+async function convertPhoto(src, out, crop, blur) {
   let input = src;
   const tmp = P('.tmp');
   if (/\.hei[cf]$/i.test(src)) {
@@ -100,6 +130,7 @@ async function convertPhoto(src, out, crop) {
     else run('heif-convert', [src, input]); // Linux：需要 libheif-examples
   }
   let img = sharp(input).rotate(); // 依 EXIF 方向轉正，輸出不保留 metadata
+  if (blur?.length) img = sharp(await blurRegions(await img.jpeg({ quality: 95 }).toBuffer(), blur));
   if (crop) {
     const { data, info } = await img.toBuffer({ resolveWithObject: true });
     const top = Math.round(info.height * crop.top);
@@ -171,7 +202,7 @@ if (opt.redo?.length) {
       const s = await convertVideo(src, out, poster, e.data.clip);
       e.doc.set('width', s.width); e.doc.set('height', s.height); e.doc.set('duration', mmss(s.duration)); quote(e.doc, ['duration']);
     } else {
-      const s = await convertPhoto(src, out, e.data.crop);
+      const s = await convertPhoto(src, out, e.data.crop, e.data.blur);
       e.doc.set('width', s.width); e.doc.set('height', s.height);
     }
     await writeFile(join(exDir, `${id}.yaml`), e.doc.toString());
@@ -192,7 +223,7 @@ const items = [];
 for (const f of files) {
   const src = join(rawDir, f);
   const type = VIDEO.has(extname(f).toLowerCase()) ? 'video' : 'photo';
-  const taken = type === 'video' ? videoInfo(src).taken : await photoTime(src);
+  const taken = to27h(type === 'video' ? videoInfo(src).taken : await photoTime(src));
   if (!taken) console.warn(`  ⚠ ${f}：讀不到拍攝時間，時刻留空`);
   else if (taken.date !== date) console.warn(`  ⚠ ${f}：拍攝日期是 ${taken.date}，不是 ${date}，請確認是否放錯資料夾`);
   items.push({ f, src, type, taken });
@@ -243,7 +274,7 @@ if (!opt.dry) {
   if (opt.city) doc.set('city', opt.city);
   if (opt.place) doc.set('place', opt.place);
   if (!doc.get('city')) console.warn('  ⚠ 這天還沒設定城市：請在 days 檔填 city，或加上 --city');
-  if (!doc.has('columns')) doc.set('columns', []);
+  if (!doc.has('columns')) doc.set('columns', doc.createNode([])); // 要給 YAML 節點，給普通陣列 addIn 會失敗
   doc.addIn(['columns'], doc.createNode({ width: 260, unsorted: true, items: newIds.map((id) => ({ exhibit: id })) }));
   await writeFile(dayFile, doc.toString());
   console.log(`✓ 已加到 src/content/days/${date}.yaml 的最後一欄（未排版）`);

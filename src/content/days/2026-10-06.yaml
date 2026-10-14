@@ -1,40 +1,67 @@
+# 欄位由左到右，依拍攝時間排列；width 是欄寬（px）。2026-10-14 Viking 確認排版
+
 date: "2026-10-06"
 city: 大阪
 place: 日本環球影城
-# 欄位由左到右；width 是欄寬（px）。順序目前是推論，尚待確認。
 columns:
   - width: 300
     items:
       - exhibit: JP-02-01
-      - text: { title: 入園, body: 拱門上方是 25 週年的花飾，兩側燈柱掛著週年旗幟。 }
-  - width: 420
+      - text:
+          time: "08:16"
+          title: 入園
+          body: 拱門上方是 25 週年的花飾，兩側燈柱掛著週年旗幟。
+  - width: 200
     items:
       - exhibit: JP-02-02
-      - text: { title: 潟湖, body: 天氣轉晴，對岸的雲霄飛車軌道倒映在水面上。 }
-      - slot: （一句當天的心得，由你填寫）
-  - width: 240
+  - width: 420
     items:
       - exhibit: JP-02-03
-      - text: { title: 走進水管, body: 入口是一條綠色水管隧道，上方掛著 5 週年標誌。 }
-  - width: 260
+      - text:
+          time: "12:13"
+          title: 潟湖
+          body: 天氣轉晴，對岸的雲霄飛車軌道倒映在水面上。
+      - slot: （一句當天的心得，由你填寫）
+  - width: 220
     items:
       - exhibit: JP-02-04
-      - exhibit: JP-02-05
-      - text: { title: 超級任天堂世界, body: 從入口走到上層，可以看到整個園區。 }
-  - width: 280
-    items:
-      - exhibit: JP-02-06
-      - exhibit: JP-02-07
-      - text: { time: "13:34", title: 耀西冒險, body: 坐在耀西車上繞行園區上層。 }
+      - text:
+          time: "12:35"
+          title: 走進水管
+          body: 入口是一條綠色水管隧道，上方掛著 5 週年標誌。
   - width: 260
     items:
-      - exhibit: JP-02-08
-      - text: { title: 浣熊市警察局, body: 紫紅燈光下的場景布置。 }
-  - width: 200
+      - exhibit: JP-02-05
+      - exhibit: JP-02-06
+  - width: 260
     items:
+      - exhibit: JP-02-07
+  - width: 420
+    items:
+      - exhibit: JP-02-08
       - exhibit: JP-02-09
-      - text: { time: "18:39", title: 活米村, body: 天色轉暗，店鋪亮燈。 }
-  - width: 200
+      - text:
+          time: "13:34"
+          title: 耀西冒險
+          body: 坐在耀西車上繞行園區上層。
+  - width: 260
     items:
       - exhibit: JP-02-10
-      - text: { time: "18:41", title: 霍格華茲城堡, body: 兩分鐘後走到城堡前。 }
+      - text:
+          time: "16:29"
+          title: 浣熊市警察局
+          body: 紫紅燈光下的場景布置。
+  - width: 200
+    items:
+      - exhibit: JP-02-11
+      - text:
+          time: "18:39"
+          title: 活米村
+          body: 天色轉暗，店鋪亮燈。
+  - width: 200
+    items:
+      - exhibit: JP-02-12
+      - text:
+          time: "18:41"
+          title: 霍格華茲城堡
+          body: 兩分鐘後走到城堡前。
