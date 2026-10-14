@@ -172,6 +172,41 @@ button{font:inherit;color:inherit}
 /* 開發時提示（npm run dev 才會出現） */
 .dev-warn{margin:12px 0 0;padding:8px 12px;border:1.5px dashed var(--red);color:var(--red);font-size:.82rem}
 
+/* 編寫頁（/edit/）頂端列與狀態標籤 */
+.edit-banner{margin-inline:-16px;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--rule);display:flex;align-items:baseline;gap:8px 16px;flex-wrap:wrap;font-size:.8rem}
+.edit-who{font-family:var(--f-mono);font-size:.72rem;color:var(--ink);font-weight:500}
+.edit-who.err{color:var(--red)}
+.edit-notice{color:var(--muted);font-size:.78rem}
+.btn-add-ema{margin-left:8px;padding:2px 8px;border:1px solid var(--ink);background:var(--panel);font-family:var(--f-mono);font-size:.66rem;cursor:pointer;text-shadow:none}
+.btn-add-ema:hover{border-color:var(--red);color:var(--red)}
+.st-badge{font-style:normal;font-family:var(--f-mono);font-size:.6rem;padding:1px 5px;border:1px dashed var(--red);color:var(--red);background:var(--panel)}
+.st-badge.rejected{border-style:solid;border-color:var(--muted);color:var(--muted)}
+.it-ema.is-pending .ema-board,.ema-frame.is-pending .ema-board{outline:2px dashed var(--red);outline-offset:-3px}
+.it-ema.is-rejected .ema-board,.ema-frame.is-rejected .ema-board{opacity:.72;outline:1.5px dashed var(--muted);outline-offset:-3px}
+.lb-note.is-pending{border-left:2px dashed var(--red);outline:1px dashed var(--rule)}
+.lb-note.is-rejected{border-left:2px solid var(--muted);opacity:.78}
+.lb-note-who{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+.lb-note-act{display:inline-flex;align-items:center;gap:8px;margin-left:auto}
+.btn-link{padding:0;border:0;background:none;font-family:var(--f-mono);font-size:.66rem;color:var(--muted);cursor:pointer;text-decoration:underline}
+.btn-link:hover,.btn-link.danger{color:var(--red)}
+.withdraw-ctrl{display:inline-flex;align-items:center;gap:6px}
+.withdraw-confirm{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:.64rem;color:var(--red)}
+.lb-ema-actions{margin:-10px 0 14px;font-size:.76rem}
+.lb-form{border-top:1px solid var(--rule);padding-top:12px;margin:0 0 18px;display:flex;flex-direction:column;gap:8px}
+.lb-replying{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 8px;background:var(--wall);border-left:2px solid var(--red);font-family:var(--f-mono);font-size:.66rem;color:var(--ink)}
+.lb-replying button{border:0;background:none;font-family:var(--f-mono);font-size:.64rem;color:var(--muted);cursor:pointer;text-decoration:underline;flex:none}
+.lb-form-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.lb-form input,.lb-form textarea{width:100%;padding:6px 8px;border:1px solid var(--rule);background:var(--wall);color:var(--ink);font:inherit;font-size:.82rem;border-radius:0}
+.lb-form input{max-width:220px}
+.lb-form textarea{resize:vertical;line-height:1.55}
+.char-cnt{font-family:var(--f-mono);font-size:.66rem;color:var(--muted);flex:none}
+.char-cnt.over{color:var(--red);font-weight:700}
+.form-err{padding:6px 8px;border:1px dashed var(--red);color:var(--red);font-size:.76rem;background:color-mix(in srgb,var(--red) 6%,var(--panel))}
+.lb-form-actions{display:flex;justify-content:flex-end;gap:8px}
+.lb-form-actions button{border:1px solid var(--ink);background:var(--ink);color:var(--page);padding:5px 12px;font-family:var(--f-mono);font-size:.74rem;cursor:pointer}
+.lb-form-actions button.btn-sec{background:none;color:var(--ink)}
+.lb-form-actions button:disabled{opacity:.5;cursor:not-allowed}
+
 /* 展品與繪馬上的小紙籤（留言數） */
 .ofuda{display:inline-flex;align-items:center;margin-left:6px;padding:1px 6px;font-family:var(--f-mono);font-size:.62rem;line-height:1.35;color:var(--ink);background:var(--panel);border:1px solid var(--rule);border-left:2.5px solid var(--red);vertical-align:baseline;text-shadow:none}
 

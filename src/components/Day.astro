@@ -2,19 +2,29 @@
 import Plate from './Plate.astro';
 import Ema from './Ema.astro';
 import { asset, type Day } from '../lib/wall';
-interface Props { day: Day }
-const { day } = Astro.props;
+interface Props { day: Day; editMode?: boolean }
+const { day, editMode = false } = Astro.props;
 const meta = day.status === 'pending'
   ? '布展中'
   : [day.place, day.counts.photo && `${day.counts.photo} 張照片`, day.counts.video && `${day.counts.video} 支短片`, day.counts.ema && `${day.counts.ema} 塊繪馬`].filter(Boolean).join(' · ');
 ---
-<div class="day" id={`day-${day.n}`}>
+<div class="day" id={`day-${day.n}`} data-date={day.date} data-place={[day.city, day.place].filter(Boolean).join(' · ')}>
   {day.backdrop.length > 0 && (
     <div class="backdrops" aria-hidden="true">{day.backdrop.map((b) => (
       <img src={asset(b.src)} alt="" loading="lazy" decoding="async" style={`left:${b.x}%;top:${b.y}%;height:${b.h}%;--r:${b.r}deg`} />
     ))}</div>
   )}
-  <div class="dh"><span class="dnum">{day.label}</span><span class="dwd">{day.weekday}</span></div>
+  <div class="dh">
+    <span class="dnum">{day.label}</span><span class="dwd">{day.weekday}</span>
+    {editMode && day.status === 'live' && (
+      <button
+        type="button"
+        class="btn-add-ema"
+        data-day={day.date}
+        data-day-label={`${day.label}（${day.weekday}）${day.place ? ' · ' + day.place : ''}`}
+      >掛一塊繪馬</button>
+    )}
+  </div>
   <div class="dmeta">DAY {day.n} · {meta}</div>
   <div class="cols">
     {day.status === 'pending' ? (
@@ -40,7 +50,7 @@ const meta = day.status === 'pending'
           if (it.kind === 'ema') return <Ema ema={it.ema} index={it.index} />;
           const e = it.exhibit;
           return (
-            <button class="it it-media" data-i={it.index} aria-label={`查看展品 ${e.title || e.id}`}>
+            <button class="it it-media" data-i={it.index} data-exhibit-id={e.id} aria-label={`查看展品 ${e.title || e.id}`}>
               <Plate exhibit={e} />
               <span class="cap"><b><span class="g">{e.type === 'video' ? '▶' : '■'}</span> {e.id}</b>{e.title ? e.title : <span class="untitled">（待命名）</span>}{e.comments.length > 0 && <span class="ofuda" aria-label={`${e.comments.length} 則留言`}>籤 {e.comments.length}</span>}</span>
             </button>

@@ -12,6 +12,7 @@ const author = ema.by || '無署名';
 <button
   class:list={['it', 'it-media', 'it-ema', { 'in-rack': inRack }]}
   data-i={index}
+  data-ema-id={ema.id}
   style={`--tilt:${ema.tilt}deg`}
   aria-label={`查看繪馬（${author}）`}
 >

@@ -1,0 +1,144 @@
+---
+import '../styles/wall.css';
+import Day from './Day.astro';
+import Lightbox from './Lightbox.astro';
+import { asset, loadWall } from '../lib/wall';
+
+interface Props {
+  editMode?: boolean;
+}
+const { editMode = false } = Astro.props;
+const { trip, eras, media, unplaced, stats } = await loadWall();
+
+// 給說明卡（lightbox）用的資料（包含展品與繪馬，順序依牆上位置）
+const lightboxData = media.map((e) =>
+  e.type === 'ema'
+    ? {
+        id: e.id,
+        type: 'ema' as const,
+        title: `繪馬 · ${e.by || '無署名'}`,
+        by: e.by,
+        place: e.place,
+        note: e.body,
+        date: e.date,
+        time: null,
+        posted: e.posted,
+        tilt: e.tilt,
+        src: '',
+        poster: null,
+        width: 0,
+        height: 0,
+        duration: null,
+        source: null,
+        comments: e.comments,
+      }
+    : {
+        id: e.id,
+        type: e.type,
+        title: e.title || '（待命名）',
+        by: '',
+        place: e.place,
+        note: e.note,
+        date: e.date,
+        time: e.time,
+        posted: null,
+        tilt: 0,
+        src: asset(e.media),
+        poster: e.poster ? asset(e.poster) : null,
+        width: e.width,
+        height: e.height,
+        duration: e.duration ?? null,
+        source: e.source,
+        comments: e.comments,
+      },
+);
+const statCells = [[stats.live, '展出日'], [stats.total, '展品'], [stats.photos, '照片'], [stats.videos, '短片']];
+
+// 書法標題圖：SVG 當 mask、底色用 currentColor，墨色就跟著淺色／深色模式走
+const art = trip.art;
+const artMask = (src: string) => `--art:url(${asset(src)})`;
+const wallStyle = [art.wall && `--dado-img:url(${asset(art.wall)})`, art.eave && `--eave-img:url(${asset(art.eave)})`].filter(Boolean).join(';') || undefined;
+---
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{trip.title} 展覽牆{editMode ? ' · 編寫' : ''}</title>
+    <meta name="description" content={trip.intro} />
+    {editMode && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="icon" type="image/svg+xml" href={asset("favicon.svg")} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&family=Zilla+Slab:wght@600;700&display=swap" />
+  </head>
+  <body class:list={[{ 'edit-page': editMode }]}>
+    <header class="bar">
+      <div class="t">{art.titleH ? <span class="art-title h" role="img" aria-label={trip.title} style={artMask(art.titleH)}></span> : trip.title}<small>展覽牆 · {stats.live} 天已展出{editMode ? ' · 留言與繪馬' : ''}</small></div>
+      <div class="pan" aria-label="左右移動牆面"><button id="pl" aria-label="往左">←</button><button id="pr" aria-label="往右">→</button></div>
+      <div class="seg" role="group" aria-label="觀看方式"><button id="m-wall" aria-pressed="true">牆面</button><button id="m-read" aria-pressed="false">閱讀</button></div>
+    </header>
+
+    {editMode && (
+      <div class="edit-banner" id="edit-banner">
+        <span class="edit-who" id="edit-who">讀取登入身分中…</span>
+        <span class="edit-notice">你寫的內容會先給 Viking 確認，下次更新網站時展出；送出後不能修改，可以撤回或再留言補充。</span>
+      </div>
+    )}
+
+    {import.meta.env.DEV && unplaced.length > 0 && (
+      <p class="dev-warn">尚未掛上牆的展品：{unplaced.join('、')}（請在 days/*.yaml 的 columns 加入）</p>
+    )}
+
+    <div class="hall">
+      <div class="scroller" id="scroller" tabindex="0" aria-label="展覽牆，可左右捲動">
+        <div class:list={['wall', { dado: art.wall, eave: art.wall && art.eave }]} id="wall" style={wallStyle}>
+          <div class="track"></div>
+
+          <div class="prelude" id="prelude">
+            <div class="banner">{art.titleV
+              ? <span class="art-title v" role="img" aria-label={trip.banner.text} style={artMask(art.titleV)}></span>
+              : <span>{trip.banner.text}</span>}</div>
+            {trip.banner.photo && (
+              <div class="banner photo"><img src={asset(trip.banner.photo)} alt="" />{trip.banner.caption && <em>{trip.banner.caption}</em>}</div>
+            )}
+            {art.castle && <img class="castle" src={asset(art.castle)} alt="" width="960" height="871" decoding="async" />}
+            <div class="intro">
+              <div class="eyebrow">{trip.eyebrow}</div>
+              <h1>{art.titleH ? <><span class="sr">{trip.title}</span><span class="art-title h" aria-hidden="true" style={artMask(art.titleH)}></span></> : trip.title}</h1>
+              <div class="span">{trip.start.replaceAll('-', '.')} 起</div>
+              <p>{trip.intro}</p>
+              <div class="stats">{statCells.map(([v, l]) => <div><strong>{v}</strong><span>{l}</span></div>)}</div>
+              <ul class="howto"><li>左右滑動牆面，或點下方平面圖跳轉</li><li>點擊任一影像，打開展品說明卡</li><li>右上角可切換成直向閱讀</li></ul>
+            </div>
+          </div>
+
+          {eras.map((era, i) => (
+            <section class:list={['era', { pending: era.pending }]} data-label={era.label} style={`--s:${eras.length - 1 - i}`}>
+              <div class="era-head"><span class="era-num">{era.num}</span><span class="era-city">{era.label}</span><span class="era-range">{era.range}</span></div>
+              <div class="days">{era.days.map((day) => <Day day={day} editMode={editMode} />)}</div>
+            </section>
+          ))}
+
+          <div class="finale" id="finale">
+            <div class="eyebrow">展覽結束</div>
+            <h2>謝謝觀賞</h2>
+            <dl>{trip.credits.map((c) => <><dt>{c.label}</dt><dd>{c.value}</dd></>)}</dl>
+            {trip.footnote && <div>{trip.footnote}</div>}
+            {trip.sources.length > 0 && (
+              <ul class="sources">{trip.sources.map((s) => (
+                <li>{s.what}：<a href={s.url}>{s.author}</a>，<a href={s.licenseUrl}>{s.license}</a>{s.changes && `，${s.changes}`}</li>
+              ))}</ul>
+            )}
+          </div>
+        </div>
+      </div>
+      <div class="floor"></div>
+    </div>
+    <nav class="map" id="map" aria-label="展覽平面圖"></nav>
+
+    <Lightbox editMode={editMode} />
+    <script type="application/json" id="wall-data" set:html={JSON.stringify(lightboxData).replace(/</g, '\\u003c')}></script>
+    {editMode ? <script>import '../scripts/edit.ts';</script> : <script>import '../scripts/wall.ts';</script>}
+  </body>
+</html>

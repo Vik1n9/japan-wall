@@ -1,8 +1,24 @@
-// @ts-check
 import { defineConfig } from 'astro/config';
 
-// 部署到子路徑時（例如 GitHub Pages 的 /japan-wall/），設定 base；媒體路徑會自動加上。
+const apiTarget = process.env.API_PROXY_TARGET || 'http://127.0.0.1:8787';
+
 export default defineConfig({
-  // site: 'https://example.com',
-  // base: '/japan-wall',
+  vite: {
+    server: {
+      proxy: {
+        '/api': {
+          target: apiTarget,
+          changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq, req) => {
+              const origin = req.headers.origin;
+              if (origin && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+                proxyReq.setHeader('Origin', 'https://osaka2026.voriens.dev');
+              }
+            });
+          },
+        },
+      },
+    },
+  },
 });

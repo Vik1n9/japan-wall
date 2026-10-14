@@ -17,6 +17,7 @@
 | `npm run dev` | 本機預覽（http://localhost:4321），未掛上牆的展品會顯示紅色提示 |
 | `npm run ingest -- <日期> [--city 城市] [--place 地點]` | 匯入 `raw/<日期>/` 的原始照片與短片 |
 | `npm run ingest -- <日期> --redo <編號>` | 依展品檔的 `crop` / `blur` / `edit`（短片剪輯）重新轉檔 |
+| `npm run notes:pull [-- --publish <編號,…> \| --publish-all \| --reject <編號,…>]` | 從 D1 收稿留言與繪馬，寫入 `src/content/notes/` |
 | `npm run check` | 隱私與引用檢查（`npm run build` 前會自動執行） |
 | `npm run build` | 建置到 `dist/` |
 | `npm run deploy` | 建置並部署到 Cloudflare Workers（https://osaka2026.voriens.dev），對外發布前先問 Viking |
@@ -26,15 +27,16 @@
 ## 資料在哪裡
 
 - `src/content/site/trip.yaml`：標題、起始日（推算 DAY n）、布條、署名。
-- `src/content/days/<日期>.yaml`：**怎麼排**。城市、地點、`columns`（欄寬與欄內項目：`exhibit` / `text` / `slot`）。`status: pending` 是空展區。
+- `src/content/days/<日期>.yaml`：**怎麼排**。城市、地點、`columns`（欄寬與欄內項目：`exhibit` / `text` / `slot` / `ema`）。`status: pending` 是空展區。
 - `src/content/exhibits/<編號>.yaml`：**這是什麼**。類型、時刻、標題、說明、媒體路徑、尺寸、原始檔名、`draft`。
+- `src/content/notes/<編號>.yaml`：**同行友人的留言與繪馬**（由 `notes:pull` 產生，原文照錄）。未指定欄位位置的繪馬自動排在該日最後的「繪馬掛所」欄。
 - `public/media/<日期>/`：處理後的媒體。`raw/<日期>/`：原始檔，不進 Git。
 - 城市「年代」不另外存：連續同城市的日子自動併成一段。
 
 ## 鐵則
 
 1. **不編造**：時刻只能來自 metadata；讀不到就留 `null`。說明（`note`、文字卡）只寫畫面看得到的事實。Viking 的感受只能由他寫，用 `slot`（心得欄位）提示；`slot` 只在 `npm run dev` 顯示，公開版不出現，填好的心得改成 `text` 文字卡。
-2. **不覆寫人寫的內容**：改展品檔前先讀；`draft: false` 的展品，標題與說明不得更動，除非 Viking 明確要求。
+2. **不覆寫人寫的內容**：改展品檔前先讀；`draft: false` 的展品，標題與說明不得更動，除非 Viking 明確要求。`src/content/notes/` 的投稿原文照錄，Claude 不代寫、不潤飾、不改動。
 3. **隱私**：`public/` 不得有帶 metadata 的檔案，也不得有 HEIC/MOV 原檔（`npm run check` 會擋）。看到路人正臉要告知 Viking，不要自行刪除。
 4. **排版是策展決定**：ingest 只把新展品放進 `unsorted` 欄。可以提出排版建議，但要說明依據（拍攝時間、主題、直橫幅比例），由 Viking 確認。
 5. **外觀以 `prototype/index.html` 為準**：改樣式前先比對原型；新增樣式要同時支援淺色與深色模式、手機寬度 400px。

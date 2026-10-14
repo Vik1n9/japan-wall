@@ -205,17 +205,24 @@ japan-wall/
 ├── raw/                    ← 原始照片與短片（gitignore），依日期分資料夾
 ├── public/media/<日期>/    ← 處理後的 WebP / MP4 / poster
 ├── src/
-│   ├── content.config.ts   ← 三個 collection 的 schema：site / days / exhibits
+│   ├── content.config.ts   ← 四個 collection 的 schema：site / days / exhibits / notes
 │   ├── content/site/trip.yaml
 │   ├── content/days/       ← 每天一檔：城市、地點、欄位排版
 │   ├── content/exhibits/   ← 每件展品一檔
-│   ├── lib/wall.ts         ← 計算 DAY n、星期、城市年代分組、說明卡資料
-│   ├── components/         ← Day / Plate / Lightbox
-│   ├── pages/index.astro
-│   ├── scripts/wall.ts     ← 前端互動（捲動、平面圖、說明卡、短片播放）
+│   ├── content/notes/      ← 同行友人的留言與繪馬（由 notes:pull 產生）
+│   ├── lib/wall.ts         ← 計算 DAY n、星期、城市年代分組、繪馬掛載與說明卡資料
+│   ├── components/         ← WallPage / Day / Plate / Ema / Lightbox
+│   ├── pages/
+│   │   ├── index.astro     ← 公開展覽牆
+│   │   └── edit/           ← 同行友人登入後的留言與繪馬編寫頁＋targets.json
+│   ├── scripts/            ← wall.ts（公開互動）、edit.ts（編寫頁互動）
 │   └── styles/wall.css     ← 由原型移植
+├── worker/
+│   ├── index.ts            ← Cloudflare Worker（/api/* 投稿 API 與 Access 驗證）
+│   └── schema.sql          ← D1 資料表 posts
 └── scripts/
     ├── ingest.mjs          ← 匯入 raw/ 素材
+    ├── notes-pull.mjs      ← 從 D1 收稿並輸出 src/content/notes/*.yaml
     └── check.mjs           ← 隱私與引用檢查（prebuild 自動執行）
 ```
 
@@ -269,7 +276,7 @@ japan-wall/
 - [x] LINE 相簿補充的 23 件：標題與說明 Viking 確認（2026-10-15，`draft: false`）。
 - [ ] 每天的心得欄位：Viking 之後自己填（填好改成 `text` 文字卡；`slot` 在公開版不顯示）。
 - [ ] **向同行友人索取原始照片**（HEIC／JPEG 原檔，保留 EXIF 拍攝時間），方便彙整；LINE 相簿的 23 件拿到原檔後可補上時刻。
-- [ ] **設計後台系統**：讓同行友人登入後自己填寫展品說明和心得（目前是靜態網站加 YAML 檔，需要另外規劃登入與寫入流程）。
+- [x] **設計與實作後台系統（第 1～4 段）**：同行友人登入後對展品留言與掛繪馬（規格見 `docs/notes-spec.md`，資料模型、Worker/D1 API、`/edit/` 編寫頁、`notes:pull` 收稿腳本已完成；待 Viking 完成第 5 段 Cloudflare Access 與 D1 設定上線）。
 - [ ] **背景圖片後製**：回到 Mac mini，用圖片模型後製 `public/art/days/` 的 33 張背景拼貼（以及 `eave.svg` 屋簷），替換同名檔案；Commons 來源的兩張後製版本須維持 CC BY-SA。
 - [ ] 日期不明、尚未放上牆的 LINE 相簿照片（梅田藍天大廈夜景、寶可夢中心、JUMP SHOP、螃蟹宴等），之後再處理。
 
