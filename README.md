@@ -273,3 +273,18 @@ claude.ai 上已發佈的三個版本（私人連結，只有使用者能開）�
 
 - Travelens（每趟旅程一個 repo 的架構）：https://github.com/travelens
 - astro-photo-folio（相簿與燈箱元件）：https://astro.build/themes/details/astro-photo-folio/
+
+## 9. 交接：下一步（2026-10-15）
+
+**目前狀態**：五天 43 件展品、短片剪輯、視覺素材都已完成，在 `main`。網站還沒部署。
+
+**下一步：部署到 Cloudflare**（Viking 已同意公開，網址 `https://osaka2026.voriens.dev`）
+
+1. 把專案帶到要部署的機器（目前沒有 Git 遠端倉庫）：部署只需要 Git 追蹤的檔案（`public/media/` 已在版控裡），`raw/` 原始檔不用帶；只有要重新剪輯或匯入時才需要 `raw/` 與 `brew install ffmpeg ffmpeg-full`。
+2. `npm install`
+3. `npx --yes wrangler@4 login`（瀏覽器授權；舊憑證已在 2026-09 過期）
+4. `npx --yes wrangler@4 whoami` 確認帳號是 viking.lu@gmail.com（account `6f5daa16ee02b0af05e4a4a64847b4d1`）
+5. `npm run deploy`：建置後部署 Worker `osaka2026`，並綁定自訂網域 `osaka2026.voriens.dev`（`voriens.dev` zone 已在同帳號，子網域與 Worker 名稱都確認沒被佔用）
+6. 部署後用瀏覽器檢查桌機與手機寬度、開一張展品說明卡、播一支短片。
+
+**之後**：心得欄位（`slot`）由 Viking 自己填，填好改成 `text` 文字卡；`slot` 在公開版不顯示。
