@@ -298,15 +298,15 @@ claude.ai 上已發佈的三個版本（私人連結，只有使用者能開）�
 
 ## 9. 交接：下一步（2026-10-15）
 
-**目前狀態**：五天 66 件展品（其中 23 件 LINE 相簿補充），每天有暫用背景圖、短片剪輯、視覺素材都已完成，在 `main`。網站還沒部署。
+**目前狀態**：五天 66 件展品（其中 23 件 LINE 相簿補充）、短片剪輯、視覺素材與暫用背景拼貼都已完成，**已部署到 https://osaka2026.voriens.dev**（2026-10-15，Worker `osaka2026`）。
 
-**下一步：部署到 Cloudflare**（Viking 已同意公開，網址 `https://osaka2026.voriens.dev`）
+**重新部署**（在任何一台機器）：
 
-1. `git clone https://github.com/Vik1n9/japan-wall.git`（公開倉庫）。部署只需要版控裡的檔案；`raw/` 原始檔不在倉庫裡，只有要重新剪輯或匯入時才需要它與 `brew install ffmpeg ffmpeg-full`。
-2. `npm install`
-3. `npx --yes wrangler@4 login`（瀏覽器授權；舊憑證已在 2026-09 過期）
-4. `npx --yes wrangler@4 whoami` 確認登入的是 Viking 的 Cloudflare 帳號（`voriens.dev` 所在的帳號）
-5. `npm run deploy`：建置後部署 Worker `osaka2026`，並綁定自訂網域 `osaka2026.voriens.dev`（`voriens.dev` zone 已在同帳號，子網域與 Worker 名稱都確認沒被佔用）
-6. 部署後用瀏覽器檢查桌機與手機寬度、開一張展品說明卡、播一支短片。
+1. `git clone https://github.com/Vik1n9/japan-wall.git`、`npm install`。部署只需要版控裡的檔案；`raw/` 原始檔只有重新剪輯或匯入時才需要。
+2. `npx --yes wrangler@4 whoami` 確認登入的是 Viking 的 Cloudflare 帳號（沒登入就先 `npx --yes wrangler@4 login`）。
+3. `npm run deploy`：建置後部署 Worker `osaka2026` 與自訂網域 `osaka2026.voriens.dev`。
+4. 部署後用瀏覽器檢查桌機與手機寬度、開一張展品說明卡、播一支短片。
+
+**下一步**：見第 7 節待辦（向友人索取原始照片、後台系統設計提案在 `docs/admin-design.md`、Mac mini 後製背景圖）。
 
 **之後**：心得欄位（`slot`）由 Viking 自己填，填好改成 `text` 文字卡；`slot` 在公開版不顯示。
