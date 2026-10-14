@@ -16,17 +16,17 @@ img{max-width:100%}
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
   --colw:240px; --step:34px;
   --dado:150px; --dado-filter:none; --castle-h:620px; --castle-x:40px;
-  --eave:34px; --banner-w:128px; --era-h:70px; --backdrop-op:.4; --backdrop-filter:saturate(.85);
+  --eave:34px; --rope:24px; --shide:52px; --rope-filter:none; --ema-filter:none; --days-pt:20px; --banner-w:128px; --era-h:70px; --backdrop-op:.4; --backdrop-filter:saturate(.85);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --page:#0F1011; --wall:#25262A; --panel:#2E3034; --ink:#ECEAE4; --muted:#A8A59E; --rule:#4A4B50; --hair:#34363A;
-    --red:#D44A3F; --glow:rgba(255,230,185,.11); --track:#09090A; --lamp:#4A4845; --floor:#17181A; --shade:rgba(0,0,0,.7); color-scheme:dark; --dado-filter:brightness(.5) saturate(.75); --backdrop-op:.3; --backdrop-filter:saturate(.8) brightness(.8);
+    --red:#D44A3F; --glow:rgba(255,230,185,.11); --track:#09090A; --lamp:#4A4845; --floor:#17181A; --shade:rgba(0,0,0,.7); color-scheme:dark; --dado-filter:brightness(.5) saturate(.75); --backdrop-op:.3; --backdrop-filter:saturate(.8) brightness(.8); --rope-filter:brightness(.82) saturate(.9); --ema-filter:brightness(.8) saturate(.9);
   }
 }
 :root[data-theme="dark"]{
   --page:#0F1011; --wall:#25262A; --panel:#2E3034; --ink:#ECEAE4; --muted:#A8A59E; --rule:#4A4B50; --hair:#34363A;
-  --red:#D44A3F; --glow:rgba(255,230,185,.11); --track:#09090A; --lamp:#4A4845; --floor:#17181A; --shade:rgba(0,0,0,.7); color-scheme:dark; --dado-filter:brightness(.5) saturate(.75); --backdrop-op:.3; --backdrop-filter:saturate(.8) brightness(.8);
+  --red:#D44A3F; --glow:rgba(255,230,185,.11); --track:#09090A; --lamp:#4A4845; --floor:#17181A; --shade:rgba(0,0,0,.7); color-scheme:dark; --dado-filter:brightness(.5) saturate(.75); --backdrop-op:.3; --backdrop-filter:saturate(.8) brightness(.8); --rope-filter:brightness(.82) saturate(.9); --ema-filter:brightness(.8) saturate(.9);
 }
 *{box-sizing:border-box}
 body{background:var(--page);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.7;padding-inline:16px;padding-block:0 40px}
@@ -113,8 +113,18 @@ button{font:inherit;color:inherit}
 .era-city{font-family:var(--f-display);font-weight:900;font-size:1.5rem;letter-spacing:.16em;line-height:1.2;padding-bottom:4px}
 .era.pending .era-num,.era.pending .era-city{color:var(--muted)}
 .era.pending .era-head{border-bottom-style:dashed;border-bottom-color:var(--rule)}
+
+/* 注連繩：年代橫線換成繩子，紙垂垂在繩下；年代往上一階的直線換成直向繩子。
+   繩心對準原本 3px 橫線的位置；紙垂從繩子背後垂下，--days-pt 讓出紙垂的長度，不壓到日期 */
+.wall.rope{--days-pt:calc(var(--rope) / 2 + var(--shide) + 6px)}
+.wall.rope .era-head{border-bottom:0}
+.wall.rope .era-head::after{content:"";position:absolute;left:0;right:0;top:calc(100% - var(--rope) / 2);height:calc(var(--rope) + var(--shide));pointer-events:none;filter:var(--rope-filter);
+  background:var(--rope-img) 0 0/auto var(--rope) repeat-x,var(--shide-img) 40px calc(var(--rope) - 5px)/auto var(--shide) repeat-x}
+.wall.rope .era + .era .era-head::before{left:calc(var(--rope) / -2);top:calc(100% - var(--rope) / 2);width:var(--rope);height:calc(var(--step) + var(--rope));z-index:1;
+  background:var(--rope-v-img) 0 0/var(--rope) auto repeat-y;filter:var(--rope-filter)}
+.wall.rope .era.pending .era-head::after{filter:grayscale(1);opacity:.4}
 .era-range{font-family:var(--f-mono);font-size:.66rem;color:var(--muted);padding-bottom:8px;margin-left:auto;padding-right:32px;white-space:nowrap}
-.days{display:flex;gap:30px;padding-top:20px;padding-right:32px}
+.days{display:flex;gap:30px;padding-top:var(--days-pt);padding-right:32px}
 .day{border-left:1px solid var(--ink);padding-left:12px}
 .era.pending .day{border-left:1px dashed var(--rule)}
 .dh{display:flex;align-items:baseline;gap:6px}
@@ -133,7 +143,7 @@ button{font:inherit;color:inherit}
 .days{flex:1}
 .day{position:relative}
 .backdrops{position:absolute;z-index:-1;pointer-events:none;user-select:none;left:0;right:0;
-  top:calc(-1 * (var(--era-h) + 60px + var(--s) * var(--step)));bottom:calc(-1 * (var(--dado) + var(--eave) + 24px))}
+  top:calc(-1 * (var(--era-h) + 40px + var(--days-pt) + var(--s) * var(--step)));bottom:calc(-1 * (var(--dado) + var(--eave) + 24px))}
 .backdrops img{position:absolute;width:auto;max-width:none;transform:translateX(-50%) rotate(var(--r,0deg));
   opacity:var(--backdrop-op);filter:var(--backdrop-filter);
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent),linear-gradient(transparent,#000 14%,#000 86%,transparent);
@@ -146,6 +156,20 @@ button{font:inherit;color:inherit}
 .it-text .tm.unk{color:var(--muted)}
 .it-text h4{font-family:var(--f-display);font-weight:700;font-size:.98rem;line-height:1.35;margin:0 0 2px}
 .it-text p{margin:0;font-size:.8rem;line-height:1.62;color:var(--muted)}
+/* 文字卡改成繪馬：比例照實物（寬高約 1.4:1，屋頂斜邊約佔寬度 0.14），字多時才往下長。
+   屋頂（含掛繩）依欄寬等比縮放，板身用 border-image 伸縮；繪馬圖寬 600、屋頂圖高 149、尖頂在 y=65、繩孔下緣約 y=117。
+   木板是淺色，字一律用深墨色，深色模式只把木板壓暗。寬度用欄位的容器單位 cqw 計算 */
+.wall.ema .col{container-type:inline-size}
+.wall.ema .it-text{--w:100cqw;--cord:calc(var(--w) * 65 / 600);--roof:calc(var(--w) * 149 / 600);
+  position:relative;isolation:isolate;aspect-ratio:1.4;margin-top:calc(var(--cord) + 4px);
+  display:flex;flex-direction:column;justify-content:center;padding:calc(var(--w) * .12) 18px calc(var(--w) * .04);
+  color:#1C1A18;text-shadow:none;text-align:center}
+.wall.ema .it-text::before,.wall.ema .it-text::after{content:"";position:absolute;left:0;right:0;z-index:-1;pointer-events:none;filter:var(--ema-filter)}
+.wall.ema .it-text::before{top:calc(-1 * var(--cord));height:var(--roof);background:var(--ema-roof-img) 0 100%/100% auto no-repeat}
+.wall.ema .it-text::after{top:calc(var(--roof) - var(--cord) - 1px);bottom:0;border-style:solid;border-width:4px 4px 7px;border-image:var(--ema-body-img) 8 8 14 fill / 4px 4px 7px stretch;
+  box-shadow:0 6px 10px -6px var(--shade)}
+.wall.ema .it-text .tm{color:#A82820}
+.wall.ema .it-text .tm.unk,.wall.ema .it-text p{color:#4A3F33}
 .it-slot{border:1.5px dashed var(--rule);padding:10px 12px;font-family:var(--f-display);font-weight:700;color:var(--muted);font-size:.92rem;line-height:1.5}
 .it-slot small{display:block;font-family:var(--f-mono);font-weight:400;font-size:.62rem;margin-top:4px}
 .it-media{display:block;width:100%;padding:0;border:0;background:none;text-align:left;cursor:zoom-in}
@@ -235,7 +259,7 @@ button{font:inherit;color:inherit}
 .read .backdrops img{left:0!important;top:0!important;width:100%;height:100%!important;transform:none;object-fit:cover}
 
 @media (max-width:760px){
-  :root{--colw:200px;--step:26px;--dado:96px;--castle-h:440px;--castle-x:20px;--eave:24px;--banner-w:104px;--era-h:60px}
+  :root{--colw:200px;--step:26px;--dado:96px;--castle-h:440px;--castle-x:20px;--eave:24px;--rope:18px;--shide:40px;--banner-w:104px;--era-h:60px}
   .art-title.v{height:240px}
   .bar .t small{display:none}
   .banner{width:74px;height:320px}

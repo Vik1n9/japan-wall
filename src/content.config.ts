@@ -27,6 +27,11 @@ const site = defineCollection({
         titleH: z.string().optional(),    // 橫書標題圖
         wall: z.string().optional(),      // 牆腳石垣，左右無縫重複
         castle: z.string().optional(),    // 序幕插圖（透明背景）
+        rope: z.string().optional(),      // 年代橫線換成注連繩：左右無縫重複的繩子（橫）
+        ropeV: z.string().optional(),     // 年代之間往上一階的直向繩子
+        shide: z.string().optional(),     // 繩下的紙垂，tile 本身含間距
+        emaRoof: z.string().optional(),   // 文字卡改成繪馬：屋頂與掛繩（依卡片寬度等比縮放）
+        emaBody: z.string().optional(),   // 繪馬板身（border-image 伸縮，跟著文字長度）
         eave: z.string().optional(),      // 石垣上方的瓦屋簷，左右無縫重複
       })
       .default({}),

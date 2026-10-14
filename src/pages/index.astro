@@ -17,7 +17,9 @@ const statCells = [[stats.live, '展出日'], [stats.total, '展品'], [stats.ph
 // 書法標題圖：SVG 當 mask、底色用 currentColor，墨色就跟著淺色／深色模式走
 const art = trip.art;
 const artMask = (src: string) => `--art:url(${asset(src)})`;
-const wallStyle = [art.wall && `--dado-img:url(${asset(art.wall)})`, art.eave && `--eave-img:url(${asset(art.eave)})`].filter(Boolean).join(';') || undefined;
+const wallStyle = [art.wall && `--dado-img:url(${asset(art.wall)})`, art.eave && `--eave-img:url(${asset(art.eave)})`,
+  art.rope && `--rope-img:url(${asset(art.rope)})`, art.ropeV && `--rope-v-img:url(${asset(art.ropeV)})`, art.shide && `--shide-img:url(${asset(art.shide)})`,
+  art.emaRoof && `--ema-roof-img:url(${asset(art.emaRoof)})`, art.emaBody && `--ema-body-img:url(${asset(art.emaBody)})`].filter(Boolean).join(';') || undefined;
 ---
 <!doctype html>
 <html lang="zh-Hant">
@@ -44,7 +46,7 @@ const wallStyle = [art.wall && `--dado-img:url(${asset(art.wall)})`, art.eave &&
 
     <div class="hall">
       <div class="scroller" id="scroller" tabindex="0" aria-label="展覽牆，可左右捲動">
-        <div class:list={['wall', { dado: art.wall, eave: art.wall && art.eave }]} id="wall" style={wallStyle}>
+        <div class:list={['wall', { dado: art.wall, eave: art.wall && art.eave, rope: art.rope, ema: art.emaRoof && art.emaBody }]} id="wall" style={wallStyle}>
           <div class="track"></div>
 
           <div class="prelude" id="prelude">
