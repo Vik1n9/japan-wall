@@ -61,7 +61,11 @@ const days = defineCollection({
     city: z.string().optional(),          // 同城市的連續日子會自動併成一個「年代」
     place: z.string().optional(),
     note: z.string().optional(),          // pending 時顯示在虛線框裡
-    backdrop: z.string().optional(),      // 當天的背景圖（裝飾，不是展品），路徑相對於 public/
+    // 當天的背景拼貼（裝飾，不是展品）。x：圖片中心在當天寬度的位置（%，可小於 0 或大於 100，出血到隔壁）；
+    // y：圖片上緣在整面牆高的位置（%）；h：圖片高度佔牆高（%）；r：旋轉角度
+    backdrop: z
+      .array(z.object({ src: z.string(), x: z.number(), y: z.number().default(0), h: z.number().default(50), r: z.number().default(0) }))
+      .default([]),
     columns: z
       .array(
         z.object({

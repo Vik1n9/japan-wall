@@ -3,7 +3,15 @@
 date: "2026-10-08"
 city: 大阪
 place: 大阪城／道頓堀
-backdrop: art/days/2026-10-08.webp   # 背景：大阪城天守（JP-04-12）；之後以 Mac mini 的圖片模型後製替換
+# 背景拼貼：大阪城天守、御座船、螃蟹招牌、商店街、道頓堀夜景。暫用版，之後以 Mac mini 的圖片模型後製替換同名檔案
+backdrop:
+  - { src: art/days/2026-10-08-01.webp, x: 12, y: 0, h: 64, r: 0 }
+  - { src: art/days/2026-10-08-02.webp, x: 30, y: 52, h: 38, r: -3 }
+  - { src: art/days/2026-10-08-03.webp, x: 4, y: 62, h: 26, r: 8 }
+  - { src: art/days/2026-10-08-04.webp, x: 48, y: 4, h: 30, r: -4 }
+  - { src: art/days/2026-10-08-05.webp, x: 64, y: 30, h: 58, r: 3 }
+  - { src: art/days/2026-10-08-06.webp, x: 82, y: 2, h: 42, r: -2 }
+  - { src: art/days/2026-10-08-07.webp, x: 96, y: 50, h: 34, r: 5 }
 columns:
   - width: 300
     items:

@@ -3,7 +3,14 @@
 date: "2026-10-09"
 city: 泉佐野
 place: 臨空城
-backdrop: art/days/2026-10-09.webp   # 背景：臨空城摩天輪（Wikimedia Commons，CC BY-SA 3.0）；之後以 Mac mini 的圖片模型後製替換
+# 背景拼貼：臨空城摩天輪（Commons）、海邊、賽馬海報、拉麵、長榮客機。暫用版，之後以 Mac mini 的圖片模型後製替換同名檔案
+backdrop:
+  - { src: art/days/2026-10-09-01.webp, x: 30, y: 0, h: 62, r: 0 }
+  - { src: art/days/2026-10-09-02.webp, x: 6, y: 52, h: 36, r: -4 }
+  - { src: art/days/2026-10-09-03.webp, x: 56, y: 52, h: 36, r: 4 }
+  - { src: art/days/2026-10-09-04.webp, x: 62, y: 2, h: 44, r: -6 }
+  - { src: art/days/2026-10-09-05.webp, x: 88, y: 40, h: 34, r: 3 }
+  - { src: art/days/2026-10-09-06.webp, x: 10, y: 4, h: 30, r: 7 }
 columns:
   - width: 200
     items:

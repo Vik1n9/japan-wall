@@ -3,7 +3,14 @@
 date: "2026-10-05"
 city: 堺
 place: 大鳥大社
-backdrop: art/days/2026-10-05.webp   # 背景：長榮客機（取自 JP-05-06 短片畫面）；之後以 Mac mini 的圖片模型後製替換
+# 背景拼貼：長榮客機、機場、大鳥大社、日本酒、勝みくじ。暫用版，之後以 Mac mini 的圖片模型後製替換同名檔案
+backdrop:
+  - { src: art/days/2026-10-05-01.webp, x: 28, y: 4, h: 34, r: -3 }
+  - { src: art/days/2026-10-05-02.webp, x: 6, y: 50, h: 28, r: 3 }
+  - { src: art/days/2026-10-05-03.webp, x: 62, y: 2, h: 38, r: 2 }
+  - { src: art/days/2026-10-05-04.webp, x: 80, y: 46, h: 40, r: -4 }
+  - { src: art/days/2026-10-05-05.webp, x: 98, y: 8, h: 34, r: 5 }
+  - { src: art/days/2026-10-05-06.webp, x: 42, y: 48, h: 42, r: -7 }
 columns:
   - width: 420
     items:

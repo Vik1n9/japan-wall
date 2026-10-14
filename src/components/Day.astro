@@ -8,7 +8,11 @@ const meta = day.status === 'pending'
   : [day.place, day.counts.photo && `${day.counts.photo} 張照片`, day.counts.video && `${day.counts.video} 支短片`].filter(Boolean).join(' · ');
 ---
 <div class="day" id={`day-${day.n}`}>
-  {day.backdrop && <img class="backdrop" src={asset(day.backdrop)} alt="" loading="lazy" decoding="async" />}
+  {day.backdrop.length > 0 && (
+    <div class="backdrops" aria-hidden="true">{day.backdrop.map((b) => (
+      <img src={asset(b.src)} alt="" loading="lazy" decoding="async" style={`left:${b.x}%;top:${b.y}%;height:${b.h}%;--r:${b.r}deg`} />
+    ))}</div>
+  )}
   <div class="dh"><span class="dnum">{day.label}</span><span class="dwd">{day.weekday}</span></div>
   <div class="dmeta">DAY {day.n} · {meta}</div>
   <div class="cols">

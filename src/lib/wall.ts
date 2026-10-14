@@ -19,7 +19,7 @@ export interface Day {
   city?: string;
   place?: string;
   note?: string;
-  backdrop?: string;
+  backdrop: { src: string; x: number; y: number; h: number; r: number }[];
   columns: Column[];
   counts: { photo: number; video: number };
 }
