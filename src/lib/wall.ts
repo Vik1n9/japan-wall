@@ -19,6 +19,7 @@ export interface Day {
   city?: string;
   place?: string;
   note?: string;
+  backdrop?: string;
   columns: Column[];
   counts: { photo: number; video: number };
 }
@@ -67,7 +68,7 @@ export async function loadWall() {
     }));
     return {
       date: d.date, n, label: label(d.date), weekday: WEEKDAY[utc(d.date).getUTCDay()],
-      status: d.status, city: d.city, place: d.place, note: d.note, columns, counts,
+      status: d.status, city: d.city, place: d.place, note: d.note, backdrop: d.backdrop, columns, counts,
     };
   });
 

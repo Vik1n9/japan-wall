@@ -27,8 +27,13 @@ const site = defineCollection({
         titleH: z.string().optional(),    // 橫書標題圖
         wall: z.string().optional(),      // 牆腳石垣，左右無縫重複
         castle: z.string().optional(),    // 序幕插圖（透明背景）
+        eave: z.string().optional(),      // 石垣上方的瓦屋簷，左右無縫重複
       })
       .default({}),
+    // 取自網路的背景圖：授權要求署名，顯示在結尾
+    sources: z
+      .array(z.object({ what: z.string(), author: z.string(), license: z.string(), licenseUrl: z.string(), url: z.string(), changes: z.string().optional() }))
+      .default([]),
     credits: z.array(z.object({ label: z.string(), value: z.string() })).default([]),
     footnote: z.string().optional(),
   }),
@@ -56,6 +61,7 @@ const days = defineCollection({
     city: z.string().optional(),          // 同城市的連續日子會自動併成一個「年代」
     place: z.string().optional(),
     note: z.string().optional(),          // pending 時顯示在虛線框裡
+    backdrop: z.string().optional(),      // 當天的背景圖（裝飾，不是展品），路徑相對於 public/
     columns: z
       .array(
         z.object({

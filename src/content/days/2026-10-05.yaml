@@ -3,6 +3,7 @@
 date: "2026-10-05"
 city: 堺
 place: 大鳥大社
+backdrop: art/days/2026-10-05.webp   # 背景：長榮客機（取自 JP-05-06 短片畫面）；之後以 Mac mini 的圖片模型後製替換
 columns:
   - width: 420
     items:

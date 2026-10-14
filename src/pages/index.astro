@@ -17,7 +17,7 @@ const statCells = [[stats.live, '展出日'], [stats.total, '展品'], [stats.ph
 // 書法標題圖：SVG 當 mask、底色用 currentColor，墨色就跟著淺色／深色模式走
 const art = trip.art;
 const artMask = (src: string) => `--art:url(${asset(src)})`;
-const wallStyle = art.wall ? `--dado-img:url(${asset(art.wall)})` : undefined;
+const wallStyle = [art.wall && `--dado-img:url(${asset(art.wall)})`, art.eave && `--eave-img:url(${asset(art.eave)})`].filter(Boolean).join(';') || undefined;
 ---
 <!doctype html>
 <html lang="zh-Hant">
@@ -44,7 +44,7 @@ const wallStyle = art.wall ? `--dado-img:url(${asset(art.wall)})` : undefined;
 
     <div class="hall">
       <div class="scroller" id="scroller" tabindex="0" aria-label="展覽牆，可左右捲動">
-        <div class:list={['wall', { dado: art.wall }]} id="wall" style={wallStyle}>
+        <div class:list={['wall', { dado: art.wall, eave: art.wall && art.eave }]} id="wall" style={wallStyle}>
           <div class="track"></div>
 
           <div class="prelude" id="prelude">
@@ -77,6 +77,11 @@ const wallStyle = art.wall ? `--dado-img:url(${asset(art.wall)})` : undefined;
             <h2>謝謝觀賞</h2>
             <dl>{trip.credits.map((c) => <><dt>{c.label}</dt><dd>{c.value}</dd></>)}</dl>
             {trip.footnote && <div>{trip.footnote}</div>}
+            {trip.sources.length > 0 && (
+              <ul class="sources">{trip.sources.map((s) => (
+                <li>{s.what}：<a href={s.url}>{s.author}</a>，<a href={s.licenseUrl}>{s.license}</a>{s.changes && `，${s.changes}`}</li>
+              ))}</ul>
+            )}
           </div>
         </div>
       </div>

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+  <!-- 石垣上方的瓦屋簷，左右無縫重複（每 16px 一組丸瓦＋平瓦） -->
+  <defs>
+    <linearGradient id="maru" x1="0" x2="1">
+      <stop offset="0" stop-color="#4E565C"/><stop offset=".45" stop-color="#7C858B"/><stop offset="1" stop-color="#4A5258"/>
+    </linearGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1A1C1E" stop-opacity=".55"/><stop offset="1" stop-color="#1A1C1E" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="32" height="5" fill="#2B2F33"/>
+  <rect x="0" y="5" width="32" height="22" fill="#3F464C"/>
+  <g fill="url(#maru)">
+    <rect x="1" y="5" width="9" height="22"/>
+    <rect x="17" y="5" width="9" height="22"/>
+  </g>
+  <g stroke="#23272A" stroke-width=".8" fill="none" opacity=".7">
+    <path d="M0 11h32M0 17h32M0 23h32"/>
+  </g>
+  <rect x="0" y="27" width="32" height="7" fill="#33393E"/>
+  <g fill="#3B4247" stroke="#1E2124" stroke-width="1">
+    <circle cx="5.5" cy="30" r="4.5"/>
+    <circle cx="21.5" cy="30" r="4.5"/>
+  </g>
+  <g fill="#7C858B">
+    <circle cx="5.5" cy="30" r="1.6"/>
+    <circle cx="21.5" cy="30" r="1.6"/>
+  </g>
+  <path d="M10 33q3-2.4 6 0M26 33q3-2.4 6 0" stroke="#1E2124" stroke-width="1" fill="none"/>
+  <rect x="0" y="34" width="32" height="6" fill="url(#shade)"/>
+</svg>

@@ -3,6 +3,7 @@
 date: "2026-10-06"
 city: 大阪
 place: 日本環球影城
+backdrop: art/days/2026-10-06.webp   # 背景：USJ 地球儀（Wikimedia Commons，CC BY-SA 4.0）；之後以 Mac mini 的圖片模型後製替換
 columns:
   - width: 300
     items:

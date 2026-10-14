@@ -3,6 +3,7 @@
 date: "2026-10-08"
 city: 大阪
 place: 大阪城／道頓堀
+backdrop: art/days/2026-10-08.webp   # 背景：大阪城天守（JP-04-12）；之後以 Mac mini 的圖片模型後製替換
 columns:
   - width: 300
     items:

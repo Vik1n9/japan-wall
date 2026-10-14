@@ -3,6 +3,7 @@
 date: "2026-10-07"
 city: 箕面・大阪
 place: 勝尾寺／新世界
+backdrop: art/days/2026-10-07.webp   # 背景：勝尾寺達摩（JP-03-02）；之後以 Mac mini 的圖片模型後製替換
 columns:
   - width: 200
     items:

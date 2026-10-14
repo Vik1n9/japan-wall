@@ -1,6 +1,6 @@
 ---
 import Plate from './Plate.astro';
-import type { Day } from '../lib/wall';
+import { asset, type Day } from '../lib/wall';
 interface Props { day: Day }
 const { day } = Astro.props;
 const meta = day.status === 'pending'
@@ -8,6 +8,7 @@ const meta = day.status === 'pending'
   : [day.place, day.counts.photo && `${day.counts.photo} 張照片`, day.counts.video && `${day.counts.video} 支短片`].filter(Boolean).join(' · ');
 ---
 <div class="day" id={`day-${day.n}`}>
+  {day.backdrop && <img class="backdrop" src={asset(day.backdrop)} alt="" loading="lazy" decoding="async" />}
   <div class="dh"><span class="dnum">{day.label}</span><span class="dwd">{day.weekday}</span></div>
   <div class="dmeta">DAY {day.n} · {meta}</div>
   <div class="cols">

@@ -8,7 +8,7 @@ intro: >-
   2026 年 10 月 5 日到 9 日，從桃園出發，走過堺、大阪、箕面與泉佐野的五天。
 banner:
   text: 大阪行
-  photo: media/2026-10-06/img_7387.webp
+  photo: media/2026-10-06/line_album_2026105_261015_161.webp   # 環球影城 VIP 卡（JP-02-13）
   caption: 2026 · 秋
 credits:
   - { label: 策展, value: Viking }
@@ -19,3 +19,18 @@ art:
   titleH: art/osaka-title-h.svg
   wall: art/ishigaki.webp
   castle: art/castle.webp
+  eave: art/eave.svg   # 石垣上方的瓦屋簷（SVG 手繪，可替換）
+# 取自網路的背景圖（CC BY-SA，必須署名；後製版本也沿用同一授權）
+sources:
+  - what: 10.06 背景 USJ 地球儀
+    author: Csiiiyu
+    license: CC BY-SA 4.0
+    licenseUrl: https://creativecommons.org/licenses/by-sa/4.0/
+    url: https://commons.wikimedia.org/wiki/File:Universal_Studios_Japan_entrance.jpg
+    changes: 經裁切與縮小
+  - what: 10.09 背景 臨空城摩天輪
+    author: Nankou Oronain
+    license: CC BY-SA 3.0
+    licenseUrl: https://creativecommons.org/licenses/by-sa/3.0/
+    url: https://commons.wikimedia.org/wiki/File:%E3%82%8A%E3%82%93%E3%81%8F%E3%81%86%E3%82%B7%E3%83%BC%E3%82%AF%E3%83%AB%E3%81%AE%E5%A4%A7%E8%A6%B3%E8%A6%A7%E8%BB%8A_Ferris_wheel_of_Rinku_SEACLE_2012.10.21_-_panoramio.jpg
+    changes: 經縮小

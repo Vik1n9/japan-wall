@@ -3,6 +3,7 @@
 date: "2026-10-09"
 city: 泉佐野
 place: 臨空城
+backdrop: art/days/2026-10-09.webp   # 背景：臨空城摩天輪（Wikimedia Commons，CC BY-SA 3.0）；之後以 Mac mini 的圖片模型後製替換
 columns:
   - width: 200
     items:
