@@ -13,6 +13,11 @@ const lightboxData = media.map((e) => ({
   width: e.width, height: e.height, duration: e.duration ?? null, source: e.source,
 }));
 const statCells = [[stats.live, '展出日'], [stats.total, '展品'], [stats.photos, '照片'], [stats.videos, '短片']];
+
+// 書法標題圖：SVG 當 mask、底色用 currentColor，墨色就跟著淺色／深色模式走
+const art = trip.art;
+const artMask = (src: string) => `--art:url(${asset(src)})`;
+const wallStyle = art.wall ? `--dado-img:url(${asset(art.wall)})` : undefined;
 ---
 <!doctype html>
 <html lang="zh-Hant">
@@ -28,7 +33,7 @@ const statCells = [[stats.live, '展出日'], [stats.total, '展品'], [stats.ph
   </head>
   <body>
     <header class="bar">
-      <div class="t">{trip.title}<small>展覽牆 · {stats.live} 天已展出</small></div>
+      <div class="t">{art.titleH ? <span class="art-title h" role="img" aria-label={trip.title} style={artMask(art.titleH)}></span> : trip.title}<small>展覽牆 · {stats.live} 天已展出</small></div>
       <div class="pan" aria-label="左右移動牆面"><button id="pl" aria-label="往左">←</button><button id="pr" aria-label="往右">→</button></div>
       <div class="seg" role="group" aria-label="觀看方式"><button id="m-wall" aria-pressed="true">牆面</button><button id="m-read" aria-pressed="false">閱讀</button></div>
     </header>
@@ -39,17 +44,20 @@ const statCells = [[stats.live, '展出日'], [stats.total, '展品'], [stats.ph
 
     <div class="hall">
       <div class="scroller" id="scroller" tabindex="0" aria-label="展覽牆，可左右捲動">
-        <div class="wall" id="wall">
+        <div class:list={['wall', { dado: art.wall }]} id="wall" style={wallStyle}>
           <div class="track"></div>
 
           <div class="prelude" id="prelude">
-            <div class="banner"><span>{trip.banner.text}</span></div>
+            <div class="banner">{art.titleV
+              ? <span class="art-title v" role="img" aria-label={trip.banner.text} style={artMask(art.titleV)}></span>
+              : <span>{trip.banner.text}</span>}</div>
             {trip.banner.photo && (
               <div class="banner photo"><img src={asset(trip.banner.photo)} alt="" />{trip.banner.caption && <em>{trip.banner.caption}</em>}</div>
             )}
+            {art.castle && <img class="castle" src={asset(art.castle)} alt="" width="882" height="800" decoding="async" />}
             <div class="intro">
               <div class="eyebrow">{trip.eyebrow}</div>
-              <h1>{trip.title}</h1>
+              <h1>{art.titleH ? <><span class="sr">{trip.title}</span><span class="art-title h" aria-hidden="true" style={artMask(art.titleH)}></span></> : trip.title}</h1>
               <div class="span">{trip.start.replaceAll('-', '.')} 起</div>
               <p>{trip.intro}</p>
               <div class="stats">{statCells.map(([v, l]) => <div><strong>{v}</strong><span>{l}</span></div>)}</div>

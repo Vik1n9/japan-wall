@@ -20,6 +20,15 @@ const site = defineCollection({
       photo: z.string().optional(),       // 第二幅布條的照片，路徑相對於 public/
       caption: z.string().optional(),
     }),
+    // 視覺素材（裝飾用，不是展品），路徑相對於 public/
+    art: z
+      .object({
+        titleV: z.string().optional(),    // 直書標題圖（SVG，用 mask 上色，跟著淺色／深色）
+        titleH: z.string().optional(),    // 橫書標題圖
+        wall: z.string().optional(),      // 牆腳石垣，左右無縫重複
+        castle: z.string().optional(),    // 序幕插圖（透明背景）
+      })
+      .default({}),
     credits: z.array(z.object({ label: z.string(), value: z.string() })).default([]),
     footnote: z.string().optional(),
   }),
