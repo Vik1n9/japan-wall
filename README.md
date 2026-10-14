@@ -257,7 +257,7 @@ japan-wall/
 - [x] 網站**公開**（2026-10-15，Viking 決定）。路人正臉已適度虛化。
 - [x] 託管：**Cloudflare Workers 靜態資源**，網址 `https://osaka2026.voriens.dev`（2026-10-15 決定）。設定在 `wrangler.jsonc`，部署用 `npm run deploy`（需先 `npx wrangler login`）。
 - [x] 署名：策展、攝影皆為 Viking（2026-10-15）。
-- [ ] 是否建立 Git 遠端倉庫。
+- [x] Git 遠端倉庫：https://github.com/Vik1n9/japan-wall（公開，2026-10-15）。
 
 ---
 
@@ -280,7 +280,7 @@ claude.ai 上已發佈的三個版本（私人連結，只有使用者能開）�
 
 **下一步：部署到 Cloudflare**（Viking 已同意公開，網址 `https://osaka2026.voriens.dev`）
 
-1. 把專案帶到要部署的機器（目前沒有 Git 遠端倉庫）：部署只需要 Git 追蹤的檔案（`public/media/` 已在版控裡），`raw/` 原始檔不用帶；只有要重新剪輯或匯入時才需要 `raw/` 與 `brew install ffmpeg ffmpeg-full`。
+1. `git clone https://github.com/Vik1n9/japan-wall.git`（公開倉庫）。部署只需要版控裡的檔案；`raw/` 原始檔不在倉庫裡，只有要重新剪輯或匯入時才需要它與 `brew install ffmpeg ffmpeg-full`。
 2. `npm install`
 3. `npx --yes wrangler@4 login`（瀏覽器授權；舊憑證已在 2026-09 過期）
 4. `npx --yes wrangler@4 whoami` 確認登入的是 Viking 的 Cloudflare 帳號（`voriens.dev` 所在的帳號）
