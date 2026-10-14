@@ -6,12 +6,48 @@ import { asset, loadWall } from '../lib/wall';
 
 const { trip, eras, media, unplaced, stats } = await loadWall();
 
-// 給說明卡（lightbox）用的資料
-const lightboxData = media.map((e) => ({
-  id: e.id, type: e.type, title: e.title || '（待命名）', place: e.place, note: e.note,
-  date: e.date, time: e.time, src: asset(e.media), poster: e.poster ? asset(e.poster) : null,
-  width: e.width, height: e.height, duration: e.duration ?? null, source: e.source,
-}));
+// 給說明卡（lightbox）用的資料（包含展品與繪馬，順序依牆上位置）
+const lightboxData = media.map((e) =>
+  e.type === 'ema'
+    ? {
+        id: e.id,
+        type: 'ema' as const,
+        title: `繪馬 · ${e.by || '無署名'}`,
+        by: e.by,
+        place: e.place,
+        note: e.body,
+        date: e.date,
+        time: null,
+        posted: e.posted,
+        tilt: e.tilt,
+        src: '',
+        poster: null,
+        width: 0,
+        height: 0,
+        duration: null,
+        source: null,
+        comments: e.comments,
+      }
+    : {
+        id: e.id,
+        type: e.type,
+        title: e.title || '（待命名）',
+        by: '',
+        place: e.place,
+        note: e.note,
+        date: e.date,
+        time: e.time,
+        posted: null,
+        tilt: 0,
+        src: asset(e.media),
+        poster: e.poster ? asset(e.poster) : null,
+        width: e.width,
+        height: e.height,
+        duration: e.duration ?? null,
+        source: e.source,
+        comments: e.comments,
+      },
+);
 const statCells = [[stats.live, '展出日'], [stats.total, '展品'], [stats.photos, '照片'], [stats.videos, '短片']];
 
 // 書法標題圖：SVG 當 mask、底色用 currentColor，墨色就跟著淺色／深色模式走

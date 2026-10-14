@@ -1,9 +1,25 @@
-// Cloudflare Workers 靜態資源部署：npm run deploy
+// Cloudflare Workers（靜態資源＋留言與繪馬 API）：npm run deploy
 {
   "name": "osaka2026",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-10-01",
-  // 純靜態網站：只提供 astro build 的輸出，不需要 Worker 程式
-  "assets": { "directory": "./dist" },
+  // 只有 /api/* 進 Worker，其餘路徑直接由靜態資源回應、不計費
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "osaka2026-notes",
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+  "vars": {
+    "EDITORS": "viking@example.com,friend1@example.com",
+    "ALLOWED_ORIGINS": "https://osaka2026.voriens.dev"
+  },
   // 綁定自訂網域；不另外開 workers.dev 網址
   "routes": [{ "pattern": "osaka2026.voriens.dev", "custom_domain": true }],
   "workers_dev": false
