@@ -1,0 +1,16 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: photo
+date: "2026-10-09"
+time: null
+title: "海邊棕櫚"
+place: "臨空城"
+note: "海岸步道旁的棕櫚樹與白色石椅，太陽在樹頂上方。"
+media: media/2026-10-09/line_album_2026105_261015_2.webp
+width: 1477
+height: 1108
+source: LINE_ALBUM_2026105_261015_2.jpg
+clip: null
+crop: null
+draft: true
+remarks: 來源：LINE 相簿，沒有 EXIF，時刻不明。同地點 L3、L4 有路人，選無人的這張。

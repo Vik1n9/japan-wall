@@ -1,0 +1,16 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: photo
+date: "2026-10-06"
+time: null
+title: "古井前"
+place: "日本環球影城"
+note: "四人戴著瑪利歐、小小兵、耀西與庫巴造型帽自拍；身後花圃裡，長髮白衣人偶從古井爬出。"
+media: media/2026-10-06/line_album_2026105_261015_27.webp
+width: 1108
+height: 1477
+source: LINE_ALBUM_2026105_261015_27.jpg
+clip: null
+crop: null
+draft: true
+remarks: 來源：LINE 相簿，沒有 EXIF，時刻不明。同場景另有一張無人版本（L26）未選。

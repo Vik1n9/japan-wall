@@ -1,0 +1,16 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: photo
+date: "2026-10-08"
+time: null
+title: "螃蟹招牌下"
+place: "道頓堀"
+note: "四人在巨大螃蟹招牌下自拍，招牌寫著「かに道楽 本店」。"
+media: media/2026-10-08/line_album_2026105_261015_5.webp
+width: 1477
+height: 1108
+source: LINE_ALBUM_2026105_261015_5.jpg
+clip: null
+crop: null
+draft: true
+remarks: 來源：LINE 相簿，沒有 EXIF，時刻不明。依道頓堀行程歸入 DAY 4（推定）。背景有路人，臉部很小。

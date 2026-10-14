@@ -21,15 +21,30 @@ columns:
       - slot: （一句當天的心得，由你填寫）
   - width: 220
     items:
+      - exhibit: JP-02-15
+  - width: 220
+    items:
       - exhibit: JP-02-03
       - text:
           time: "12:35"
           title: 走進水管
           body: 入口是一條綠色水管隧道，上方掛著 5 週年標誌。
+  - width: 420
+    items:
+      - exhibit: JP-02-12
+      - exhibit: JP-02-13
   - width: 260
     items:
       - exhibit: JP-02-04
       - exhibit: JP-02-05
+  - width: 260
+    items:
+      - exhibit: JP-02-16
+      - exhibit: JP-02-14
+  - width: 300
+    items:
+      - exhibit: JP-02-17
+      - exhibit: JP-02-11
   - width: 420
     items:
       - exhibit: JP-02-06
@@ -38,6 +53,9 @@ columns:
           time: "13:34"
           title: 耀西冒險
           body: 坐在耀西車上繞行園區上層。
+  - width: 300
+    items:
+      - exhibit: JP-02-18
   - width: 260
     items:
       - exhibit: JP-02-08
@@ -52,6 +70,9 @@ columns:
           time: "18:39"
           title: 活米村
           body: 天色轉暗，店鋪亮燈。
+  - width: 220
+    items:
+      - exhibit: JP-02-19
   - width: 200
     items:
       - exhibit: JP-02-10

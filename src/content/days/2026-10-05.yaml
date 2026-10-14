@@ -31,6 +31,10 @@ columns:
           title: 大鳥大社
           body: 社殿前掛著寫有地名的燈籠。
       - slot: （一句當天的心得，由你填寫）
+  - width: 220
+    items:
+      - exhibit: JP-01-09
+      - exhibit: JP-01-10
   - width: 280
     items:
       - exhibit: JP-01-07

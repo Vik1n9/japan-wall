@@ -12,7 +12,6 @@ banner:
   caption: 2026 · 秋
 credits:
   - { label: 策展, value: Viking }
-  - { label: 攝影, value: Viking }
   - { label: 器材, value: iPhone 16 Pro }
 footnote: 短片已去除聲音並壓縮，照片已轉檔並移除位置資訊。
 # 視覺素材：書法標題（清酒標風）、牆腳石垣、天守插圖。以 Viking 拍的大阪城照片為參考、FLUX.2 Klein 4B 浮世繪風格化，裝飾用，不是展品

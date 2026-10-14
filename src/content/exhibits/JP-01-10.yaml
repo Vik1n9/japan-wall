@@ -1,0 +1,16 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: photo
+date: "2026-10-05"
+time: null
+title: "勝みくじ"
+place: "大鳥大社"
+note: "手上的透明籤袋以金色印著「大鳥大社 勝みくじ」與「強運」。"
+media: media/2026-10-05/line_album_2026105_261015_24.webp
+width: 1108
+height: 1477
+source: LINE_ALBUM_2026105_261015_24.jpg
+clip: null
+crop: null
+draft: true
+remarks: 來源：LINE 相簿，沒有 EXIF，時刻不明。籤紙印有「大鳥大社」，依行程歸入 DAY 1。

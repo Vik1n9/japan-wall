@@ -11,14 +11,24 @@ columns:
           time: "11:10"
           title: 勝尾寺
           body: 紅色山門與石板參道。
+  - width: 220
+    items:
+      - exhibit: JP-03-12
   - width: 300
     items:
       - exhibit: JP-03-02
       - exhibit: JP-03-03
+  - width: 220
+    items:
+      - exhibit: JP-03-13
+      - exhibit: JP-03-14
   - width: 300
     items:
       - exhibit: JP-03-04
       - slot: （一句當天的心得，由你填寫）
+  - width: 220
+    items:
+      - exhibit: JP-03-11
   - width: 420
     items:
       - exhibit: JP-03-05
@@ -33,3 +43,7 @@ columns:
   - width: 260
     items:
       - exhibit: JP-03-08
+  - width: 220
+    items:
+      - exhibit: JP-03-09
+      - exhibit: JP-03-10

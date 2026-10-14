@@ -1,0 +1,16 @@
+# 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
+
+type: photo
+date: "2026-10-08"
+time: null
+title: "御座船船票"
+place: "大阪城公園"
+note: "大阪城御座船的乘船券，乘船日與出航時刻欄印著 10 月 8 日 11 時 40 分。"
+media: media/2026-10-08/line_album_2026105_261015_78.webp
+width: 1108
+height: 1477
+source: LINE_ALBUM_2026105_261015_78.jpg
+clip: null
+crop: null
+draft: true
+remarks: 來源：LINE 相簿，沒有 EXIF，時刻不明。船票上的日期是唯一的文字證據；出航時刻不是拍攝時刻，所以時刻仍留空。
