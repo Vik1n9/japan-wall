@@ -255,8 +255,8 @@ japan-wall/
 
 - [x] 整趟行程的日期範圍與每天的城市：10-05～10-09，見第 4 節。
 - [x] 網站**公開**（2026-10-15，Viking 決定）。路人正臉已適度虛化。
-- [ ] 託管：**Cloudflare**，使用 Viking 的專用網域（2026-10-15 決定）；網域名稱與部署方式待定。
-- [ ] 策展人署名。（網站標題已定為「大阪行」）
+- [x] 託管：**Cloudflare Workers 靜態資源**，網址 `https://osaka2026.voriens.dev`（2026-10-15 決定）。設定在 `wrangler.jsonc`，部署用 `npm run deploy`（需先 `npx wrangler login`）。
+- [x] 署名：策展、攝影皆為 Viking（2026-10-15）。
 - [ ] 是否建立 Git 遠端倉庫。
 
 ---

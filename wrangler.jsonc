@@ -1,0 +1,10 @@
+// Cloudflare Workers 靜態資源部署：npm run deploy
+{
+  "name": "osaka2026",
+  "compatibility_date": "2026-10-01",
+  // 純靜態網站：只提供 astro build 的輸出，不需要 Worker 程式
+  "assets": { "directory": "./dist" },
+  // 綁定自訂網域；不另外開 workers.dev 網址
+  "routes": [{ "pattern": "osaka2026.voriens.dev", "custom_domain": true }],
+  "workers_dev": false
+}

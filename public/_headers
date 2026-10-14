@@ -1,0 +1,5 @@
+# 媒體與裝飾素材快取一天（重新轉檔時檔名不變，不用 immutable）
+/media/*
+  Cache-Control: public, max-age=86400
+/art/*
+  Cache-Control: public, max-age=86400

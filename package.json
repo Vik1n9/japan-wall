@@ -12,7 +12,8 @@
     "check": "node scripts/check.mjs",
     "prebuild": "node scripts/check.mjs",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "deploy": "npm run build && npx --yes wrangler@4 deploy"
   },
   "dependencies": {
     "astro": "7.3.5"

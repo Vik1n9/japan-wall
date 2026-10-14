@@ -19,6 +19,7 @@
 | `npm run ingest -- <日期> --redo <編號>` | 依展品檔的 `crop` / `blur` / `edit`（短片剪輯）重新轉檔 |
 | `npm run check` | 隱私與引用檢查（`npm run build` 前會自動執行） |
 | `npm run build` | 建置到 `dist/` |
+| `npm run deploy` | 建置並部署到 Cloudflare Workers（https://osaka2026.voriens.dev），對外發布前先問 Viking |
 
 專案指令：`/add-day <日期>`（新增一天）、`/review`（分享前檢查）。
 

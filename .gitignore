@@ -11,3 +11,6 @@ raw/*
 .tmp/
 
 .DS_Store
+
+# wrangler 本機暫存
+.wrangler/
