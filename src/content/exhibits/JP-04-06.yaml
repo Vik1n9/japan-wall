@@ -1,17 +1,15 @@
 # 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
 
-type: video
+type: photo
 date: "2026-10-08"
-time: "11:42"
-title: "護城河"
+time: "11:51"
+title: "天守與石垣"
 place: 大阪城公園
-note: "從船上拍攝護城河的水面與岸邊樹林。"
-media: media/2026-10-08/img_7450.mp4
-poster: media/2026-10-08/img_7450-poster.webp
-width: 1280
-height: 720
-duration: "0:39"
-source: IMG_7450.MOV
+note: "石垣上方露出天守閣，晴空。"
+media: media/2026-10-08/img_7462.webp
+width: 1600
+height: 1200
+source: IMG_7462.jpeg
 clip: null
 crop: null
 draft: true

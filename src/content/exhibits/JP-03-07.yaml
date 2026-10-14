@@ -1,15 +1,33 @@
 # 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
 
-type: photo
+type: video
 date: "2026-10-07"
-time: "18:27"
-title: "一排書"
-place: ""
-note: "床上排著八本書，封面多為動畫風格的插圖。"
-media: media/2026-10-07/img_7429.webp
-width: 1600
-height: 1200
-source: IMG_7429.jpeg
+time: "20:47"
+title: "通天閣"
+place: 新世界
+note: "夜晚點燈的通天閣與「Welcome to OSAKA」字樣。"
+media: media/2026-10-07/img_7431.mp4
+poster: media/2026-10-07/img_7431-poster.webp
+width: 720
+height: 1280
+duration: "0:14"
+source: IMG_7431.MOV
 clip: null
 crop: null
 draft: true
+edit:
+  stabilize: true
+  segments:
+    - start: 0
+      end: 0.99
+      speed: 0.65
+    - start: 0.99
+      end: 5.18
+      speed: 0.5
+    - start: 5.18
+      end: 6.91
+      speed: 0.65
+    - start: 6.91
+      end: 8.63
+remarks: 剪輯：運鏡統一到每秒 ≤15% 畫面寬（電影級），防手震，放慢 0–0.99 秒 ×0.65、0.99–5.18 秒
+  ×0.5、5.18–6.91 秒 ×0.65

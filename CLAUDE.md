@@ -16,7 +16,7 @@
 |---|---|
 | `npm run dev` | 本機預覽（http://localhost:4321），未掛上牆的展品會顯示紅色提示 |
 | `npm run ingest -- <日期> [--city 城市] [--place 地點]` | 匯入 `raw/<日期>/` 的原始照片與短片 |
-| `npm run ingest -- <日期> --redo <編號>` | 依展品檔的 `clip` / `crop` 重新轉檔 |
+| `npm run ingest -- <日期> --redo <編號>` | 依展品檔的 `crop` / `blur` / `edit`（短片剪輯）重新轉檔 |
 | `npm run check` | 隱私與引用檢查（`npm run build` 前會自動執行） |
 | `npm run build` | 建置到 `dist/` |
 
@@ -45,5 +45,6 @@
 - 日期採日本式 30 小時制：凌晨 0:00–5:59 歸前一天（時刻 24:00–29:59），`ingest` 自動換算；深夜素材放進前一天的 `raw/` 資料夾。
 - `ingest` 結束時會刪除整個 `.tmp/`，其他暫存檔不要放那裡。
 - 路人臉部虛化用展品檔的 `blur`（比例座標），`--redo` 會重新套用。
+- 短片剪輯用展品檔的 `edit`；防手震需要 `brew install ffmpeg-full`。運鏡速度統一到每秒 ≤15% 畫面寬（電影級），新短片也照這個標準。
 - HEIC 轉檔走 macOS 內建 `sips`，在雲端測試時沒有 HEIC 樣本，第一次匯入 HEIC 時請確認結果。
 - 新素材依拍攝時間編號；但對已有展品的日子追加素材時，新編號會接在後面，不會插入中間。

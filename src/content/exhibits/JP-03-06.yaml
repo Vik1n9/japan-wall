@@ -10,8 +10,19 @@ media: media/2026-10-07/img_7425.mp4
 poster: media/2026-10-07/img_7425-poster.webp
 width: 1280
 height: 720
-duration: "0:23"
+duration: "0:24"
 source: IMG_7425.MOV
 clip: null
 crop: null
 draft: true
+edit:
+  stabilize: false
+  segments:
+    - start: 0
+      end: 7.27
+    - start: 7.27
+      end: 9.27
+      speed: 0.8
+    - start: 9.27
+      end: 23.3
+remarks: 剪輯：運鏡統一到每秒 ≤15% 畫面寬（電影級），放慢 7.27–9.27 秒 ×0.8

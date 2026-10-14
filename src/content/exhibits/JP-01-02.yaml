@@ -1,15 +1,30 @@
 # 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
 
-type: photo
+type: video
 date: "2026-10-05"
-time: "12:13"
-title: "社殿與燈籠"
-place: 大鳥大社
-note: "社殿前掛著寫有「野代」「北王子」「新在家」「野田」「大鳥」的燈籠，屋簷下有金色匾額與注連繩。"
-media: media/2026-10-05/img_7365.webp
-width: 1600
-height: 1200
-source: IMG_7365.jpeg
-clip: null
+time: "01:48"
+title: "出境大廳的機器人"
+place: "桃園國際機場"
+note: "出境大廳裡，一台白色機器人在地上移動。"
+media: media/2026-10-05/flow_vid_20261005_014845_02_011.mp4
+poster: media/2026-10-05/flow_vid_20261005_014845_02_011-poster.webp
+width: 1280
+height: 720
+duration: "0:11"
+source: Flow_VID_20261005_014845_02_011.MOV
 crop: null
 draft: true
+remarks: 時刻取自檔名（台灣時間）；metadata 日期是匯出日 10-14。依 Viking 指示併入 DAY 1，不套 30 小時制；場景相近的
+  _013 捨棄；剪輯：運鏡統一到每秒 ≤15% 畫面寬（電影級），放慢 1.6–2.87 秒 ×0.5、2.87–3.37 秒 ×0.8
+edit:
+  stabilize: false
+  segments:
+    - start: 1.6
+      end: 2.87
+      speed: 0.5
+    - start: 2.87
+      end: 3.37
+      speed: 0.8
+    - start: 3.37
+      end: 11.47
+clip: null

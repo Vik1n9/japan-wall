@@ -10,31 +10,27 @@ columns:
   - width: 420
     items:
       - exhibit: JP-05-02
-      - exhibit: JP-05-03
       - text:
           time: "12:33"
           title: 臨空城
           body: 從摩天輪車廂望向海面與長橋。
-  - width: 300
-    items:
-      - exhibit: JP-05-04
       - slot: （一句當天的心得，由你填寫）
   - width: 420
     items:
-      - exhibit: JP-05-05
+      - exhibit: JP-05-03
   - width: 200
     items:
-      - exhibit: JP-05-06
+      - exhibit: JP-05-04
   - width: 300
     items:
-      - exhibit: JP-05-07
+      - exhibit: JP-05-05
   - width: 420
     items:
-      - exhibit: JP-05-08
+      - exhibit: JP-05-06
       - text:
           time: "17:42"
           title: 關西國際機場
           body: 停機坪上的長榮航空客機。
   - width: 200
     items:
-      - exhibit: JP-05-09
+      - exhibit: JP-05-07

@@ -4,48 +4,44 @@ date: "2026-10-08"
 city: 大阪
 place: 大阪城／道頓堀
 columns:
-  - width: 200
-    items:
-      - exhibit: JP-04-01
   - width: 300
     items:
-      - exhibit: JP-04-02
-      - exhibit: JP-04-03
+      - exhibit: JP-04-01
       - text:
           time: "10:09"
           title: 大阪城公園
           body: 晴空下的天守閣與城內建築。
   - width: 260
     items:
-      - exhibit: JP-04-04
-      - exhibit: JP-04-05
+      - exhibit: JP-04-02
+      - exhibit: JP-04-03
   - width: 420
     items:
-      - exhibit: JP-04-06
+      - exhibit: JP-04-04
       - text:
           time: "11:42"
           title: 護城河
           body: 從船上拍攝護城河的水面與岸邊。
   - width: 220
     items:
-      - exhibit: JP-04-07
+      - exhibit: JP-04-05
       - slot: （一句當天的心得，由你填寫）
   - width: 300
     items:
-      - exhibit: JP-04-08
+      - exhibit: JP-04-06
   - width: 200
     items:
-      - exhibit: JP-04-09
+      - exhibit: JP-04-07
   - width: 300
     items:
-      - exhibit: JP-04-10
+      - exhibit: JP-04-08
       - text:
           time: "14:45"
           title: 道頓堀
           body: 固力果跑者看板前。
   - width: 200
     items:
-      - exhibit: JP-04-11
+      - exhibit: JP-04-09
   - width: 420
     items:
-      - exhibit: JP-04-12
+      - exhibit: JP-04-10

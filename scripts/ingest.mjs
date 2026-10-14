@@ -144,23 +144,75 @@ async function convertPhoto(src, out, crop, blur) {
   return { width: info.width, height: info.height };
 }
 
-async function convertVideo(src, out, poster, clip) {
-  const args = ['-v', 'error', '-y'];
-  if (clip) args.push('-ss', String(clip.start));
-  args.push('-i', src);
-  if (clip) args.push('-t', String(clip.duration));
-  args.push(
-    '-map', '0:v:0', '-an', '-sn', '-dn', '-map_metadata', '-1', '-map_chapters', '-1',
-    '-vf', "scale='if(gte(iw,ih),min(1280,iw),min(720,iw))':-2",
-    '-c:v', 'libx264', '-preset', 'slow', '-crf', String(CRF), '-pix_fmt', 'yuv420p', '-r', '30',
-    '-movflags', '+faststart', out,
-  );
-  run('ffmpeg', args);
-  const size = videoSize(out);
-  // 封面：取片中約 1 秒處
+/** 有 ffmpeg-full（brew install ffmpeg-full，含 libvidstab）就優先用它；可用環境變數 FFMPEG 指定 */
+const FFMPEG = process.env.FFMPEG ?? (existsSync('/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg') ? '/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg' : 'ffmpeg');
+
+function sourceFps(file) {
+  const j = JSON.parse(run('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=avg_frame_rate', '-of', 'json', file]));
+  const [n, d] = (j.streams[0].avg_frame_rate ?? '30/1').split('/').map(Number);
+  return d ? n / d : 30;
+}
+
+/**
+ * 短片轉檔。剪輯參數來自展品檔：
+ *   clip：{ start, duration }（舊格式，等同一段、速度 1）
+ *   edit：{ stabilize, segments: [{ start, end, speed }], poster }
+ *     stabilize  雙階段 vidstab 防手震（需要 ffmpeg-full）；smoothing 平滑強度（預設 24，越大越穩但反應越慢）
+ *     segments   依序取原片的這些段落再接起來，沒列到的部分捨棄；speed < 1 是放慢
+ *     poster     封面取剪輯後第幾秒（預設 1 秒）
+ */
+async function convertVideo(src, out, poster, clip, edit) {
   await mkdir(P('.tmp'), { recursive: true });
+  const fps = sourceFps(src);
+  const segments = edit?.segments?.length
+    ? edit.segments
+    : clip ? [{ start: clip.start, end: clip.start + clip.duration }] : null;
+
+  const head = [];
+  if (edit?.stabilize) {
+    const trf = P('.tmp', `${basename(out)}.trf`);
+    try {
+      run(FFMPEG, ['-v', 'error', '-y', '-i', src, '-vf', `vidstabdetect=shakiness=7:accuracy=15:result=${trf}`, '-f', 'null', '-']);
+    } catch {
+      throw new Error(`防手震需要含 libvidstab 的 ffmpeg：brew install ffmpeg-full（目前用的是 ${FFMPEG}）`);
+    }
+    head.push(`vidstabtransform=input=${trf}:smoothing=${edit.smoothing ?? 24}:optzoom=1:zoomspeed=0.2:interpol=bicubic`, 'unsharp=5:5:0.5:3:3:0.3');
+  }
+
+  const scale = "scale='if(gte(iw,ih),min(1280,iw),min(720,iw))':-2";
+  let graph;
+  if (!segments) {
+    graph = `[0:v]${[...head, 'fps=30', scale, 'format=yuv420p'].join(',')}[out]`;
+  } else {
+    const n = segments.length;
+    const pre = n > 1 ? [...head, `split=${n}`] : head;
+    const labels = segments.map((_, i) => `[s${i}]`).join('');
+    const parts = segments.map((g, i) => {
+      const speed = g.speed ?? 1;
+      const chain = [`trim=start=${g.start}:end=${g.end}`, `setpts=(PTS-STARTPTS)/${speed}`];
+      // 放慢後若原片的格數撐不到 30fps，用動態補幀；否則直接取 30fps
+      chain.push(fps * speed < 29 ? 'minterpolate=fps=30:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1' : 'fps=30');
+      return `[s${i}]${chain.join(',')}[v${i}]`;
+    });
+    const first = pre.length ? `[0:v]${pre.join(',')}${labels}` : '';
+    const src0 = pre.length ? '' : null;
+    graph = [
+      ...(first ? [first] : []),
+      ...parts.map((p) => (src0 === null && n === 1 ? p.replace('[s0]', '[0:v]') : p)),
+      `${segments.map((_, i) => `[v${i}]`).join('')}concat=n=${n}:v=1:a=0,${scale},format=yuv420p[out]`,
+    ].join(';');
+  }
+  run(FFMPEG, [
+    '-v', 'error', '-y', '-i', src, '-filter_complex', graph, '-map', '[out]',
+    '-an', '-sn', '-dn', '-map_metadata', '-1', '-map_chapters', '-1',
+    '-c:v', 'libx264', '-preset', 'slow', '-crf', String(CRF), '-r', '30',
+    '-movflags', '+faststart', out,
+  ]);
+  const size = videoSize(out);
+  // 封面：預設取剪輯後約 1 秒處，可用 edit.poster 指定
   const frame = P('.tmp', `${basename(out)}.png`);
-  run('ffmpeg', ['-v', 'error', '-y', '-ss', String(Math.min(1, size.duration / 2)), '-i', out, '-frames:v', '1', frame]);
+  const at = Math.min(edit?.poster ?? 1, Math.max(0, size.duration - 0.1));
+  run(FFMPEG, ['-v', 'error', '-y', '-ss', String(at), '-i', out, '-frames:v', '1', frame]);
   await sharp(frame).webp({ quality: 72 }).toFile(poster);
   return size;
 }
@@ -199,7 +251,7 @@ if (opt.redo?.length) {
     const out = join(P('public'), e.data.media);
     if (e.data.type === 'video') {
       const poster = join(P('public'), e.data.poster ?? e.data.media.replace(/\.mp4$/, '-poster.webp'));
-      const s = await convertVideo(src, out, poster, e.data.clip);
+      const s = await convertVideo(src, out, poster, e.data.clip, e.data.edit);
       e.doc.set('width', s.width); e.doc.set('height', s.height); e.doc.set('duration', mmss(s.duration)); quote(e.doc, ['duration']);
     } else {
       const s = await convertPhoto(src, out, e.data.crop, e.data.blur);
@@ -239,7 +291,7 @@ for (const it of items) {
   const poster = join(outDir, `${name}-poster.webp`);
   if (opt.dry) { console.log(`[dry] ${id} ← ${it.f}（${it.type}，${it.taken?.time ?? '時刻不明'}）`); newIds.push(id); continue; }
 
-  const s = it.type === 'video' ? await convertVideo(it.src, media, poster, null) : await convertPhoto(it.src, media, null);
+  const s = it.type === 'video' ? await convertVideo(it.src, media, poster, null, null) : await convertPhoto(it.src, media, null);
   const data = {
     type: it.type,
     date,

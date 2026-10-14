@@ -1,15 +1,30 @@
 # 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
 
-type: photo
+type: video
 date: "2026-10-06"
-time: "16:29"
-title: "浣熊市警察局"
-place: 日本環球影城
-note: "招牌寫著 RACCOON POLICE 的場景布置，紫紅色燈光下有持槍角色與殭屍造型。"
-media: media/2026-10-06/img_7404.webp
-width: 1600
-height: 1200
-source: IMG_7404.jpeg
-clip: null
+time: "18:41"
+title: "霍格華茲城堡"
+place: 日本環球影城 哈利波特魔法世界
+note: "從活米村走到城堡前，鏡頭由左往右帶到城堡全景。"
+media: media/2026-10-06/img_7409.mp4
+poster: media/2026-10-06/img_7409-poster.webp
+width: 720
+height: 1280
+duration: "0:12"
+source: IMG_7409.MOV
 crop: null
 draft: true
+edit:
+  stabilize: true
+  segments:
+    - start: 0
+      end: 1.24
+      speed: 0.5
+    - start: 3.96
+      end: 6.93
+      speed: 0.5
+    - start: 6.93
+      end: 10.4
+clip: null
+remarks: 剪輯：運鏡統一到每秒 ≤15% 畫面寬（電影級），防手震，放慢 0–1.24 秒 ×0.5、3.96–6.93 秒 ×0.5，剪掉
+  1.2–4.0 秒（運鏡過猛，需慢於 0.5 倍）

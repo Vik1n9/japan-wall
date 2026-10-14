@@ -2,16 +2,25 @@
 
 type: video
 date: "2026-10-09"
-time: "12:36"
-title: "海上長橋"
+time: "13:26"
+title: "保齡球"
 place: 臨空城
-note: "從摩天輪車廂望向海面與長橋。"
-media: media/2026-10-09/img_7501.mp4
-poster: media/2026-10-09/img_7501-poster.webp
+note: "保齡球館的計分螢幕與球道。"
+media: media/2026-10-09/img_7515.mp4
+poster: media/2026-10-09/img_7515-poster.webp
 width: 1280
 height: 720
-duration: "0:18"
-source: IMG_7501.MOV
-clip: null
+duration: "0:08"
+source: IMG_7515.MOV
 crop: null
 draft: true
+edit:
+  stabilize: false
+  segments:
+    - start: 0
+      end: 6.5
+    - start: 6.5
+      end: 7.25
+      speed: 0.65
+clip: null
+remarks: 剪輯：運鏡統一到每秒 ≤15% 畫面寬（電影級），放慢 6.5–7.25 秒 ×0.65，剪掉 7.2–8.0 秒（運鏡過猛，需慢於 0.5 倍）

@@ -1,16 +1,24 @@
 # 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
 
-type: photo
+type: video
 date: "2026-10-05"
-time: "12:13"
-title: "鳥居前"
-place: 大鳥大社
-note: "石板參道上的鳥居，兩位同行友人撐著黃色雨傘走過。"
-media: media/2026-10-05/img_7366.webp
-width: 1600
-height: 1200
-source: IMG_7366.jpeg
-clip: null
+time: "04:08"
+title: "候機"
+place: "桃園國際機場"
+note: "機場美食區，同行友人坐在桌邊。"
+media: media/2026-10-05/flow_vid_20261005_040852_02_015.mp4
+poster: media/2026-10-05/flow_vid_20261005_040852_02_015-poster.webp
+width: 1280
+height: 720
+duration: "0:12"
+source: Flow_VID_20261005_040852_02_015.MOV
 crop: null
 draft: true
-remarks: 畫面中兩位為同行友人，Viking 確認可展出
+remarks: 時刻取自檔名（台灣時間）；metadata 日期是匯出日 10-14。依 Viking 指示併入 DAY 1，不套 30
+  小時制；剪輯：運鏡統一到每秒 ≤15% 畫面寬（電影級）
+edit:
+  stabilize: false
+  segments:
+    - start: 0
+      end: 12
+clip: null

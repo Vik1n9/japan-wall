@@ -1,15 +1,23 @@
 # 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
 
-type: photo
+type: video
 date: "2026-10-09"
-time: "13:42"
-title: "拉麵"
-place: ""
-note: "筷子夾起麵條，湯色偏紅，旁邊一碗白飯。"
-media: media/2026-10-09/img_7516.webp
-width: 1200
-height: 1600
-source: IMG_7516.jpeg
+time: "17:42"
+title: "長榮班機"
+place: 關西國際機場
+note: "從窗戶看見停機坪上的長榮航空客機。"
+media: media/2026-10-09/img_7528.mp4
+poster: media/2026-10-09/img_7528-poster.webp
+width: 1280
+height: 720
+duration: "0:26"
+source: IMG_7528.MOV
 clip: null
 crop: null
 draft: true
+edit:
+  stabilize: false
+  segments:
+    - start: 0
+      end: 26.17
+remarks: 剪輯：運鏡統一到每秒 ≤15% 畫面寬（電影級）

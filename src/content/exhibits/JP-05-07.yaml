@@ -1,15 +1,23 @@
 # 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
 
-type: photo
+type: video
 date: "2026-10-09"
-time: "14:56"
-title: "賽馬海報"
-place: ""
-note: "牆上掛著賽馬海報，下方排著一排玩偶。"
-media: media/2026-10-09/img_7521.webp
-width: 1600
-height: 1200
-source: IMG_7521.jpeg
-clip: null
+time: "18:36"
+title: "夜航"
+place: 機上
+note: "夜晚的機窗外，可見地面燈火。"
+media: media/2026-10-09/img_7529.mp4
+poster: media/2026-10-09/img_7529-poster.webp
+width: 720
+height: 1280
+duration: "0:03"
+source: IMG_7529.MOV
 crop: null
 draft: true
+edit:
+  stabilize: true
+  segments:
+    - start: 0
+      end: 3.21
+clip: null
+remarks: 剪輯：運鏡統一到每秒 ≤15% 畫面寬（電影級），防手震，剪掉 3.2–4.2 秒（運鏡過猛，需慢於 0.5 倍）

@@ -7,29 +7,34 @@ columns:
   - width: 420
     items:
       - exhibit: JP-01-01
+      - exhibit: JP-01-02
+      - text:
+          time: "01:48"
+          title: 桃園國際機場
+          body: 出發前在機場候機。
+  - width: 420
+    items:
+      - exhibit: JP-01-03
+  - width: 420
+    items:
+      - exhibit: JP-01-04
       - text:
           time: "06:46"
           title: 出發
           body: 機艙窗外的機翼與雲層。時刻為台灣時間。
   - width: 300
     items:
-      - exhibit: JP-01-02
-      - exhibit: JP-01-03
+      - exhibit: JP-01-05
+      - exhibit: JP-01-06
       - text:
           time: "12:13"
           title: 大鳥大社
           body: 社殿前掛著寫有地名的燈籠。
-  - width: 420
-    items:
-      - exhibit: JP-01-04
       - slot: （一句當天的心得，由你填寫）
-  - width: 260
-    items:
-      - exhibit: JP-01-05
   - width: 280
     items:
-      - exhibit: JP-01-06
       - exhibit: JP-01-07
+      - exhibit: JP-01-08
       - text:
           time: "24:10"
           title: 深夜

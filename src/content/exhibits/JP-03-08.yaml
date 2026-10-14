@@ -1,17 +1,15 @@
 # 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
 
-type: video
+type: photo
 date: "2026-10-07"
-time: "20:47"
-title: "通天閣"
+time: "20:53"
+title: "王將碑"
 place: 新世界
-note: "夜晚點燈的通天閣與「Welcome to OSAKA」字樣。"
-media: media/2026-10-07/img_7431.mp4
-poster: media/2026-10-07/img_7431-poster.webp
-width: 720
-height: 1280
-duration: "0:09"
-source: IMG_7431.MOV
+note: "刻有「王将」的石碑，旁邊立著將棋盤面的看板。"
+media: media/2026-10-07/img_7432.webp
+width: 1600
+height: 1200
+source: IMG_7432.jpeg
 clip: null
 crop: null
 draft: true

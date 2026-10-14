@@ -2,16 +2,25 @@
 
 type: video
 date: "2026-10-05"
-time: "12:17"
-title: "參道"
-place: 大鳥大社
-note: "從參道望向鳥居與社殿，天空多雲。"
-media: media/2026-10-05/img_7369.mp4
-poster: media/2026-10-05/img_7369-poster.webp
+time: "06:46"
+title: "機窗外"
+place: 機上
+note: "機艙窗外的機翼與雲層。時刻為台灣時間。"
+media: media/2026-10-05/img_7362.mp4
+poster: media/2026-10-05/img_7362-poster.webp
 width: 1280
 height: 720
-duration: "0:11"
-source: IMG_7369.MOV
-clip: null
+duration: "0:12"
+source: IMG_7362.MOV
 crop: null
 draft: true
+edit:
+  stabilize: true
+  segments:
+    - start: 0
+      end: 11.45
+    - start: 11.45
+      end: 12.2
+      speed: 0.8
+clip: null
+remarks: 剪輯：運鏡統一到每秒 ≤15% 畫面寬（電影級），防手震，放慢 11.45–12.2 秒 ×0.8

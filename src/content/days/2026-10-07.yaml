@@ -23,16 +23,13 @@ columns:
     items:
       - exhibit: JP-03-05
       - exhibit: JP-03-06
-  - width: 260
-    items:
-      - exhibit: JP-03-07
   - width: 200
     items:
-      - exhibit: JP-03-08
+      - exhibit: JP-03-07
       - text:
           time: "20:47"
           title: 新世界
           body: 夜晚點燈的通天閣。
   - width: 260
     items:
-      - exhibit: JP-03-09
+      - exhibit: JP-03-08

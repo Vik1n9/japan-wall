@@ -1,15 +1,32 @@
 # 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
 
-type: photo
+type: video
 date: "2026-10-06"
-time: "13:36"
-title: "俯瞰園區"
-place: 日本環球影城 超級任天堂世界
-note: "從高處往下看，遠處是城堡，下方是繞行的遊樂設施。"
-media: media/2026-10-06/img_7400.webp
-width: 1600
-height: 1200
-source: IMG_7400.jpeg
-clip: null
+time: "18:39"
+title: "活米村"
+place: 日本環球影城 哈利波特魔法世界
+note: "傍晚六點半，天色轉暗，街上的店鋪亮起燈。"
+media: media/2026-10-06/img_7408.mp4
+poster: media/2026-10-06/img_7408-poster.webp
+width: 720
+height: 1280
+duration: "0:07"
+source: IMG_7408.MOV
 crop: null
 draft: true
+remarks: 只取原片第 6 秒起 5 秒：開頭晃動嚴重，且拍到一位路人的正臉。；開頭 2 秒轉身放慢 0.6 倍（原片 24fps，補幀）。平滑強度調到
+  60 反而變差，維持預設 24；剪輯：運鏡統一到每秒 ≤15% 畫面寬（電影級），防手震，放慢 6–8.25 秒 ×0.5、8.25–9 秒
+  ×0.65、9–10 秒 ×0.8
+edit:
+  stabilize: true
+  segments:
+    - start: 6
+      end: 8.25
+      speed: 0.5
+    - start: 8.25
+      end: 9
+      speed: 0.65
+    - start: 9
+      end: 10
+      speed: 0.8
+clip: null

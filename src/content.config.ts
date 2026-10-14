@@ -86,6 +86,16 @@ const exhibits = defineCollection({
     source: z.string().nullable().default(null), // raw/ 裡的原始檔名
     clip: z.object({ start: z.number().min(0), duration: z.number().positive() }).nullable().default(null),
     crop: z.object({ top: z.number().min(0).max(1), bottom: z.number().min(0).max(1) }).nullable().default(null), // 照片上下裁切，以高度比例表示
+    // 短片剪輯：防手震、片段取捨與調速、封面時間點（ingest 轉檔時套用，見 scripts/ingest.mjs）
+    edit: z
+      .object({
+        stabilize: z.boolean().default(false),
+        smoothing: z.number().int().min(1).max(100).optional(), // 防手震平滑強度，預設 24
+        segments: z.array(z.object({ start: z.number().min(0), end: z.number().positive(), speed: z.number().positive().max(4).default(1) })).optional(),
+        poster: z.number().min(0).optional(),
+      })
+      .nullable()
+      .default(null),
     // 路人臉部虛化：[x, y, w, h]（轉正後整張照片的比例，0–1），ingest 轉檔時套用
     blur: z.array(z.array(z.number().min(0).max(1)).length(4)).nullable().default(null),
     draft: z.boolean().default(true),     // 標題與說明確認後改成 false

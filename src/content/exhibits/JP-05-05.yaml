@@ -1,17 +1,15 @@
 # 由 ingest 產生。title / note 只寫畫面看得到的事實；確認後把 draft 改成 false
 
-type: video
+type: photo
 date: "2026-10-09"
-time: "13:26"
-title: "保齡球"
-place: 臨空城
-note: "保齡球館的計分螢幕與球道。"
-media: media/2026-10-09/img_7515.mp4
-poster: media/2026-10-09/img_7515-poster.webp
-width: 1280
-height: 720
-duration: "0:11"
-source: IMG_7515.MOV
+time: "14:56"
+title: "賽馬海報"
+place: ""
+note: "牆上掛著賽馬海報，下方排著一排玩偶。"
+media: media/2026-10-09/img_7521.webp
+width: 1600
+height: 1200
+source: IMG_7521.jpeg
 clip: null
 crop: null
 draft: true

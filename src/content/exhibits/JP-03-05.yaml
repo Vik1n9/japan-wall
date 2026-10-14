@@ -10,9 +10,15 @@ media: media/2026-10-07/img_7424.mp4
 poster: media/2026-10-07/img_7424-poster.webp
 width: 1280
 height: 720
-duration: "0:11"
+duration: "0:06"
 source: IMG_7424.MOV
-clip: null
 crop: null
 draft: true
-remarks: 封面取在第 1 秒，畫面模糊，剪輯時一併重選
+remarks: 封面取在第 1 秒，畫面模糊，剪輯時一併重選；封面取第 2 秒；剪輯：運鏡統一到每秒 ≤15% 畫面寬（電影級）
+edit:
+  stabilize: false
+  segments:
+    - start: 5
+      end: 10.9
+  poster: 2
+clip: null

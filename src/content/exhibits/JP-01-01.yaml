@@ -2,16 +2,33 @@
 
 type: video
 date: "2026-10-05"
-time: "06:46"
-title: "機窗外"
-place: 機上
-note: "機艙窗外的機翼與雲層。時刻為台灣時間。"
-media: media/2026-10-05/img_7362.mp4
-poster: media/2026-10-05/img_7362-poster.webp
+time: "01:48"
+title: "候機大廳的吊燈"
+place: "桃園國際機場"
+note: "鏡頭從地面往上搖到天花板的圓形吊燈與鋼構屋頂。"
+media: media/2026-10-05/flow_vid_20261005_014809_02_009.mp4
+poster: media/2026-10-05/flow_vid_20261005_014809_02_009-poster.webp
 width: 1280
 height: 720
-duration: "0:13"
-source: IMG_7362.MOV
-clip: null
+duration: "0:07"
+source: Flow_VID_20261005_014809_02_009.MOV
 crop: null
 draft: true
+remarks: 時刻取自檔名（台灣時間）；metadata 日期是匯出日 10-14。依 Viking 指示併入 DAY 1，不套 30 小時制；同一鏡頭的
+  _007 捨棄；剪輯：運鏡統一到每秒 ≤15% 畫面寬（電影級），放慢 4.72–5.98 秒 ×0.5、5.98–6.73 秒
+  ×0.65、6.73–7.49 秒 ×0.8，剪掉 0.2–4.7 秒（運鏡過猛，需慢於 0.5 倍）
+edit:
+  stabilize: false
+  segments:
+    - start: 4.72
+      end: 5.98
+      speed: 0.5
+    - start: 5.98
+      end: 6.73
+      speed: 0.65
+    - start: 6.73
+      end: 7.49
+      speed: 0.8
+    - start: 7.49
+      end: 10.5
+clip: null
