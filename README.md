@@ -283,7 +283,7 @@ claude.ai 上已發佈的三個版本（私人連結，只有使用者能開）�
 1. 把專案帶到要部署的機器（目前沒有 Git 遠端倉庫）：部署只需要 Git 追蹤的檔案（`public/media/` 已在版控裡），`raw/` 原始檔不用帶；只有要重新剪輯或匯入時才需要 `raw/` 與 `brew install ffmpeg ffmpeg-full`。
 2. `npm install`
 3. `npx --yes wrangler@4 login`（瀏覽器授權；舊憑證已在 2026-09 過期）
-4. `npx --yes wrangler@4 whoami` 確認帳號是 viking.lu@gmail.com（account `6f5daa16ee02b0af05e4a4a64847b4d1`）
+4. `npx --yes wrangler@4 whoami` 確認登入的是 Viking 的 Cloudflare 帳號（`voriens.dev` 所在的帳號）
 5. `npm run deploy`：建置後部署 Worker `osaka2026`，並綁定自訂網域 `osaka2026.voriens.dev`（`voriens.dev` zone 已在同帳號，子網域與 Worker 名稱都確認沒被佔用）
 6. 部署後用瀏覽器檢查桌機與手機寬度、開一張展品說明卡、播一支短片。
 
