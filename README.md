@@ -30,7 +30,7 @@ npm run dev                 # http://localhost:4321
 - 不要迎合；推論有問題要直接指出。
 - 有多種做法時，列出優缺點與適用情境。
 - 重視流程、邏輯與證據。發現更好的方法可以主動提出，但要說明理由。
-- 使用者熟悉 Claude Code 與命令列；電腦為 **macOS（Apple Silicon，MacBook Air）**，專案資料夾慣例放在 `~/Workspace/`［推論：家目錄下有 Workspace 資料夾，未經確認］。
+- 使用者熟悉 Claude Code 與命令列；電腦為 **macOS（Mac mini，Apple M6，32GB，有風扇）**［事實：Viking 2026-10-14 更正］，專案資料夾慣例放在 `~/Workspace/`［推論：家目錄下有 Workspace 資料夾，未經確認］。
 
 ---
 
@@ -91,7 +91,7 @@ npm run dev                 # http://localhost:4321
 
 - **網站標題改為「大阪行」**［事實：Viking 決定，整站標題］。標題文字改用書法圖：參考日本清酒商標的狂放筆勢，`public/art/osaka-title-v.svg`（直書，紅布條）與 `osaka-title-h.svg`（橫書，頂端列與介紹區）。SVG 以 CSS `mask` 上色，墨色跟著淺色／深色模式；`h1` 保留隱藏文字給螢幕閱讀器。
 - **牆腳石垣**：`public/art/ishigaki.webp`，左右無縫重複，鋪在牆面最下方 `--dado`（桌機 150px、手機 96px）；內容區往上讓出同樣高度，石垣不壓到展品。深色模式以 `--dado-filter` 壓暗。
-- **序幕天守閣**：`public/art/castle.webp`（透明背景），放在布條旁邊，底部站在石垣上。
+- **序幕天守閣**：`public/art/castle.webp`（透明背景，960×871），放大當序幕背景（桌機 620px 高、手機 440px），底部站在石垣上；紅布條與照片布條掛在它前面，介紹文字排在右側［事實：Viking 要求「放大當背景，被布條擋住也沒關係」］。
 - 風格為浮世繪木版畫。來源：Viking 拍的大阪城石垣與天守照片當結構參考，本機以 FLUX.2 Klein 4B（mflux）風格化；**這些是裝飾，不是展品**，不列入展品編號。
 - 素材路徑都在 `trip.yaml` 的 `art` 區塊，拿掉任一項就回到原本的文字或素牆。
 

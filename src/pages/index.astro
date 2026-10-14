@@ -54,7 +54,7 @@ const wallStyle = art.wall ? `--dado-img:url(${asset(art.wall)})` : undefined;
             {trip.banner.photo && (
               <div class="banner photo"><img src={asset(trip.banner.photo)} alt="" />{trip.banner.caption && <em>{trip.banner.caption}</em>}</div>
             )}
-            {art.castle && <img class="castle" src={asset(art.castle)} alt="" width="882" height="800" decoding="async" />}
+            {art.castle && <img class="castle" src={asset(art.castle)} alt="" width="960" height="871" decoding="async" />}
             <div class="intro">
               <div class="eyebrow">{trip.eyebrow}</div>
               <h1>{art.titleH ? <><span class="sr">{trip.title}</span><span class="art-title h" aria-hidden="true" style={artMask(art.titleH)}></span></> : trip.title}</h1>

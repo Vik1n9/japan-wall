@@ -15,7 +15,7 @@ img{max-width:100%}
   --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
   --colw:240px; --step:34px;
-  --dado:150px; --dado-filter:none; --castle-h:340px;
+  --dado:150px; --dado-filter:none; --castle-h:620px; --castle-x:40px;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -70,9 +70,11 @@ button{font:inherit;color:inherit}
 .intro h1 .art-title.h{height:4.2rem;margin-left:-6px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
-/* 序幕的天守插圖：站在石垣上 */
-.prelude{align-self:stretch}
-.castle{flex:none;align-self:flex-end;height:var(--castle-h);width:auto;margin-bottom:-24px;margin-inline:-8px 4px}
+/* 序幕的天守閣：放大當背景，站在石垣上；布條掛在前面，介紹文字排在它右側 */
+.prelude{align-self:stretch;position:relative}
+.prelude > :not(.castle){position:relative;z-index:1}
+.castle{position:absolute;left:var(--castle-x);bottom:-24px;height:var(--castle-h);width:auto;z-index:0;pointer-events:none}
+.prelude:has(.castle) .intro{margin-left:calc(var(--castle-h) * 960 / 871 + var(--castle-x) - 360px)}
 
 /* prelude */
 .prelude{display:flex;align-items:flex-start;gap:26px;padding-top:52px;margin-right:56px;flex:none}
@@ -201,10 +203,11 @@ button{font:inherit;color:inherit}
 .read .bay{width:min(100%,340px);height:auto}
 .read .finale{padding-top:36px;width:auto}
 .read .prelude{align-self:auto}
-.read .castle{height:auto;width:min(100%,360px);margin:0}
+.read .castle{position:static;height:auto;width:min(100%,420px);margin:0}
+.read .prelude:has(.castle) .intro{margin-left:0}
 
 @media (max-width:760px){
-  :root{--colw:200px;--step:26px;--dado:96px;--castle-h:230px}
+  :root{--colw:200px;--step:26px;--dado:96px;--castle-h:440px;--castle-x:20px}
   .banner:has(.art-title.v){width:104px}
   .art-title.v{height:240px}
   .bar .t small{display:none}
