@@ -20,7 +20,7 @@ art:
   wall: art/ishigaki.webp
   castle: art/castle.webp
   eave: art/eave.svg   # 石垣上方的瓦屋簷（SVG 手繪，可替換）
-  rope: art/shimenawa.webp     # 年代橫線改成注連繩（Qwen-Image 2.1 以天守閣為風格參考生成，左右無縫）
+  rope: art/shimenawa.webp     # 年代橫線改成注連繩（Qwen-Image 2.1 生成，再以 Klein 4B 參考天守閣轉成浮世繪，左右無縫）
   shide: art/shide.webp        # 紙垂
   emaRoof: art/ema-roof.webp   # 文字卡的繪馬屋頂（Klein 4B 依 Viking 的淺草神社繪馬照片生成，空白）
   emaBody: art/ema-body.webp   # 繪馬板身
@@ -31,10 +31,10 @@ sources:
     license: CC BY-SA 4.0
     licenseUrl: https://creativecommons.org/licenses/by-sa/4.0/
     url: https://commons.wikimedia.org/wiki/File:Universal_Studios_Japan_entrance.jpg
-    changes: 經裁切與縮小
+    changes: 經裁切、縮小，並以 AI（FLUX.2 Klein）轉為浮世繪風格
   - what: 10.09 背景 臨空城摩天輪
     author: Nankou Oronain
     license: CC BY-SA 3.0
     licenseUrl: https://creativecommons.org/licenses/by-sa/3.0/
     url: https://commons.wikimedia.org/wiki/File:%E3%82%8A%E3%82%93%E3%81%8F%E3%81%86%E3%82%B7%E3%83%BC%E3%82%AF%E3%83%AB%E3%81%AE%E5%A4%A7%E8%A6%B3%E8%A6%A7%E8%BB%8A_Ferris_wheel_of_Rinku_SEACLE_2012.10.21_-_panoramio.jpg
-    changes: 經縮小
+    changes: 經縮小，並以 AI（FLUX.2 Klein）轉為浮世繪風格
