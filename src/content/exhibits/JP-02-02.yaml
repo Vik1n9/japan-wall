@@ -14,5 +14,5 @@ clip: null
 crop:
   top: 0.093
   bottom: 0.611
-draft: true
+draft: false
 remarks: 原圖下方有一道白色遮擋（推測是手指或吊繩），已從 2576×1932 原圖裁取 y=180～1180。

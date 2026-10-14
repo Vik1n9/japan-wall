@@ -12,7 +12,7 @@ height: 1600
 source: IMG_7477.jpeg
 clip: null
 crop: null
-draft: true
+draft: false
 remarks: 路人臉部以 OpenCV YuNet 偵測後虛化（blur 欄位）：移除 1 處誤判（上衣）、手動補 2 處漏抓；Viking 同意虛化後公開
 blur:
   - [ 0.8976, 0.6718, 0.0282, 0.0275 ]

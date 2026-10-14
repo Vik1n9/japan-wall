@@ -14,7 +14,7 @@ duration: "0:14"
 source: IMG_7431.MOV
 clip: null
 crop: null
-draft: true
+draft: false
 edit:
   stabilize: true
   segments:

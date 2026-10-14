@@ -13,7 +13,7 @@ height: 720
 duration: "0:08"
 source: IMG_7515.MOV
 crop: null
-draft: true
+draft: false
 edit:
   stabilize: false
   segments:

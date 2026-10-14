@@ -13,7 +13,7 @@ height: 720
 duration: "0:06"
 source: IMG_7424.MOV
 crop: null
-draft: true
+draft: false
 remarks: 封面取在第 1 秒，畫面模糊，剪輯時一併重選；封面取第 2 秒；剪輯：運鏡統一到每秒 ≤15% 畫面寬（電影級）
 edit:
   stabilize: false

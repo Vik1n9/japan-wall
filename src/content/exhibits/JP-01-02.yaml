@@ -13,7 +13,7 @@ height: 720
 duration: "0:11"
 source: Flow_VID_20261005_014845_02_011.MOV
 crop: null
-draft: true
+draft: false
 remarks: 時刻取自檔名（台灣時間）；metadata 日期是匯出日 10-14。依 Viking 指示併入 DAY 1，不套 30 小時制；場景相近的
   _013 捨棄；剪輯：運鏡統一到每秒 ≤15% 畫面寬（電影級），放慢 1.6–2.87 秒 ×0.5、2.87–3.37 秒 ×0.8
 edit:

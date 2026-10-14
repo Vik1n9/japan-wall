@@ -22,7 +22,8 @@ const meta = day.status === 'pending'
               <h4>{it.title}</h4><p>{it.body}</p>
             </div>
           );
-          if (it.kind === 'slot') return <div class="it it-slot">{it.text}<small>心得欄位</small></div>;
+          // 心得欄位是給 Viking 的提示：只在本機預覽顯示，公開版不出現。填好的心得改用 text 文字卡
+          if (it.kind === 'slot') return import.meta.env.DEV ? <div class="it it-slot">{it.text}<small>心得欄位</small></div> : null;
           const e = it.exhibit;
           return (
             <button class="it it-media" data-i={it.index} aria-label={`查看展品 ${e.title || e.id}`}>
