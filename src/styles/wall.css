@@ -14,9 +14,9 @@ img{max-width:100%}
   --f-display:"Noto Serif TC","Songti TC","PMingLiU",serif;
   --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-  --colw:240px;
-  --dado:150px; --dado-filter:none; --castle-h:620px; --castle-x:40px;
-  --eave:34px; --rope:24px; --shide:52px; --rope-filter:none; --ema-filter:none; --days-pt:20px; --banner-w:128px; --era-h:70px; --backdrop-op:.4; --backdrop-filter:saturate(.85);
+  --colw:240px; --wall-scale:1;
+  --dado:116px; --dado-filter:none; --castle-h:520px; --castle-x:40px;
+  --eave:26px; --rope:20px; --shide:38px; --rope-filter:none; --ema-filter:none; --days-pt:16px; --banner-w:128px; --era-h:58px; --backdrop-op:.4; --backdrop-filter:saturate(.85);
   --ema-wood:#D8B98C; --ema-edge:#AD8856; --ema-ink:#1C1A18; --ema-cord:#C2332A;
 }
 @media (prefers-color-scheme: dark){
@@ -32,7 +32,8 @@ img{max-width:100%}
   --ema-wood:#7A5A3A; --ema-edge:#9C7853; --ema-ink:#F2EBDD; --ema-cord:#B83B32;
 }
 *{box-sizing:border-box}
-body{background:var(--page);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.7;padding-inline:16px;padding-block:0 40px}
+body{background:var(--page);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.7;padding-inline:16px;padding-block:0 8px}
+body.read{padding-bottom:40px}
 button{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--red);outline-offset:2px}
 
@@ -47,25 +48,25 @@ button{font:inherit;color:inherit}
 .pan button{width:32px;height:30px;border:1px solid var(--rule);background:var(--panel);cursor:pointer;font-family:var(--f-mono)}
 
 /* wall */
-.hall{margin-inline:-16px;margin-top:18px}
+.hall{margin-inline:-16px;margin-top:8px}
 .scroller{overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;overscroll-behavior-x:contain}
-.wall{position:relative;display:flex;align-items:flex-start;width:max-content;min-width:100%;padding-block:16px 40px;padding-inline:32px 56px;
+.wall{position:relative;display:flex;align-items:flex-start;width:max-content;min-width:100%;padding-block:12px 32px;padding-inline:32px 56px;
   background:radial-gradient(ellipse 210px 440px at 50% 0,var(--glow),transparent 72%) 0 0/420px 100% repeat-x,var(--wall);
   box-shadow:0 34px 40px -34px var(--shade)}
 .track{position:absolute;left:0;right:0;top:0;height:18px;pointer-events:none;
   background:repeating-linear-gradient(90deg,transparent 0 200px,var(--lamp) 200px 220px,transparent 220px 420px) 0 5px/100% 13px no-repeat,
   linear-gradient(var(--track),var(--track)) 0 2px/100% 3px no-repeat}
-.floor{height:26px;background:linear-gradient(var(--floor),var(--page))}
+.floor{height:16px;background:linear-gradient(var(--floor),var(--page))}
 
 /* 牆腳石垣（大阪城石垣的浮世繪風格化）：內容區往上讓出 --dado，石垣不壓到展品 */
-.wall.dado{padding-bottom:calc(var(--dado) + 24px)}
+.wall.dado{padding-bottom:calc(var(--dado) + 16px)}
 .wall.dado::after{content:"";position:absolute;left:0;right:0;bottom:0;height:var(--dado);pointer-events:none;
   background:var(--dado-img) 0 0/auto 100% repeat-x;filter:var(--dado-filter);
   box-shadow:inset 0 3px 0 var(--track),inset 0 14px 14px -10px rgba(0,0,0,.35)}
 .wall.dado > *{position:relative;z-index:1}
 
 /* 石垣上方的瓦屋簷：內容區再往上讓出 --eave，天守閣站在屋簷上 */
-.wall.dado.eave{padding-bottom:calc(var(--dado) + var(--eave) + 24px)}
+.wall.dado.eave{padding-bottom:calc(var(--dado) + var(--eave) + 16px)}
 .wall.eave::before{content:"";position:absolute;left:0;right:0;bottom:var(--dado);height:var(--eave);pointer-events:none;
   background:var(--eave-img) 0 0/auto 100% repeat-x;filter:var(--dado-filter)}
 .wall.dado > .track{position:absolute}
@@ -74,7 +75,7 @@ button{font:inherit;color:inherit}
 .art-title{display:inline-block;background:currentColor;-webkit-mask:var(--art) center/contain no-repeat;mask:var(--art) center/contain no-repeat}
 .art-title.h{height:1em;aspect-ratio:3146/924;vertical-align:-.12em}
 .banner:has(.art-title.v),.banner.photo{width:var(--banner-w)}
-.art-title.v{height:300px;aspect-ratio:1074/2728;color:var(--bink)}
+.art-title.v{height:300px;aspect-ratio:1074/2728;color:var(--bink);transform:translateX(7%);clip-path:inset(0 7% 0 0)}
 .bar .art-title.h{height:1.55rem;vertical-align:middle;margin-right:2px}
 .intro h1 .art-title.h{height:4.2rem;margin-left:-6px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -82,18 +83,19 @@ button{font:inherit;color:inherit}
 /* 序幕的天守閣：放大當背景，站在石垣上；布條掛在前面，介紹文字排在它右側 */
 .prelude{align-self:stretch;position:relative}
 .prelude > :not(.castle){position:relative;z-index:1}
-.castle{position:absolute;left:var(--castle-x);bottom:-24px;height:var(--castle-h);width:auto;z-index:0;pointer-events:none}
-.prelude:has(.castle) .intro{margin-left:calc(var(--castle-h) * 960 / 871 + var(--castle-x) - 360px)}
+.castle{position:absolute;left:var(--castle-x);bottom:-16px;height:calc(var(--castle-h) * var(--wall-scale,1));width:auto;z-index:0;pointer-events:none}
+.prelude:has(.castle) .intro{margin-left:max(0px,calc(var(--castle-h) * var(--wall-scale,1) * 960 / 871 + var(--castle-x) - 360px))}
 
 /* prelude */
-.prelude{display:flex;align-items:flex-start;gap:26px;padding-top:52px;margin-right:56px;flex:none}
-.banner{position:relative;flex:none;width:92px;height:400px;background:var(--red);box-shadow:inset 0 0 0 7px var(--red),inset 0 0 0 10px var(--bink),0 16px 24px -14px var(--shade);display:grid;place-items:center}
-.banner::before,.banner::after{content:"";position:absolute;top:-38px;width:1px;height:38px;background:var(--muted)}
+.prelude{display:flex;align-items:flex-start;gap:26px;padding-top:38px;margin-right:56px;flex:none}
+.banner{position:relative;flex:none;width:92px;height:calc(360px * var(--wall-scale,1));background:var(--red);box-shadow:inset 0 0 0 7px var(--red),inset 0 0 0 10px var(--bink),0 16px 24px -14px var(--shade);display:grid;place-items:center}
+.banner::before,.banner::after{content:"";position:absolute;top:-28px;width:1px;height:28px;background:var(--muted)}
 .banner::before{left:22%}.banner::after{right:22%}
 .banner span{writing-mode:vertical-rl;font-family:var(--f-display);font-weight:900;font-size:2.7rem;letter-spacing:.18em;color:var(--bink)}
 .banner.photo{background:var(--hair);overflow:visible;box-shadow:0 16px 24px -14px var(--shade)}
 .banner.photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .banner.photo em{position:absolute;left:0;right:0;bottom:0;text-align:center;font-style:normal;font-family:var(--f-mono);font-size:.6rem;letter-spacing:.2em;color:#F4F1EA;background:rgba(10,10,12,.55);padding:4px 0}
+.art-title.v{height:calc(270px * var(--wall-scale,1))}
 
 .intro{width:300px;flex:none;padding-top:8px}
 .eyebrow{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
@@ -109,30 +111,30 @@ button{font:inherit;color:inherit}
 .g{font-family:var(--f-mono);color:var(--red);font-size:.72rem}
 
 /* eras */
-.era{flex:none;display:flex;flex-direction:column;padding-top:24px}
+.era{flex:none;display:flex;flex-direction:column;padding-top:14px}
 .era-head{position:relative;height:var(--era-h);display:flex;align-items:flex-end;gap:12px;padding-bottom:4px;border-bottom:3px solid var(--ink)}
-.era-num{font-family:var(--f-era);font-weight:700;font-size:3.6rem;line-height:.95;font-variant-numeric:tabular-nums}
-.era-city{font-family:var(--f-display);font-weight:900;font-size:1.5rem;letter-spacing:.16em;line-height:1.2;padding-bottom:4px}
+.era-num{font-family:var(--f-era);font-weight:700;font-size:3rem;line-height:.95;font-variant-numeric:tabular-nums}
+.era-city{font-family:var(--f-display);font-weight:900;font-size:1.35rem;letter-spacing:.16em;line-height:1.2;padding-bottom:4px}
 .era.pending .era-num,.era.pending .era-city{color:var(--muted)}
 .era.pending .era-head{border-bottom-style:dashed;border-bottom-color:var(--rule)}
 
 /* 注連繩：年代橫線換成繩子，紙垂垂在繩下；每個年代同一高度，繩子前後相接。
    繩心對準原本 3px 橫線的位置；紙垂從繩子背後垂下，--days-pt 讓出紙垂的長度，不壓到日期 */
-.wall.rope{--days-pt:calc(var(--rope) / 2 + var(--shide) + 6px)}
+.wall.rope{--days-pt:calc(var(--rope) / 2 + var(--shide) + 4px)}
 .wall.rope .era-head{border-bottom:0}
 .wall.rope .era-head::after{content:"";position:absolute;left:0;right:0;top:calc(100% - var(--rope) / 2);height:calc(var(--rope) + var(--shide));pointer-events:none;filter:var(--rope-filter);
   background:var(--rope-img) 0 0/auto var(--rope) repeat-x,var(--shide-img) 40px calc(var(--rope) - 5px)/auto var(--shide) repeat-x}
 .wall.rope .era.pending .era-head::after{filter:grayscale(1);opacity:.4}
 .era-range{font-family:var(--f-mono);font-size:.66rem;color:var(--muted);padding-bottom:8px;margin-left:auto;padding-right:32px;white-space:nowrap}
-.days{display:flex;gap:30px;padding-top:var(--days-pt);padding-right:32px}
+.days{display:flex;gap:28px;padding-top:var(--days-pt);padding-right:32px}
 .day{border-left:1px solid var(--ink);padding-left:12px}
 .era.pending .day{border-left:1px dashed var(--rule)}
 .dh{display:flex;align-items:baseline;gap:6px}
-.dnum{font-family:var(--f-era);font-weight:700;font-size:1.55rem;line-height:1;font-variant-numeric:tabular-nums}
-.dwd{font-family:var(--f-display);font-weight:700;font-size:.9rem}
-.dmeta{font-family:var(--f-mono);font-size:.64rem;color:var(--muted);margin-top:3px;letter-spacing:.02em}
-.cols{display:flex;gap:22px;margin-top:14px}
-.col{width:var(--colw);display:flex;flex-direction:column;gap:14px;min-width:0}
+.dnum{font-family:var(--f-era);font-weight:700;font-size:1.4rem;line-height:1;font-variant-numeric:tabular-nums}
+.dwd{font-family:var(--f-display);font-weight:700;font-size:.86rem}
+.dmeta{font-family:var(--f-mono);font-size:.62rem;color:var(--muted);margin-top:2px;letter-spacing:.02em}
+.cols{display:flex;gap:20px;margin-top:10px}
+.col{width:calc(var(--colw) * var(--wall-scale,1));display:flex;flex-direction:column;gap:calc(12px * var(--wall-scale,1));min-width:0}
 
 /* 每天的背景拼貼（裝飾，不是展品）：從牆頂鋪到牆腳、左右出血到隔壁天，壓在所有展品後面、燈軌與石垣前面。
    牆面本身是一個 stacking context，所有天的背景都在同一層（z-index:-1），不會蓋到隔壁天的展品。
@@ -143,7 +145,7 @@ button{font:inherit;color:inherit}
 .days{flex:1}
 .day{position:relative}
 .backdrops{position:absolute;z-index:-1;pointer-events:none;user-select:none;left:0;right:0;
-  top:calc(-1 * (var(--era-h) + 40px + var(--days-pt)));bottom:calc(-1 * (var(--dado) + var(--eave) + 24px))}
+  top:calc(-1 * (var(--era-h) + 26px + var(--days-pt)));bottom:calc(-1 * (var(--dado) + var(--eave) + 16px))}
 .backdrops img{position:absolute;width:auto;max-width:none;transform:translateX(-50%) rotate(var(--r,0deg));
   opacity:var(--backdrop-op);filter:var(--backdrop-filter);
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent),linear-gradient(transparent,#000 14%,#000 86%,transparent);
@@ -156,20 +158,6 @@ button{font:inherit;color:inherit}
 .it-text .tm.unk{color:var(--muted)}
 .it-text h4{font-family:var(--f-display);font-weight:700;font-size:.98rem;line-height:1.35;margin:0 0 2px}
 .it-text p{margin:0;font-size:.8rem;line-height:1.62;color:var(--muted)}
-/* 文字卡改成繪馬：比例照實物（寬高約 1.4:1，屋頂斜邊約佔寬度 0.14），字多時才往下長。
-   屋頂（含掛繩）依欄寬等比縮放，板身用 border-image 伸縮；繪馬圖寬 600、屋頂圖高 149、尖頂在 y=65、繩孔下緣約 y=117。
-   木板是淺色，字一律用深墨色，深色模式只把木板壓暗。寬度用欄位的容器單位 cqw 計算 */
-.wall.ema .col{container-type:inline-size}
-.wall.ema .it-text{--w:100cqw;--cord:calc(var(--w) * 65 / 600);--roof:calc(var(--w) * 149 / 600);
-  position:relative;isolation:isolate;aspect-ratio:1.4;margin-top:calc(var(--cord) + 4px);
-  display:flex;flex-direction:column;justify-content:center;padding:calc(var(--w) * .12) 18px calc(var(--w) * .04);
-  color:#1C1A18;text-shadow:none;text-align:center}
-.wall.ema .it-text::before,.wall.ema .it-text::after{content:"";position:absolute;left:0;right:0;z-index:-1;pointer-events:none;filter:var(--ema-filter)}
-.wall.ema .it-text::before{top:calc(-1 * var(--cord));height:var(--roof);background:var(--ema-roof-img) 0 100%/100% auto no-repeat}
-.wall.ema .it-text::after{top:calc(var(--roof) - var(--cord) - 1px);bottom:0;border-style:solid;border-width:4px 4px 7px;border-image:var(--ema-body-img) 8 8 14 fill / 4px 4px 7px stretch;
-  box-shadow:0 6px 10px -6px var(--shade)}
-.wall.ema .it-text .tm{color:#A82820}
-.wall.ema .it-text .tm.unk,.wall.ema .it-text p{color:#4A3F33}
 .it-slot{border:1.5px dashed var(--rule);padding:10px 12px;font-family:var(--f-display);font-weight:700;color:var(--muted);font-size:.92rem;line-height:1.5}
 .it-slot small{display:block;font-family:var(--f-mono);font-weight:400;font-size:.62rem;margin-top:4px}
 .it-media{display:block;width:100%;padding:0;border:0;background:none;text-align:left;cursor:zoom-in}
@@ -256,6 +244,19 @@ button{font:inherit;color:inherit}
 .ema-body{font-family:var(--f-display);font-weight:700;font-size:.86rem;line-height:1.55;color:var(--ema-ink);white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;overflow:hidden}
 .ema-foot{margin-top:auto;padding-top:8px;display:flex;align-items:center;justify-content:flex-end;gap:6px}
 .ema-by{font-family:var(--f-display);font-weight:700;font-size:.74rem;color:var(--ema-ink);opacity:.88;letter-spacing:.04em}
+/* 繪馬使用實物木板圖（ema-roof.webp + ema-body.webp）：比例照實物（寬高約 1.4:1），字多時才往下長。
+   屋頂（含掛繩）依卡片寬度等比縮放，板身用 border-image 伸縮；繪馬圖寬 600、屋頂圖高 149、尖頂在 y=65、繩孔下緣約 y=117。
+   木板是淺色，字一律用深墨色，深色模式只把木板壓暗 */
+.ema .ema-frame{container-type:inline-size;padding-top:0}
+.ema .ema-nail,.ema .ema-cord,.ema .ema-hole{display:none}
+.ema .ema-board{--w:100cqw;--cord:calc(var(--w) * 65 / 600);--roof:calc(var(--w) * 149 / 600);
+  position:relative;isolation:isolate;aspect-ratio:1.4;min-height:0;margin-top:var(--cord);
+  padding:calc(var(--w) * .14) 16px calc(var(--w) * .05);
+  background:none;border:0;clip-path:none;box-shadow:none;color:#1C1A18}
+.ema .ema-board::before,.ema .ema-board::after{content:"";position:absolute;left:0;right:0;z-index:-1;pointer-events:none;filter:var(--ema-filter)}
+.ema .ema-board::before{top:calc(-1 * var(--cord));height:var(--roof);background:var(--ema-roof-img) 0 100%/100% auto no-repeat}
+.ema .ema-board::after{top:calc(var(--roof) - var(--cord) - 1px);bottom:0;border-style:solid;border-width:4px 4px 7px;border-image:var(--ema-body-img) 8 8 14 fill / 4px 4px 7px stretch}
+.ema .ema-body,.ema .ema-by{color:#1C1A18}
 @media (prefers-reduced-motion:reduce){.ema-frame{transition:none}}
 
 /* end panel */
@@ -268,10 +269,10 @@ button{font:inherit;color:inherit}
 .sources a{color:inherit}
 
 /* floor plan */
-.map{position:relative;height:42px;margin-top:6px;cursor:pointer;touch-action:none}
-.map .sg{position:absolute;top:8px;height:28px;border-top:3px solid var(--rule);font-family:var(--f-mono);font-size:.64rem;color:var(--muted);padding-top:3px;overflow:hidden;white-space:nowrap}
+.map{position:relative;height:34px;margin-top:4px;cursor:pointer;touch-action:none}
+.map .sg{position:absolute;top:6px;height:24px;border-top:3px solid var(--rule);font-family:var(--f-mono);font-size:.64rem;color:var(--muted);padding-top:2px;overflow:hidden;white-space:nowrap}
 .map .sg.live{border-top-color:var(--ink);color:var(--ink)}
-.map .vp{position:absolute;top:2px;height:38px;border:2px solid var(--red);background:color-mix(in srgb,var(--red) 8%,transparent);pointer-events:none}
+.map .vp{position:absolute;top:2px;height:30px;border:2px solid var(--red);background:color-mix(in srgb,var(--red) 8%,transparent);pointer-events:none}
 
 /* registry */
 .registry{max-width:1080px;margin:40px auto 0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px 40px;align-items:start}
@@ -295,6 +296,8 @@ button{font:inherit;color:inherit}
 .lb-ema-stage{padding:36px 24px;width:100%;display:grid;place-items:center}
 .lb-ema{width:min(320px,100%);padding-top:16px}
 .lb-ema .ema-board{min-height:180px;padding:32px 22px 16px}
+.ema .lb-ema{padding-top:0}
+.ema .lb-ema .ema-board{min-height:0;padding:calc(var(--w) * .14) 22px calc(var(--w) * .06)}
 .lb-ema .ema-hole{background:#0d0e10}
 .lb-ema .ema-body{font-size:1.02rem;-webkit-line-clamp:unset;overflow:visible}
 .lb-notes{border-top:1px solid var(--rule);padding-top:12px;margin:0 0 18px;display:flex;flex-direction:column;gap:10px}

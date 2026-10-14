@@ -64,7 +64,7 @@ function setMode(mode: 'wall' | 'read') {
   btnW.setAttribute('aria-pressed', String(mode !== 'read'));
   btnR.setAttribute('aria-pressed', String(mode === 'read'));
   try { localStorage.setItem('wall-mode', mode); } catch {}
-  requestAnimationFrame(buildMap);
+  fit();
 }
 btnW.onclick = () => setMode('wall');
 btnR.onclick = () => setMode('read');
@@ -80,6 +80,30 @@ sc.addEventListener('wheel', (e) => {
   e.preventDefault();
   sc.scrollLeft += e.deltaY;
 }, { passive: false });
+
+/* 牆面模式整面牆收進視窗高度：滾輪被轉成橫向移動，牆底（屋簷、石垣、平面圖）
+   必須一屏看得完，所以量測頁面高度後用 --wall-scale 等比縮小牆面內容 */
+function fitWall() {
+  if (isRead()) { wall.style.removeProperty('--wall-scale'); return; }
+  const setS = (s: number) => { wall.style.setProperty('--wall-scale', String(s)); return wall.offsetHeight; };
+  const de = document.documentElement;
+  const h1 = setS(1);
+  const chrome = de.scrollHeight - h1; // 頂欄、地板、平面圖、捲軸等不隨 scale 變的高度
+  const avail = window.innerHeight - chrome - 1; // 留 1px 餘裕，避免無意義的垂直捲動
+  if (h1 > avail) {
+    const h0 = setS(0.8);
+    const slope = (h1 - h0) / 0.2 || 1; // 牆高對 scale 大致線性（plate 高度隨欄寬等比）
+    let s = Math.min(1, Math.max(0.5, 1 + (avail - h1) / slope));
+    const h = setS(s);
+    if (Math.abs(h - avail) > 4) setS(Math.min(1, Math.max(0.5, s + (avail - h) / slope)));
+  }
+}
+let fitQueued = false;
+function fit() {
+  if (fitQueued) return;
+  fitQueued = true;
+  requestAnimationFrame(() => { fitQueued = false; fitWall(); buildMap(); });
+}
 
 /* 平面圖 */
 export function buildMap() {
@@ -114,10 +138,10 @@ map.addEventListener('pointerdown', (e) => { dragging = true; try { map.setPoint
 map.addEventListener('pointermove', (e) => { if (dragging) jump(e); });
 map.addEventListener('pointerup', () => (dragging = false));
 map.addEventListener('pointercancel', () => (dragging = false));
-addEventListener('resize', buildMap);
-addEventListener('load', buildMap);
-document.fonts?.ready.then(buildMap);
-buildMap();
+addEventListener('resize', fit);
+addEventListener('load', fit);
+document.fonts?.ready.then(fit);
+fit();
 
 /* 展品說明卡 */
 const lb = $('lb');
