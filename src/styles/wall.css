@@ -5,7 +5,7 @@ img{max-width:100%}
 [hidden]{display:none!important}
 
 /* 由 prototype/index.html 移植。
-   Layout: a gallery wall you pan sideways — hanging title banners, an intro panel, then city "eras" whose rule line steps upward left to right; each day is a sub-marker with columns of labels and framed photos/clips. Reading mode restacks the same wall vertically. */
+   Layout: a gallery wall you pan sideways — hanging title banners, an intro panel, then city "eras" whose rule lines run level (each day at the same height); each day is a sub-marker with columns of labels and framed photos/clips. Reading mode restacks the same wall vertically. */
 :root{
   --page:#DAD8D2; --wall:#EDEDEA; --panel:#F8F8F6; --ink:#1C1A18; --muted:#5C5953; --rule:#B7B4AC; --hair:#D7D5CF;
   --red:#C2332A; --bink:#1A100E; --glow:rgba(255,255,255,.95); --track:#2A2826; --lamp:#3B3936; --floor:#CDCAC2;
@@ -14,7 +14,7 @@ img{max-width:100%}
   --f-display:"Noto Serif TC","Songti TC","PMingLiU",serif;
   --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-  --colw:240px; --step:34px;
+  --colw:240px;
   --dado:150px; --dado-filter:none; --castle-h:620px; --castle-x:40px;
   --eave:34px; --rope:24px; --shide:52px; --rope-filter:none; --ema-filter:none; --days-pt:20px; --banner-w:128px; --era-h:70px; --backdrop-op:.4; --backdrop-filter:saturate(.85);
 }
@@ -106,22 +106,19 @@ button{font:inherit;color:inherit}
 .g{font-family:var(--f-mono);color:var(--red);font-size:.72rem}
 
 /* eras */
-.era{flex:none;display:flex;flex-direction:column;padding-top:calc(24px + var(--s) * var(--step))}
+.era{flex:none;display:flex;flex-direction:column;padding-top:24px}
 .era-head{position:relative;height:var(--era-h);display:flex;align-items:flex-end;gap:12px;padding-bottom:4px;border-bottom:3px solid var(--ink)}
-.era + .era .era-head::before{content:"";position:absolute;left:-3px;top:100%;width:3px;height:var(--step);background:var(--ink)}
 .era-num{font-family:var(--f-era);font-weight:700;font-size:3.6rem;line-height:.95;font-variant-numeric:tabular-nums}
 .era-city{font-family:var(--f-display);font-weight:900;font-size:1.5rem;letter-spacing:.16em;line-height:1.2;padding-bottom:4px}
 .era.pending .era-num,.era.pending .era-city{color:var(--muted)}
 .era.pending .era-head{border-bottom-style:dashed;border-bottom-color:var(--rule)}
 
-/* 注連繩：年代橫線換成繩子，紙垂垂在繩下；年代往上一階的直線換成直向繩子。
+/* 注連繩：年代橫線換成繩子，紙垂垂在繩下；每個年代同一高度，繩子前後相接。
    繩心對準原本 3px 橫線的位置；紙垂從繩子背後垂下，--days-pt 讓出紙垂的長度，不壓到日期 */
 .wall.rope{--days-pt:calc(var(--rope) / 2 + var(--shide) + 6px)}
 .wall.rope .era-head{border-bottom:0}
 .wall.rope .era-head::after{content:"";position:absolute;left:0;right:0;top:calc(100% - var(--rope) / 2);height:calc(var(--rope) + var(--shide));pointer-events:none;filter:var(--rope-filter);
   background:var(--rope-img) 0 0/auto var(--rope) repeat-x,var(--shide-img) 40px calc(var(--rope) - 5px)/auto var(--shide) repeat-x}
-.wall.rope .era + .era .era-head::before{left:calc(var(--rope) / -2);top:calc(100% - var(--rope) / 2);width:var(--rope);height:calc(var(--step) + var(--rope));z-index:1;
-  background:var(--rope-v-img) 0 0/var(--rope) auto repeat-y;filter:var(--rope-filter)}
 .wall.rope .era.pending .era-head::after{filter:grayscale(1);opacity:.4}
 .era-range{font-family:var(--f-mono);font-size:.66rem;color:var(--muted);padding-bottom:8px;margin-left:auto;padding-right:32px;white-space:nowrap}
 .days{display:flex;gap:30px;padding-top:var(--days-pt);padding-right:32px}
@@ -143,7 +140,7 @@ button{font:inherit;color:inherit}
 .days{flex:1}
 .day{position:relative}
 .backdrops{position:absolute;z-index:-1;pointer-events:none;user-select:none;left:0;right:0;
-  top:calc(-1 * (var(--era-h) + 40px + var(--days-pt) + var(--s) * var(--step)));bottom:calc(-1 * (var(--dado) + var(--eave) + 24px))}
+  top:calc(-1 * (var(--era-h) + 40px + var(--days-pt)));bottom:calc(-1 * (var(--dado) + var(--eave) + 24px))}
 .backdrops img{position:absolute;width:auto;max-width:none;transform:translateX(-50%) rotate(var(--r,0deg));
   opacity:var(--backdrop-op);filter:var(--backdrop-filter);
   -webkit-mask-image:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent),linear-gradient(transparent,#000 14%,#000 86%,transparent);
@@ -245,7 +242,6 @@ button{font:inherit;color:inherit}
 .read .banner::before,.read .banner::after{display:none}
 .read .intro{width:min(100%,420px)}
 .read .era{padding-top:36px;width:100%}
-.read .era-head::before{display:none}
 .read .days,.read .cols{flex-wrap:wrap}
 .read .days{padding-right:0}
 .read .col{width:min(100%,340px)!important}
@@ -259,7 +255,7 @@ button{font:inherit;color:inherit}
 .read .backdrops img{left:0!important;top:0!important;width:100%;height:100%!important;transform:none;object-fit:cover}
 
 @media (max-width:760px){
-  :root{--colw:200px;--step:26px;--dado:96px;--castle-h:440px;--castle-x:20px;--eave:24px;--rope:18px;--shide:40px;--banner-w:104px;--era-h:60px}
+  :root{--colw:200px;--dado:96px;--castle-h:440px;--castle-x:20px;--eave:24px;--rope:18px;--shide:40px;--banner-w:104px;--era-h:60px}
   .art-title.v{height:240px}
   .bar .t small{display:none}
   .banner{width:74px;height:320px}
