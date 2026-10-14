@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "astro dev",
     "ingest": "node scripts/ingest.mjs",
+    "notes:pull": "node scripts/notes-pull.mjs",
     "check": "node scripts/check.mjs",
     "prebuild": "node scripts/check.mjs",
     "build": "astro build",
@@ -16,7 +17,8 @@
     "deploy": "npm run build && npx --yes wrangler@4 deploy"
   },
   "dependencies": {
-    "astro": "7.3.5"
+    "astro": "7.3.5",
+    "jose": "^6.2.12"
   },
   "devDependencies": {
     "exifr": "7.1.3",

@@ -1,0 +1,31 @@
+---
+import type { Ema } from '../lib/wall';
+
+interface Props {
+  ema: Ema;
+  index: number;
+  inRack?: boolean;
+}
+const { ema, index, inRack = false } = Astro.props;
+const author = ema.by || '無署名';
+---
+<button
+  class:list={['it', 'it-media', 'it-ema', { 'in-rack': inRack }]}
+  data-i={index}
+  data-ema-id={ema.id}
+  style={`--tilt:${ema.tilt}deg`}
+  aria-label={`查看繪馬（${author}）`}
+>
+  {!inRack && <span class="ema-nail" aria-hidden="true"></span>}
+  <span class="ema-frame">
+    <span class="ema-cord" aria-hidden="true"></span>
+    <span class="ema-board">
+      <span class="ema-hole" aria-hidden="true"></span>
+      <span class="ema-body">{ema.body}</span>
+      <span class="ema-foot">
+        {ema.comments.length > 0 && <span class="ofuda" aria-label={`${ema.comments.length} 則留言`}>籤 {ema.comments.length}</span>}
+        <span class="ema-by">{author}</span>
+      </span>
+    </span>
+  </span>
+</button>
