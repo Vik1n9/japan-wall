@@ -106,7 +106,7 @@ function fit() {
 }
 
 /* 屋簷上的小動物：每隔一個視窗寬放一組，牆面模式滑到哪一屏都看得到一組、同一屏最多一組。
-   第一組放在天守閣右邊；組合依序輪替，部分左右翻轉增加變化。視窗大小改變時重排 */
+   第一組放在天守閣右邊；組合照 trip.yaml 的順序輪替，部分左右翻轉增加變化。視窗大小改變時重排 */
 function placeCritters() {
   const box = document.getElementById('critters');
   if (!box) return;
@@ -120,7 +120,7 @@ function placeCritters() {
   const castle = wall.querySelector<HTMLElement>('.castle');
   let x = castle ? castle.getBoundingClientRect().right - wl + 24 : W * 0.4;
   for (let k = 0; x < total - 160; k++, x += W) {
-    const g = groups[(k * 7 + 3) % groups.length];
+    const g = groups[k % groups.length];
     const img = document.createElement('img');
     img.src = g.src;
     img.alt = '';
