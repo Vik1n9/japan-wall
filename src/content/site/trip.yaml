@@ -22,6 +22,19 @@ art:
   eave: art/eave.svg   # 石垣上方的瓦屋簷（SVG 手繪，可替換）
   rope: art/shimenawa.webp     # 年代橫線改成注連繩（Qwen-Image 2.1 生成，再以 Klein 4B 參考天守閣轉成浮世繪，左右無縫）
   shide: art/shide.webp        # 紙垂
+  # 屋簷上的小動物（Qwen-Image 2.1 先生成寫實照片，再轉浮世繪並直接輸出透明背景）；牆面模式每一屏放一組，依序輪替
+  critters:
+    - { src: art/critters/cat-sit.webp, h: 58 }
+    - { src: art/critters/cat-loaf.webp, h: 34 }
+    - { src: art/critters/cats-two.webp, h: 58 }
+    - { src: art/critters/cat-walk.webp, h: 46 }
+    - { src: art/critters/sparrows-three.webp, h: 24 }
+    - { src: art/critters/sparrow-one.webp, h: 24 }
+    - { src: art/critters/sparrows-two.webp, h: 24 }
+    - { src: art/critters/crow.webp, h: 50 }
+    - { src: art/critters/pigeon-sparrow.webp, h: 40 }
+    - { src: art/critters/cat-watch.webp, h: 34 }
+    - { src: art/critters/sparrows-four.webp, h: 24 }
   emaRoof: art/ema-roof.webp   # 繪馬屋頂（Klein 4B 依 Viking 的淺草神社繪馬照片生成，空白）
   emaBody: art/ema-body.webp   # 繪馬板身
 # 取自網路的背景圖（CC BY-SA，必須署名；後製版本也沿用同一授權）

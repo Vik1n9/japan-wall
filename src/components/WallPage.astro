@@ -122,6 +122,10 @@ const bodyStyle = [art.emaRoof && `--ema-roof-img:url(${asset(art.emaRoof)})`, a
             </section>
           ))}
 
+          {art.critters.length > 0 && (
+            <div class="critters" id="critters" aria-hidden="true" data-groups={JSON.stringify(art.critters.map((c) => ({ src: asset(c.src), h: c.h })))}></div>
+          )}
+
           <div class="finale" id="finale">
             <div class="eyebrow">展覽結束</div>
             <h2>謝謝觀賞</h2>

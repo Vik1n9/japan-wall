@@ -29,6 +29,8 @@ const site = defineCollection({
         castle: z.string().optional(),    // 序幕插圖（透明背景）
         rope: z.string().optional(),      // 年代橫線換成注連繩：左右無縫重複的繩子（橫）
         shide: z.string().optional(),     // 繩下的紙垂，tile 本身含間距
+        // 屋簷上的小動物：每組一張透明背景圖，h 是牆面縮放 1 時的顯示高度（px）；牆面模式每一屏放一組
+        critters: z.array(z.object({ src: z.string(), h: z.number().positive() })).default([]),
         emaRoof: z.string().optional(),   // 繪馬屋頂與掛繩（依卡片寬度等比縮放）
         emaBody: z.string().optional(),   // 繪馬板身（border-image 伸縮，跟著文字長度）
         eave: z.string().optional(),      // 石垣上方的瓦屋簷，左右無縫重複

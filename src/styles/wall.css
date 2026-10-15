@@ -71,6 +71,12 @@ button{font:inherit;color:inherit}
   background:var(--eave-img) 0 0/auto 100% repeat-x;filter:var(--dado-filter)}
 .wall.dado > .track{position:absolute}
 
+/* 屋簷上的小動物（裝飾）：腳踩屋簷頂端；屋簷與石垣不隨 --wall-scale 縮放，小動物也不縮，手機用 --critter 縮小；位置由 wall.ts 依視窗寬度排 */
+.wall.dado > .critters{position:absolute;left:0;right:0;bottom:calc(var(--dado) + var(--eave) - 2px);height:0;z-index:2;pointer-events:none}
+.critters img{position:absolute;bottom:0;height:calc(var(--h) * var(--critter,1));width:auto;max-width:none;filter:var(--rope-filter)}
+.critters img.flip{transform:scaleX(-1)}
+.read .critters{display:none}
+
 /* 書法標題：SVG 當 mask，顏色跟著 currentColor */
 .art-title{display:inline-block;background:currentColor;-webkit-mask:var(--art) center/contain no-repeat;mask:var(--art) center/contain no-repeat}
 .art-title.h{height:1em;aspect-ratio:3146/924;vertical-align:-.12em}
@@ -344,7 +350,7 @@ button{font:inherit;color:inherit}
 .read .backdrops img{left:0!important;top:0!important;width:100%;height:100%!important;transform:none;object-fit:cover}
 
 @media (max-width:760px){
-  :root{--colw:200px;--dado:96px;--castle-h:440px;--castle-x:20px;--eave:24px;--rope:18px;--shide:40px;--banner-w:104px;--era-h:60px}
+  :root{--colw:200px;--critter:.8;--dado:96px;--castle-h:440px;--castle-x:20px;--eave:24px;--rope:18px;--shide:40px;--banner-w:104px;--era-h:60px}
   .art-title.v{height:240px}
   .bar .t small{display:none}
   .banner{width:74px;height:320px}

@@ -102,7 +102,34 @@ let fitQueued = false;
 function fit() {
   if (fitQueued) return;
   fitQueued = true;
-  requestAnimationFrame(() => { fitQueued = false; fitWall(); buildMap(); });
+  requestAnimationFrame(() => { fitQueued = false; fitWall(); buildMap(); placeCritters(); });
+}
+
+/* 屋簷上的小動物：每隔一個視窗寬放一組，牆面模式滑到哪一屏都看得到一組、同一屏最多一組。
+   第一組放在天守閣右邊；組合依序輪替，部分左右翻轉增加變化。視窗大小改變時重排 */
+function placeCritters() {
+  const box = document.getElementById('critters');
+  if (!box) return;
+  box.textContent = '';
+  if (isRead()) return;
+  const groups: { src: string; h: number }[] = JSON.parse(box.dataset.groups || '[]');
+  if (!groups.length) return;
+  const W = sc.clientWidth;
+  const total = wall.scrollWidth;
+  const wl = wall.getBoundingClientRect().left;
+  const castle = wall.querySelector<HTMLElement>('.castle');
+  let x = castle ? castle.getBoundingClientRect().right - wl + 24 : W * 0.4;
+  for (let k = 0; x < total - 160; k++, x += W) {
+    const g = groups[(k * 7 + 3) % groups.length];
+    const img = document.createElement('img');
+    img.src = g.src;
+    img.alt = '';
+    img.decoding = 'async';
+    img.style.left = `${Math.round(x)}px`;
+    img.style.setProperty('--h', `${g.h}px`);
+    if (k % 3 === 1) img.classList.add('flip');
+    box.append(img);
+  }
 }
 
 /* 平面圖 */
