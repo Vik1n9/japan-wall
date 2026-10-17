@@ -1,24 +1,11 @@
-// Cloudflare Workers（靜態資源＋留言與繪馬 API）：npm run deploy
+// Cloudflare Workers（純靜態資源）：npm run deploy
+// 舊的 /api/* 投稿後台（Cloudflare Access 收稿制）已於 2026-10-17 拆除；
+// 新版後台（帳號密碼＋動態公開，前後台雙網域）見 README 待辦。
 {
   "name": "osaka2026",
-  "main": "worker/index.ts",
   "compatibility_date": "2026-10-01",
-  // 只有 /api/* 進 Worker，其餘路徑直接由靜態資源回應、不計費
   "assets": {
-    "directory": "./dist",
-    "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
-  },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "osaka2026-notes",
-      "database_id": "00000000-0000-0000-0000-000000000000"
-    }
-  ],
-  "vars": {
-    "EDITORS": "viking@example.com,friend1@example.com",
-    "ALLOWED_ORIGINS": "https://osaka2026.voriens.dev"
+    "directory": "./dist"
   },
   // 綁定自訂網域；不另外開 workers.dev 網址
   "routes": [{ "pattern": "osaka2026.voriens.dev", "custom_domain": true }],

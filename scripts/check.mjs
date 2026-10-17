@@ -60,7 +60,6 @@ if (!ffprobe) notes.push('找不到 ffprobe，略過短片的 metadata 檢查（
 /* 2. 引用與 3. 提醒 */
 const exDir = join(ROOT, 'src/content/exhibits');
 const dayDir = join(ROOT, 'src/content/days');
-const noteDir = join(ROOT, 'src/content/notes');
 const exhibits = new Map();
 for (const f of (await readdir(exDir)).filter((f) => f.endsWith('.yaml'))) {
   const id = f.replace(/\.yaml$/, '');
@@ -73,90 +72,12 @@ for (const f of (await readdir(exDir)).filter((f) => f.endsWith('.yaml'))) {
 
 const dayFiles = (await readdir(dayDir)).filter((f) => f.endsWith('.yaml'));
 const daysByFile = new Map();
-const dayDates = new Set();
 for (const f of dayFiles) {
   const day = YAML.parse(await readFile(join(dayDir, f), 'utf8'));
   daysByFile.set(f, day);
-  if (typeof day.date === 'string') dayDates.add(day.date);
-}
-
-/* 2b. 留言與繪馬（notes）隱私、格式與引用檢查 */
-const noteFiles = existsSync(noteDir) ? (await readdir(noteDir)).filter((f) => f.endsWith('.yaml')) : [];
-const emaNotes = new Map();
-const commentNotes = new Map();
-const ALLOWED_NOTE_KEYS = new Set(['kind', 'target', 'replyTo', 'by', 'body', 'posted']);
-const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
-const HANDLE_RE = /(?:^|[^\w])@[A-Za-z0-9_.-]{2,}/;
-const PHONE_RE = /(?:^|\D)(?:09\d{2}[-\s]?\d{3}[-\s]?\d{3}|\+(?:81|886)[-\s\d]{7,13}|0\d{1,3}-\d{3,4}-\d{3,4})(?:\D|$)/;
-
-function hasPii(text) {
-  if (typeof text !== 'string' || !text) return false;
-  return EMAIL_RE.test(text) || HANDLE_RE.test(text) || PHONE_RE.test(text);
-}
-
-for (const f of noteFiles) {
-  const id = f.replace(/\.yaml$/, '');
-  const data = YAML.parse(await readFile(join(noteDir, f), 'utf8'));
-  if (!data || typeof data !== 'object') {
-    errors.push(`notes/${f}：內容不是有效的 YAML 物件`);
-    continue;
-  }
-  const extraKeys = Object.keys(data).filter((k) => !ALLOWED_NOTE_KEYS.has(k));
-  if (extraKeys.length) {
-    errors.push(`notes/${f}：包含不允許的欄位（${extraKeys.join(', ')}），不得寫入 author 或 email`);
-  }
-  if (typeof data.by !== 'string') {
-    errors.push(`notes/${f}：by 必須是字串`);
-  } else if (data.by.length > 20) {
-    errors.push(`notes/${f}：署名超過 20 字（${data.by.length} 字）`);
-  }
-  if (typeof data.body !== 'string' || data.body.trim().length < 1) {
-    errors.push(`notes/${f}：body 不可為空`);
-  } else if (data.body.length > 300) {
-    errors.push(`notes/${f}：內文超過 300 字上限（${data.body.length} 字）`);
-  }
-  if (hasPii(data.by) || hasPii(data.body)) {
-    errors.push(`notes/${f}：署名或內文含有 email、電話號碼或 @ 帳號`);
-  }
-  if (typeof data.posted !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(data.posted)) {
-    errors.push(`notes/${f}：posted 必須是加引號的 ISO 8601 時間字串`);
-  }
-  if (data.kind === 'ema') {
-    if (typeof data.target !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(data.target)) {
-      errors.push(`notes/${f}：繪馬的 target 必須是日期 YYYY-MM-DD（${data.target}）`);
-    } else if (!dayDates.has(data.target)) {
-      errors.push(`notes/${f}：繪馬 target 日期 ${data.target} 不存在於 days/`);
-    }
-    if (data.replyTo !== null && data.replyTo !== undefined) {
-      errors.push(`notes/${f}：繪馬不可有 replyTo`);
-    }
-    emaNotes.set(id, data);
-  } else if (data.kind === 'comment') {
-    if (typeof data.target !== 'string' || !/^(JP-\d{2}-\d{2}|n-\d{8}-[a-z0-9]{4})$/.test(data.target)) {
-      errors.push(`notes/${f}：留言的 target 格式錯誤（${data.target}）`);
-    }
-    commentNotes.set(id, data);
-  } else {
-    errors.push(`notes/${f}：kind 必須是 comment 或 ema`);
-  }
-}
-
-for (const [id, data] of commentNotes) {
-  if (!exhibits.has(data.target) && !emaNotes.has(data.target)) {
-    errors.push(`notes/${id}.yaml：target ${data.target} 不存在於展品或繪馬中`);
-  }
-  if (data.replyTo !== null && data.replyTo !== undefined) {
-    const parent = commentNotes.get(data.replyTo);
-    if (!parent) {
-      errors.push(`notes/${id}.yaml：replyTo ${data.replyTo} 不存在`);
-    } else if (parent.target !== data.target) {
-      errors.push(`notes/${id}.yaml：replyTo ${data.replyTo} 的 target（${parent.target}）與本則（${data.target}）不同`);
-    }
-  }
 }
 
 const placed = new Set();
-const placedEmas = new Set();
 for (const [f, day] of daysByFile) {
   for (const col of day.columns ?? []) {
     for (const it of col.items ?? []) {
@@ -164,15 +85,6 @@ for (const [f, day] of daysByFile) {
         if (!exhibits.has(it.exhibit)) errors.push(`days/${f}：引用了不存在的展品 ${it.exhibit}`);
         else if (placed.has(it.exhibit)) errors.push(`days/${f}：展品 ${it.exhibit} 被掛了兩次`);
         placed.add(it.exhibit);
-      }
-      if (it.ema) {
-        const em = emaNotes.get(it.ema);
-        if (!em) errors.push(`days/${f}：引用了不存在的繪馬 ${it.ema}`);
-        else {
-          if (em.target !== day.date) errors.push(`days/${f}：繪馬 ${it.ema} 的日期為 ${em.target}，與當天 ${day.date} 不符`);
-          if (placedEmas.has(it.ema)) errors.push(`days/${f}：繪馬 ${it.ema} 被掛了兩次`);
-        }
-        placedEmas.add(it.ema);
       }
     }
     if (col.unsorted) notes.push(`days/${f}：有一欄「未排版」，請調整位置後移除 unsorted`);
@@ -187,8 +99,7 @@ if (noTime.length) notes.push(`時刻待補：${noTime.join('、')}`);
 
 /* 輸出 */
 const imgCount = files.filter((f) => IMG.has(extname(f).toLowerCase())).length;
-const noteSummary = noteFiles.length ? `；投稿 ${noteFiles.length} 則（繪馬 ${emaNotes.size}、留言 ${commentNotes.size}）` : '';
-console.log(`檢查 public/：${imgCount} 張圖片、${checkedVideos} 支短片；展品 ${exhibits.size} 件${noteSummary}`);
+console.log(`檢查 public/：${imgCount} 張圖片、${checkedVideos} 支短片；展品 ${exhibits.size} 件`);
 for (const n of notes) console.log(`  提醒  ${n}`);
 for (const e of errors) console.error(`  錯誤  ${e}`);
 if (errors.length) {

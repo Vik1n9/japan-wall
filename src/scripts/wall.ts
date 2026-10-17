@@ -1,41 +1,24 @@
 // 展覽牆的互動：短片自動播放、牆面／閱讀模式、橫向捲動、平面圖、展品說明卡。
 // 由 prototype/index.html 移植。
 
-export interface NoteComment {
-  id: string;
-  target: string;
-  replyTo: string | null;
-  by: string;
-  body: string;
-  posted: string;
-  status?: 'pending' | 'published' | 'rejected';
-  mine?: boolean;
-}
-
 export interface Media {
   id: string;
-  type: 'photo' | 'video' | 'ema';
+  type: 'photo' | 'video';
   title: string;
-  by?: string;
   place: string;
   note: string;
   date: string;
   time: string | null;
-  posted?: string | null;
-  tilt?: number;
   src: string;
   poster: string | null;
   width: number;
   height: number;
   duration: string | null;
   source: string | null;
-  status?: 'pending' | 'published' | 'rejected';
-  mine?: boolean;
-  comments?: NoteComment[];
 }
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-export const MEDIA: Media[] = JSON.parse($('wall-data').textContent || '[]');
+const MEDIA: Media[] = JSON.parse($('wall-data').textContent || '[]');
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const smooth: ScrollBehavior = reduce ? 'auto' : 'smooth';
 const body = document.body;
@@ -133,7 +116,7 @@ function placeCritters() {
 }
 
 /* 平面圖 */
-export function buildMap() {
+function buildMap() {
   if (isRead()) return;
   const W = wall.scrollWidth;
   if (!W) return;
@@ -174,158 +157,41 @@ fit();
 const lb = $('lb');
 let cur = 0;
 let lastFocus: HTMLElement | null = null;
-let onShowHook: ((m: Media, index: number) => void) | null = null;
-export const getCur = () => cur;
-export const setOnShow = (fn: (m: Media, index: number) => void) => {
-  onShowHook = fn;
-};
 const WEEKDAY = ['日', '一', '二', '三', '四', '五', '六'];
-export function show(i: number) {
+function show(i: number) {
   cur = (i + MEDIA.length) % MEDIA.length;
   const m = MEDIA[cur];
   const holder = $('lb-media');
   holder.replaceChildren();
   const wd = WEEKDAY[new Date(`${m.date}T00:00:00Z`).getUTCDay()];
-  if (m.type === 'ema') {
-    const stage = document.createElement('div');
-    stage.className = 'lb-ema-stage';
-    const frame = document.createElement('div');
-    frame.className = 'ema-frame lb-ema';
-    if (m.status === 'pending') frame.classList.add('is-pending');
-    if (m.status === 'rejected') frame.classList.add('is-rejected');
-    frame.style.setProperty('--tilt', `${m.tilt ?? 0}deg`);
-    const cord = document.createElement('span');
-    cord.className = 'ema-cord';
-    const board = document.createElement('div');
-    board.className = 'ema-board';
-    const hole = document.createElement('span');
-    hole.className = 'ema-hole';
-    const bodyEl = document.createElement('div');
-    bodyEl.className = 'ema-body';
-    bodyEl.textContent = m.note;
-    const foot = document.createElement('div');
-    foot.className = 'ema-foot';
-    if (m.status === 'pending' || m.status === 'rejected') {
-      const badge = document.createElement('em');
-      badge.className = `st-badge ${m.status}`;
-      badge.textContent = m.status === 'pending' ? '待展出' : '未展出';
-      foot.append(badge);
-    }
-    const byEl = document.createElement('span');
-    byEl.className = 'ema-by';
-    byEl.textContent = m.by || '無署名';
-    foot.append(byEl);
-    board.append(hole, bodyEl, foot);
-    frame.append(cord, board);
-    stage.append(frame);
-    holder.append(stage);
-
-    $('lb-no').textContent = m.id;
-    $('lb-title').textContent = m.title;
-    $('lb-place').textContent = `${m.place ? m.place + ' · ' : ''}${m.date.replaceAll('-', '.')}（${wd}）`;
-    const postedDate = (m.posted || m.date).slice(0, 10).replaceAll('-', '.');
-    const stText = m.status === 'pending' ? ' · 待展出' : m.status === 'rejected' ? ' · 未展出' : '';
-    $('lb-medium').textContent = `繪馬 · 投稿於 ${postedDate}${stText}`;
-    $('lb-p').textContent = m.note;
+  if (m.type === 'video') {
+    const v = document.createElement('video');
+    Object.assign(v, { src: m.src, controls: true, muted: true, loop: true, playsInline: true, autoplay: !reduce });
+    if (m.poster) v.poster = m.poster;
+    holder.append(v);
   } else {
-    if (m.type === 'video') {
-      const v = document.createElement('video');
-      Object.assign(v, { src: m.src, controls: true, muted: true, loop: true, playsInline: true, autoplay: !reduce });
-      if (m.poster) v.poster = m.poster;
-      holder.append(v);
-    } else {
-      const img = document.createElement('img');
-      img.src = m.src;
-      img.alt = m.title;
-      holder.append(img);
-    }
-    $('lb-no').textContent = m.id;
-    $('lb-title').textContent = m.title;
-    $('lb-place').textContent = `${m.place} · ${m.date.replaceAll('-', '.')}（${wd}）${m.time ? ' ' + m.time : ' · 時刻待補'}`;
-    $('lb-medium').textContent = m.type === 'video'
-      ? `短片 · ${m.duration ?? ''} · 已去除聲音${m.source ? ' · ' + m.source : ''}`
-      : `照片 · ${m.width}×${m.height}`;
-    $('lb-p').textContent = m.note;
+    const img = document.createElement('img');
+    img.src = m.src;
+    img.alt = m.title;
+    holder.append(img);
   }
-
-  const notesBox = $('lb-notes');
-  notesBox.replaceChildren();
-  const comments = m.comments ?? [];
-  if (comments.length > 0) {
-    notesBox.hidden = false;
-    const hd = document.createElement('div');
-    hd.className = 'lb-notes-hd';
-    hd.textContent = `留言 · ${comments.length}`;
-    const list = document.createElement('div');
-    list.className = 'lb-notes-list';
-    const byId = new Map(comments.map((c) => [c.id, c]));
-    for (const c of comments) {
-      const item = document.createElement('div');
-      item.className = 'lb-note';
-      if (c.status === 'pending') item.classList.add('is-pending');
-      if (c.status === 'rejected') item.classList.add('is-rejected');
-      item.id = `lb-c-${c.id}`;
-      item.dataset.cid = c.id;
-      if (c.replyTo) {
-        const parent = byId.get(c.replyTo);
-        if (parent) {
-          const ref = document.createElement('button');
-          ref.type = 'button';
-          ref.className = 'lb-reply-ref';
-          const flat = parent.body.replace(/\s+/g, ' ').trim();
-          const snippet = flat.slice(0, 20) + (flat.length > 20 ? '…' : '');
-          ref.textContent = `回覆 ${parent.by || '無署名'}：${snippet}`;
-          ref.onclick = () => {
-            const targetEl = document.getElementById(`lb-c-${parent.id}`);
-            if (targetEl) {
-              targetEl.scrollIntoView({ behavior: smooth, block: 'nearest' });
-              targetEl.classList.remove('flash');
-              void targetEl.offsetWidth;
-              targetEl.classList.add('flash');
-            }
-          };
-          item.append(ref);
-        }
-      }
-      const meta = document.createElement('div');
-      meta.className = 'lb-note-meta';
-      const authorWrap = document.createElement('div');
-      authorWrap.className = 'lb-note-who';
-      const author = document.createElement('strong');
-      author.textContent = c.by || '無署名';
-      authorWrap.append(author);
-      if (c.status === 'pending' || c.status === 'rejected') {
-        const badge = document.createElement('em');
-        badge.className = `st-badge ${c.status}`;
-        badge.textContent = c.status === 'pending' ? '待展出' : '未展出';
-        authorWrap.append(badge);
-      }
-      const date = document.createElement('span');
-      date.className = 'lb-note-date';
-      date.textContent = c.posted.slice(0, 10).replaceAll('-', '.');
-      meta.append(authorWrap, date);
-      const bodyP = document.createElement('p');
-      bodyP.className = 'lb-note-body';
-      bodyP.textContent = c.body;
-      item.append(meta, bodyP);
-      list.append(item);
-    }
-    notesBox.append(hd, list);
-  } else {
-    notesBox.hidden = true;
-  }
-
+  $('lb-no').textContent = m.id;
+  $('lb-title').textContent = m.title;
+  $('lb-place').textContent = `${m.place} · ${m.date.replaceAll('-', '.')}（${wd}）${m.time ? ' ' + m.time : ' · 時刻待補'}`;
+  $('lb-medium').textContent = m.type === 'video'
+    ? `短片 · ${m.duration ?? ''} · 已去除聲音${m.source ? ' · ' + m.source : ''}`
+    : `照片 · ${m.width}×${m.height}`;
+  $('lb-p').textContent = m.note;
   $('lb-count').textContent = `${cur + 1} / ${MEDIA.length}`;
-  onShowHook?.(m, cur);
 }
-export function open(i: number) {
+function open(i: number) {
   lastFocus = document.activeElement as HTMLElement | null;
   show(i);
   lb.hidden = false;
   body.style.overflow = 'hidden';
   $('lb-x').focus();
 }
-export function close() {
+function close() {
   lb.hidden = true;
   $('lb-media').replaceChildren();
   body.style.overflow = '';

@@ -1,7 +1,3 @@
----
-interface Props { editMode?: boolean }
-const { editMode = false } = Astro.props;
----
 <div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-labelledby="lb-title">
   <div class="lb-card">
     <div class="lb-media" id="lb-media"></div>
@@ -11,69 +7,8 @@ const { editMode = false } = Astro.props;
       <div class="place" id="lb-place"></div>
       <div class="medium" id="lb-medium"></div>
       <p id="lb-p"></p>
-      {editMode && <div class="lb-ema-actions" id="lb-ema-actions" hidden></div>}
-      <div class="lb-notes" id="lb-notes" hidden></div>
-      {editMode && (
-        <form class="lb-form" id="lb-form" novalidate>
-          <div class="lb-replying" id="lb-replying" hidden>
-            <span id="lb-replying-text"></span>
-            <button type="button" id="lb-reply-cancel">取消回覆</button>
-          </div>
-          <div class="lb-form-row">
-            <label class="sr" for="lb-by">署名</label>
-            <input type="text" id="lb-by" maxlength="20" placeholder="署名（可留白，最多 20 字）" autocomplete="nickname" />
-            <span class="char-cnt" id="lb-cnt">剩餘 300 字</span>
-          </div>
-          <label class="sr" for="lb-body">留言內文</label>
-          <textarea id="lb-body" rows="3" placeholder="寫下對這件展品或繪馬的留言（1～300 字）…"></textarea>
-          <div class="form-err" id="lb-err" role="alert" hidden></div>
-          <div class="lb-form-actions">
-            <button type="submit" id="lb-submit">送出留言</button>
-          </div>
-        </form>
-      )}
       <div class="lb-nav"><button id="lb-prev">← 上一件</button><span id="lb-count"></span><button id="lb-next">下一件 →</button></div>
     </div>
     <button class="lb-x" id="lb-x" aria-label="關閉說明卡">×</button>
   </div>
 </div>
-
-{editMode && (
-  <div class="lb" id="ema-modal" hidden role="dialog" aria-modal="true" aria-labelledby="ema-modal-title">
-    <div class="lb-card ema-modal-card">
-      <div class="lb-media">
-        <div class="lb-ema-stage">
-          <div class="ema-frame lb-ema" id="ema-preview-frame" style="--tilt:-1.4deg">
-            <span class="ema-cord" aria-hidden="true"></span>
-            <div class="ema-board">
-              <span class="ema-hole" aria-hidden="true"></span>
-              <div class="ema-body" id="ema-preview-body">（在右側輸入文字，即時預覽繪馬木牌）</div>
-              <div class="ema-foot">
-                <span class="ema-by" id="ema-preview-by">無署名</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="lb-label">
-        <div class="no" id="ema-modal-day"></div>
-        <h3 id="ema-modal-title">掛一塊繪馬</h3>
-        <form class="lb-form ema-form" id="ema-form" novalidate>
-          <div class="lb-form-row">
-            <label class="sr" for="ema-by">署名</label>
-            <input type="text" id="ema-by" maxlength="20" placeholder="署名（可留白，最多 20 字）" autocomplete="nickname" />
-            <span class="char-cnt" id="ema-cnt">剩餘 300 字</span>
-          </div>
-          <label class="sr" for="ema-body">繪馬內文</label>
-          <textarea id="ema-body" rows="5" placeholder="寫下這一天的回憶或話語（1～300 字）…"></textarea>
-          <div class="form-err" id="ema-err" role="alert" hidden></div>
-          <div class="lb-form-actions">
-            <button type="button" class="btn-sec" id="ema-cancel">取消</button>
-            <button type="submit" id="ema-submit">掛上繪馬</button>
-          </div>
-        </form>
-      </div>
-      <button class="lb-x" id="ema-x" aria-label="關閉繪馬視窗">×</button>
-    </div>
-  </div>
-)}

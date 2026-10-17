@@ -205,24 +205,18 @@ japan-wall/
 ├── raw/                    ← 原始照片與短片（gitignore），依日期分資料夾
 ├── public/media/<日期>/    ← 處理後的 WebP / MP4 / poster
 ├── src/
-│   ├── content.config.ts   ← 四個 collection 的 schema：site / days / exhibits / notes
+│   ├── content.config.ts   ← 三個 collection 的 schema：site / days / exhibits
 │   ├── content/site/trip.yaml
 │   ├── content/days/       ← 每天一檔：城市、地點、欄位排版
 │   ├── content/exhibits/   ← 每件展品一檔
-│   ├── content/notes/      ← 同行友人的留言與繪馬（由 notes:pull 產生）
-│   ├── lib/wall.ts         ← 計算 DAY n、星期、城市年代分組、繪馬掛載與說明卡資料
-│   ├── components/         ← WallPage / Day / Plate / Ema / Lightbox
+│   ├── lib/wall.ts         ← 計算 DAY n、星期、城市年代分組與說明卡資料
+│   ├── components/         ← WallPage / Day / Plate / Lightbox
 │   ├── pages/
-│   │   ├── index.astro     ← 公開展覽牆
-│   │   └── edit/           ← 同行友人登入後的留言與繪馬編寫頁＋targets.json
-│   ├── scripts/            ← wall.ts（公開互動）、edit.ts（編寫頁互動）
+│   │   └── index.astro     ← 公開展覽牆
+│   ├── scripts/            ← wall.ts（公開互動）
 │   └── styles/wall.css     ← 由原型移植
-├── worker/
-│   ├── index.ts            ← Cloudflare Worker（/api/* 投稿 API 與 Access 驗證）
-│   └── schema.sql          ← D1 資料表 posts
 └── scripts/
     ├── ingest.mjs          ← 匯入 raw/ 素材
-    ├── notes-pull.mjs      ← 從 D1 收稿並輸出 src/content/notes/*.yaml
     └── check.mjs           ← 隱私與引用檢查（prebuild 自動執行）
 ```
 
@@ -276,7 +270,7 @@ japan-wall/
 - [x] LINE 相簿補充的 23 件：標題與說明 Viking 確認（2026-10-15，`draft: false`）。
 - [ ] 每天的心得欄位：Viking 之後自己填（填好改成 `text` 文字卡；`slot` 在公開版不顯示）。
 - [ ] **向同行友人索取原始照片**（HEIC／JPEG 原檔，保留 EXIF 拍攝時間），方便彙整；LINE 相簿的 23 件拿到原檔後可補上時刻。
-- [x] **設計與實作後台系統（第 1～4 段）**：同行友人登入後對展品留言與掛繪馬（規格見 `docs/notes-spec.md`，資料模型、Worker/D1 API、`/edit/` 編寫頁、`notes:pull` 收稿腳本已完成；待 Viking 完成第 5 段 Cloudflare Access 與 D1 設定上線）。
+- [x] ~~設計與實作後台系統（第 1～4 段）~~：**已拆除（2026-10-17）**。原 Cloudflare Access 收稿制後台（留言/繪馬投稿、`notes:pull`）從未上線，經 Viking 決定廢除，改為「後台 2.0：帳號密碼登入＋照片上傳＋繪馬留言動態公開＋前後台雙網域」。規格選型紀錄保留在 `docs/admin-design.md`、`docs/notes-spec.md`（均已標記廢棄）。
 - [ ] **背景圖片後製**：回到 Mac mini，用圖片模型後製 `public/art/days/` 的 33 張背景拼貼（以及 `eave.svg` 屋簷），替換同名檔案；Commons 來源的兩張後製版本須維持 CC BY-SA。
 - [ ] 日期不明、尚未放上牆的 LINE 相簿照片（梅田藍天大廈夜景、寶可夢中心、JUMP SHOP、螃蟹宴等），之後再處理。
 
@@ -314,6 +308,6 @@ claude.ai 上已發佈的三個版本（私人連結，只有使用者能開）�
 3. `npm run deploy`：建置後部署 Worker `osaka2026` 與自訂網域 `osaka2026.voriens.dev`。
 4. 部署後用瀏覽器檢查桌機與手機寬度、開一張展品說明卡、播一支短片。
 
-**下一步**：見第 7 節待辦（向友人索取原始照片、後台系統設計提案在 `docs/admin-design.md`、Mac mini 後製背景圖）。
+**下一步**：見第 7 節待辦（向友人索取原始照片、後台 2.0 重建、Mac mini 後製背景圖）。
 
 **之後**：心得欄位（`slot`）由 Viking 自己填，填好改成 `text` 文字卡；`slot` 在公開版不顯示。
