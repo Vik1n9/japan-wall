@@ -21,9 +21,18 @@
       "database_id": "00000000-0000-0000-0000-000000000000"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      // TODO: wrangler r2 bucket create osaka2026-uploads（本機 dev 自動模擬）
+      "bucket_name": "osaka2026-uploads"
+    }
+  ],
   "vars": {
     // http://kura… 是给 wrangler dev：本機同源請求的 Origin 會被改寫成 http 版 route hostname
-    "ALLOWED_ORIGINS": "https://kura.osaka2026.voriens.dev,http://kura.osaka2026.voriens.dev,http://localhost:8787,http://localhost:4321"
+    "ALLOWED_ORIGINS": "https://kura.osaka2026.voriens.dev,http://kura.osaka2026.voriens.dev,http://localhost:8787,http://localhost:4321",
+    // 牆上的展覽日（上傳照片要指定掛在哪一天）
+    "DAYS": "2026-10-05,2026-10-06,2026-10-07,2026-10-08,2026-10-09"
   },
   // 只有這個網址開得到後台；不掛 workers.dev
   "routes": [{ "pattern": "kura.osaka2026.voriens.dev", "custom_domain": true }],

@@ -116,6 +116,15 @@ const bodyStyle = [art.emaRoof && `--ema-roof-img:url(${asset(art.emaRoof)})`, a
 
     <Lightbox />
     {editMode && <EditExtras />}
+    {
+      editMode && (
+        <script
+          type="application/json"
+          id="edit-days"
+          set:html={JSON.stringify(eras.flatMap((e) => e.days).map((d) => ({ date: d.date, label: d.label })))}
+        ></script>
+      )
+    }
     <script type="application/json" id="wall-data" set:html={JSON.stringify(lightboxData).replace(/</g, '\\u003c')}></script>
     <script>import '../scripts/wall.ts';</script>
   </body>

@@ -81,7 +81,72 @@
 .edit-pw .row button.ghost { color: var(--ink); background: transparent; border: 1px solid var(--rule); }
 .edit-pw .err { color: var(--red); font-size: 13px; min-height: 1.2em; margin: 10px 0 0; }
 
+/* 右側抽屜：上傳＋我的照片 */
+.edit-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 55;
+  width: min(400px, 94vw);
+  background: var(--panel);
+  border-left: 1px solid var(--hair);
+  box-shadow: -8px 0 30px rgba(0, 0, 0, .25);
+  display: flex; flex-direction: column;
+}
+.ed-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--hair);
+}
+.ed-head h2 { font-family: var(--f-display); font-size: 18px; margin: 0; letter-spacing: .03em; }
+.ed-x {
+  font: inherit; font-size: 20px; line-height: 1;
+  color: var(--muted); background: transparent;
+  border: none; cursor: pointer; padding: 4px 8px;
+}
+.ed-x:hover { color: var(--ink); }
+.ed-body { overflow-y: auto; padding: 16px; }
+.ep-card {
+  background: var(--page);
+  border: 1px solid var(--hair); border-radius: 10px;
+  padding: 16px; margin-bottom: 16px;
+}
+.ep-card h3 { font-family: var(--f-display); font-size: 15px; margin: 0 0 4px; }
+.ep-card .hint { color: var(--muted); font-size: 12px; margin: 0 0 12px; }
+.ep-card label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+.ep-card input, .ep-card select {
+  display: block; width: 100%; margin-top: 4px;
+  padding: 7px 9px; font: inherit; color: var(--ink);
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+}
+.ep-card input[type=file] { padding: 5px; font-size: 12px; }
+.ep-card button[type=submit] {
+  padding: 7px 20px; font: inherit; font-weight: 500;
+  color: #fff; background: var(--btn-bg, #1C1A18);
+  border: 1px solid var(--btn-bg, #1C1A18); border-radius: 6px; cursor: pointer;
+}
+.ep-card .err { color: var(--red); font-size: 13px; min-height: 1.2em; margin: 8px 0 0; }
+.ep-card .ok { color: var(--ok, #2E6B34); font-size: 13px; min-height: 1.2em; margin: 8px 0 0; }
+
+.ep-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ep-item { border: 1px solid var(--hair); border-radius: 8px; overflow: hidden; background: var(--panel); }
+.ep-item img { display: block; width: 100%; height: auto; aspect-ratio: 4/3; object-fit: cover; }
+.ep-item .cap {
+  font-size: 12px; padding: 6px 8px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ep-item .meta { font-size: 11px; color: var(--muted); padding: 0 8px 4px; }
+.ep-item .ops { display: flex; gap: 4px; padding: 0 8px 8px; }
+.ep-item .ops button {
+  flex: 1; font: inherit; font-size: 11px; padding: 3px 0;
+  color: var(--ink); background: transparent;
+  border: 1px solid var(--rule); border-radius: 5px; cursor: pointer;
+}
+.ep-item .ops button.del { color: var(--red); border-color: var(--red); }
+.ep-empty { color: var(--muted); font-size: 13px; }
+
 @media (max-width: 480px) {
   .edit-bar { left: 8px; bottom: 44px; padding: 5px 6px 5px 12px; }
   .edit-bar .who { font-size: 12px; }
+}
+@media (prefers-color-scheme: dark) {
+  .ep-card button[type=submit] { color: #171614; background: #ECEAE4; border-color: #ECEAE4; }
+  .ep-card .ok { color: #7FBF85; }
 }

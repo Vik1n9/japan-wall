@@ -18,10 +18,37 @@
 
 <div class="edit-bar" id="edit-bar" hidden>
   <span class="who">編輯模式 · <b id="em-who"></b></span>
+  <button type="button" id="em-uploads">我的上傳</button>
   <button type="button" id="em-admin" hidden>後台</button>
   <button type="button" id="em-pw">變更密碼</button>
   <button type="button" id="em-logout">登出</button>
 </div>
+
+<!-- 右側抽屜：上傳照片＋我的照片管理 -->
+<aside class="edit-drawer" id="edit-drawer" hidden aria-label="我的上傳">
+  <div class="ed-head">
+    <h2>我的上傳</h2>
+    <button type="button" class="ed-x" id="ed-close" aria-label="關閉">×</button>
+  </div>
+  <div class="ed-body">
+    <div class="ep-card">
+      <h3>上傳照片</h3>
+      <p class="hint">上傳後立刻公開在牆上。瀏覽器會先縮圖（長邊 ≤2048）並抹掉 EXIF；每人每天 20 張、單檔 8MB。</p>
+      <form id="up-form">
+        <label>照片（JPEG/PNG/WebP）<input type="file" name="file" accept="image/jpeg,image/png,image/webp" required /></label>
+        <label>掛在哪一天 <select name="day" id="up-day"></select></label>
+        <label>說明（≤300 字，可留空）<input name="caption" maxlength="300" /></label>
+        <button type="submit">上傳</button>
+        <p class="err" id="up-err" role="alert"></p>
+        <p class="ok" id="up-ok" role="status"></p>
+      </form>
+    </div>
+    <div class="ep-card">
+      <h3>我的照片</h3>
+      <div class="ep-grid" id="my-photos"></div>
+    </div>
+  </div>
+</aside>
 
 <div class="edit-pw" id="edit-pw" hidden>
   <div class="em-card">

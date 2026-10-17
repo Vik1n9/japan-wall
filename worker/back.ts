@@ -2,7 +2,8 @@
 // 階段 1：auth 核心（login / logout / me / change-password）。
 // 之後階段在這裡加 users 管理、photos、posts、public/media。
 
-import { json, nowTaipeiIso, randomPassword, safeEqual } from './lib/util';
+import { json, nowTaipeiIso, randomCode, randomPassword, safeEqual } from './lib/util';
+import { parseAndClean } from './lib/images';
 import {
   createSession,
   destroyAllSessions,
@@ -21,13 +22,30 @@ import {
 export interface Env {
   DB: D1Database;
   ASSETS: Fetcher;
+  UPLOADS: R2BucketLike;
   ALLOWED_ORIGINS?: string;
+  DAYS?: string;
   DEV_MODE?: string; // .dev.vars：本機開發時 "1"，cookie 不加 Secure（http://localhost 也要能收）
+}
+
+interface R2BucketLike {
+  get(key: string): Promise<{ body: ReadableStream | null; httpMetadata?: { contentType?: string } } | null>;
+  put(key: string, value: Uint8Array, opts?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
+  delete(key: string): Promise<void>;
 }
 
 const DEFAULT_ALLOWED_ORIGINS = 'https://kura.osaka2026.voriens.dev,http://kura.osaka2026.voriens.dev,http://localhost:8787,http://localhost:4321';
 const MIN_PASSWORD = 8;
 const USERNAME_RE = /^[a-z0-9_.-]{2,32}$/; // 與 scripts/admin-create.mjs 相同
+const MAX_UPLOAD = 8 * 1024 * 1024;
+const MAX_SIDE = 2048;
+const PHOTOS_PER_DAY = 20;
+const CAPTION_MAX = 300;
+const PHOTO_ID_RE = /^p-\d{8}-[a-z0-9]{4}$/;
+
+function cleanSingleLine(s: string): string {
+  return s.replace(/[\r\n\t]/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
 function clientIp(request: Request): string {
   return request.headers.get('CF-Connecting-IP') || 'local';
@@ -111,6 +129,22 @@ export default {
       );
     }
 
+    /* ---------- GET /api/media/:key（公開、immutable 快取；階段 6 會抽成雙域共用模組） ---------- */
+    if (method === 'GET' && url.pathname.startsWith('/api/media/')) {
+      const key = decodeURIComponent(url.pathname.slice('/api/media/'.length));
+      if (!/^photos\/p-\d{8}-[a-z0-9]{4}\.(jpg|png|webp)$/.test(key)) {
+        return json({ error: '找不到此 API 路徑' }, 404);
+      }
+      const obj = await env.UPLOADS.get(key);
+      if (!obj || !obj.body) return json({ error: '找不到檔案' }, 404);
+      return new Response(obj.body, {
+        headers: {
+          'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
+          'Cache-Control': 'public, max-age=31536000, immutable',
+        },
+      });
+    }
+
     /* ---------- 以下都需要 session ---------- */
     const session = await getSessionUser(env.DB, request);
 
@@ -154,6 +188,122 @@ export default {
         .bind(hash, session.user.username)
         .run();
       await destroyOtherSessions(env.DB, session.user.username, session.tokenHash);
+      return json({ ok: true });
+    }
+
+    /* ---------- 照片：GET/POST /api/photos、PUT/DELETE /api/photos/:id ---------- */
+    const days = new Set((env.DAYS || '').split(',').map((s) => s.trim()).filter(Boolean));
+
+    function photoDto(r: {
+      id: string; author: string; author_name?: string; day: string; caption: string;
+      r2_key: string; mime: string; width: number; height: number; created_at: string;
+    }, mine: boolean) {
+      return {
+        id: r.id, author: r.author, authorName: r.author_name ?? r.author, day: r.day,
+        caption: r.caption, key: r.r2_key, mime: r.mime, width: r.width, height: r.height,
+        createdAt: r.created_at, mine,
+      };
+    }
+
+    if (method === 'GET' && url.pathname === '/api/photos') {
+      const { results } = await env.DB.prepare(
+        `SELECT p.id, p.author, u.display_name AS author_name, p.day, p.caption, p.r2_key, p.mime, p.width, p.height, p.created_at
+         FROM photos p JOIN users u ON u.username = p.author
+         WHERE p.status = 'live'
+         ORDER BY p.created_at DESC, p.id DESC`,
+      ).all<{
+        id: string; author: string; author_name: string; day: string; caption: string;
+        r2_key: string; mime: string; width: number; height: number; created_at: string;
+      }>();
+      return json({
+        photos: (results || []).map((r) => photoDto(r, r.author === session.user.username)),
+      });
+    }
+
+    if (method === 'POST' && url.pathname === '/api/photos') {
+      let form: FormData;
+      try { form = await request.formData(); } catch { return json({ error: '請用 multipart/form-data 上傳' }, 400); }
+      const file = form.get('file');
+      if (!(file instanceof File) || file.size === 0) return json({ error: '沒有檔案' }, 400);
+      if (file.size > MAX_UPLOAD) return json({ error: '檔案上限 8MB（上傳前會先在瀏覽器縮圖）' }, 413);
+
+      const day = typeof form.get('day') === 'string' ? (form.get('day') as string).trim() : '';
+      const caption = cleanSingleLine(typeof form.get('caption') === 'string' ? (form.get('caption') as string) : '');
+      if (!days.has(day)) return json({ error: '指定的展覽日不存在' }, 400);
+      if (caption.length > CAPTION_MAX) return json({ error: `說明上限 ${CAPTION_MAX} 字` }, 400);
+
+      const buf = new Uint8Array(await file.arrayBuffer());
+      const img = parseAndClean(buf);
+      if (!img) return json({ error: '只接受 JPEG／PNG／WebP' }, 400);
+      if (Math.max(img.width, img.height) > MAX_SIDE) {
+        return json({ error: `長邊上限 ${MAX_SIDE}px——請透過頁面上傳介面（會自動縮圖）` }, 400);
+      }
+
+      const { ymd, datePrefix, iso } = nowTaipeiIso();
+      const quota = await env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM photos WHERE author = ?1 AND status = 'live' AND created_at LIKE ?2`,
+      ).bind(session.user.username, `${datePrefix}%`).first<{ n: number }>();
+      if ((quota?.n ?? 0) >= PHOTOS_PER_DAY) {
+        return json({ error: `一天最多上傳 ${PHOTOS_PER_DAY} 張照片` }, 429);
+      }
+
+      const id = `p-${ymd}-${randomCode(4)}`;
+      const key = `photos/${id}.${img.ext}`;
+      await env.UPLOADS.put(key, img.clean, { httpMetadata: { contentType: img.mime } });
+      await env.DB.prepare(
+        `INSERT INTO photos (id, author, day, caption, r2_key, mime, bytes, width, height, status, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'live', ?10)`,
+      ).bind(id, session.user.username, day, caption, key, img.mime, img.clean.length, img.width, img.height, iso).run();
+
+      return json({
+        ok: true,
+        photo: photoDto({
+          id, author: session.user.username, author_name: session.user.displayName, day,
+          caption, r2_key: key, mime: img.mime, width: img.width, height: img.height, created_at: iso,
+        }, true),
+      }, 201);
+    }
+
+    const photoMatch = url.pathname.match(/^\/api\/photos\/(p-\d{8}-[a-z0-9]{4})$/);
+    if (photoMatch && (method === 'PUT' || method === 'DELETE')) {
+      const id = photoMatch[1];
+      const row = await env.DB.prepare(`SELECT * FROM photos WHERE id = ?1 AND status = 'live'`)
+        .bind(id)
+        .first<{ id: string; author: string; day: string; caption: string; r2_key: string; mime: string; width: number; height: number; created_at: string }>();
+      if (!row) return json({ error: '照片不存在（或已刪除）' }, 404);
+      const isOwner = row.author === session.user.username;
+      const isAdmin = session.user.role === 'admin';
+      if (!isOwner && !isAdmin) return json({ error: '只能管理自己的照片' }, 403);
+
+      const { iso } = nowTaipeiIso();
+
+      if (method === 'DELETE') {
+        await env.DB.prepare(`UPDATE photos SET status = 'removed', updated_at = ?1 WHERE id = ?2`)
+          .bind(iso, id).run();
+        // 檔案一併刪除：刪除的意義就是不再公開（DB 列保留作 audit；若 R2 刪除失敗留孤兒檔，靠 backup/清理處理）
+        try { await env.UPLOADS.delete(row.r2_key); } catch { /* 非致命 */ }
+        return json({ ok: true });
+      }
+
+      // PUT：改 caption / day
+      const body = await readJsonBody(request);
+      if (!body) return json({ error: '無效的 JSON' }, 400);
+      const sets: string[] = [];
+      const values: (string | number)[] = [];
+      if (typeof body.caption === 'string') {
+        const caption = cleanSingleLine(body.caption);
+        if (caption.length > CAPTION_MAX) return json({ error: `說明上限 ${CAPTION_MAX} 字` }, 400);
+        sets.push(`caption = ?${values.length + 1}`); values.push(caption);
+      }
+      if (typeof body.day === 'string') {
+        if (!days.has(body.day.trim())) return json({ error: '指定的展覽日不存在' }, 400);
+        sets.push(`day = ?${values.length + 1}`); values.push(body.day.trim());
+      }
+      if (sets.length === 0) return json({ error: '沒有要更新的欄位' }, 400);
+      sets.push(`updated_at = ?${values.length + 1}`); values.push(iso);
+      values.push(id);
+      await env.DB.prepare(`UPDATE photos SET ${sets.join(', ')} WHERE id = ?${values.length}`)
+        .bind(...values).run();
       return json({ ok: true });
     }
 
