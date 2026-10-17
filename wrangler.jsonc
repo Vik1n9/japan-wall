@@ -10,6 +10,21 @@
     "binding": "ASSETS",
     "run_worker_first": ["/api/*", "/edit", "/edit/*", "/admin", "/admin/*"]
   },
+  // 階段 6：前台動態渲染需要的唯讀綁定（與後台同一個 D1/R2）
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "osaka2026",
+      // TODO: wrangler d1 create osaka2026 後填入真實 ID（與 wrangler.back.jsonc 相同）
+      "database_id": "00000000-0000-0000-0000-000000000000"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      "bucket_name": "osaka2026-uploads"
+    }
+  ],
   // 綁定自訂網域；不另外開 workers.dev 網址
   "routes": [{ "pattern": "osaka2026.voriens.dev", "custom_domain": true }],
   "workers_dev": false

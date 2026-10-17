@@ -89,7 +89,7 @@ const bodyStyle = [art.emaRoof && `--ema-roof-img:url(${asset(art.emaRoof)})`, a
           {eras.map((era, i) => (
             <section class:list={['era', { pending: era.pending }]} data-label={era.label}>
               <div class="era-head"><span class="era-num">{era.num}</span><span class="era-city">{era.label}</span><span class="era-range">{era.range}</span></div>
-              <div class="days">{era.days.map((day) => <Day day={day} />)}</div>
+              <div class="days">{era.days.map((day) => <Day day={day} editMode={editMode} />)}</div>
             </section>
           ))}
 

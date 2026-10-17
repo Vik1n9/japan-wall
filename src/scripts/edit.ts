@@ -444,6 +444,18 @@ function postItem(p: Post): HTMLElement {
 
 /* ---------- 初始 ---------- */
 
+/* 每天標題旁的「掛一塊繪馬」：開抽屜、切繪馬、預選那天 */
+document.querySelectorAll<HTMLButtonElement>('.btn-add-ema').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    buildDayOptions();
+    $('edit-drawer').hidden = false;
+    ($('post-kind') as HTMLSelectElement).value = 'ema';
+    $('post-kind').dispatchEvent(new Event('change'));
+    ($('post-target-day') as HTMLSelectElement).value = btn.dataset.day || '';
+    postBodyInput().focus();
+  });
+});
+
 void (async () => {
   const { status, data } = await api('/api/me');
   if (status === 200) me = data.me as Me;

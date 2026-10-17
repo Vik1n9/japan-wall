@@ -227,6 +227,18 @@ button{font:inherit;color:inherit}
 .ema .ema-body,.ema .ema-by{color:#1C1A18}
 @media (prefers-reduced-motion:reduce){.ema-frame{transition:none}}
 
+/* 留言籤（cap 上的計數 badge）與親友照片欄（動態注入） */
+.ofuda{display:inline-block;margin-left:6px;padding:0 6px;border:1px solid var(--red);border-radius:999px;color:var(--red);font-family:var(--f-mono);font-size:.58rem;letter-spacing:.06em;vertical-align:1px}
+.col-friends{gap:0}
+.f-rail{position:relative;height:20px;background:linear-gradient(180deg,var(--rule),var(--panel) 45%,var(--rule));border:1px solid var(--rule);box-shadow:0 4px 10px -4px var(--shade);display:flex;align-items:center;justify-content:center;z-index:2}
+.f-rail::before,.f-rail::after{content:"";position:absolute;top:50%;width:5px;height:5px;border-radius:50%;background:var(--ink);transform:translateY(-50%)}
+.f-rail::before{left:8px}.f-rail::after{right:8px}
+.f-rail span{font-family:var(--f-mono);font-size:.58rem;letter-spacing:.18em;color:var(--muted);background:var(--panel);padding:0 6px}
+.f-list{display:flex;flex-direction:column;gap:calc(12px * var(--wall-scale,1));padding-top:calc(10px * var(--wall-scale,1))}
+.it-friend .ph{display:block;background:var(--panel);border:1px solid var(--hair);padding:5px;box-shadow:0 2px 0 var(--shade);transition:transform .2s,box-shadow .2s}
+.it-friend:hover .ph{transform:translateY(-2px);box-shadow:0 4px 8px var(--shade)}
+.it-friend .ph img{display:block;width:100%;height:auto}
+
 /* end panel */
 .finale{flex:none;width:240px;padding-top:150px;font-size:.8rem;color:var(--muted)}
 .finale h2{font-family:var(--f-display);font-weight:900;font-size:1.5rem;color:var(--ink);letter-spacing:.12em;margin:6px 0 10px}
@@ -268,6 +280,13 @@ button{font:inherit;color:inherit}
 .ema .lb-ema .ema-board{min-height:0;padding:calc(var(--w) * .14) 22px calc(var(--w) * .06)}
 .lb-ema .ema-hole{background:#0d0e10}
 .lb-ema .ema-body{font-size:1.02rem;-webkit-line-clamp:unset;overflow:visible}
+/* 說明卡底的留言討論串 */
+.lb-cmts{border-top:1px dashed var(--rule);padding-top:10px;margin-bottom:16px}
+.lb-cmts h4{font-family:var(--f-mono);font-size:.68rem;letter-spacing:.12em;color:var(--muted);margin:0 0 8px}
+.cmt{margin:0 0 10px}
+.cmt.reply{margin-left:16px;border-left:2px solid var(--hair);padding-left:10px}
+.cmt-head{font-family:var(--f-mono);font-size:.64rem;color:var(--muted)}
+.cmt-body{font-size:.82rem;line-height:1.65;white-space:pre-line;overflow-wrap:anywhere}
 .lb-nav{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:8px;font-family:var(--f-mono);font-size:.72rem;color:var(--muted)}
 .lb-nav button{border:1px solid var(--ink);background:none;padding:6px 10px;cursor:pointer;font-size:.78rem}
 .lb-x{position:absolute;right:8px;top:8px;width:36px;height:36px;border:0;background:var(--panel);font-size:1.4rem;line-height:1;cursor:pointer;z-index:1}

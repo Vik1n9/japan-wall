@@ -1,8 +1,8 @@
 ---
 import Plate from './Plate.astro';
 import { asset, type Day } from '../lib/wall';
-interface Props { day: Day }
-const { day } = Astro.props;
+interface Props { day: Day; editMode?: boolean }
+const { day, editMode = false } = Astro.props;
 const meta = day.status === 'pending'
   ? '布展中'
   : [day.place, day.counts.photo && `${day.counts.photo} 張照片`, day.counts.video && `${day.counts.video} 支短片`].filter(Boolean).join(' · ');
@@ -15,6 +15,9 @@ const meta = day.status === 'pending'
   )}
   <div class="dh">
     <span class="dnum">{day.label}</span><span class="dwd">{day.weekday}</span>
+    {editMode && day.status === 'live' && (
+      <button type="button" class="btn-add-ema" data-day={day.date}>掛一塊繪馬</button>
+    )}
   </div>
   <div class="dmeta">DAY {day.n} · {meta}</div>
   <div class="cols">

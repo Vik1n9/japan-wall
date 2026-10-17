@@ -4,6 +4,7 @@
 
 import { json, nowTaipeiIso, randomCode, randomPassword, safeEqual } from './lib/util';
 import { parseAndClean } from './lib/images';
+import { mediaResponse, publicWallResponse, type R2BucketLike } from './lib/public';
 import {
   createSession,
   destroyAllSessions,
@@ -26,12 +27,6 @@ export interface Env {
   ALLOWED_ORIGINS?: string;
   DAYS?: string;
   DEV_MODE?: string; // .dev.vars：本機開發時 "1"，cookie 不加 Secure（http://localhost 也要能收）
-}
-
-interface R2BucketLike {
-  get(key: string): Promise<{ body: ReadableStream | null; httpMetadata?: { contentType?: string } } | null>;
-  put(key: string, value: Uint8Array, opts?: { httpMetadata?: { contentType?: string } }): Promise<unknown>;
-  delete(key: string): Promise<void>;
 }
 
 const DEFAULT_ALLOWED_ORIGINS = 'https://kura.osaka2026.voriens.dev,http://kura.osaka2026.voriens.dev,http://localhost:8787,http://localhost:4321';
@@ -155,20 +150,12 @@ export default {
       );
     }
 
-    /* ---------- GET /api/media/:key（公開、immutable 快取；階段 6 會抽成雙域共用模組） ---------- */
+    /* ---------- GET /api/media/:key 與 /api/public/wall（公開唯讀，與前台共用模組） ---------- */
     if (method === 'GET' && url.pathname.startsWith('/api/media/')) {
-      const key = decodeURIComponent(url.pathname.slice('/api/media/'.length));
-      if (!/^photos\/p-\d{8}-[a-z0-9]{4}\.(jpg|png|webp)$/.test(key)) {
-        return json({ error: '找不到此 API 路徑' }, 404);
-      }
-      const obj = await env.UPLOADS.get(key);
-      if (!obj || !obj.body) return json({ error: '找不到檔案' }, 404);
-      return new Response(obj.body, {
-        headers: {
-          'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream',
-          'Cache-Control': 'public, max-age=31536000, immutable',
-        },
-      });
+      return mediaResponse(env.UPLOADS, decodeURIComponent(url.pathname.slice('/api/media/'.length)));
+    }
+    if (method === 'GET' && url.pathname === '/api/public/wall') {
+      return publicWallResponse(env.DB);
     }
 
     /* ---------- 以下都需要 session ---------- */

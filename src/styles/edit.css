@@ -168,6 +168,15 @@
 }
 .pst-item .ops button.del { color: var(--red); border-color: var(--red); }
 
+/* 編輯模式：每天標題旁的「掛一塊繪馬」 */
+.btn-add-ema {
+  font: inherit; font-size: 11px;
+  padding: 2px 10px; margin-left: 10px;
+  color: var(--red); background: transparent;
+  border: 1px dashed var(--red); border-radius: 999px; cursor: pointer;
+}
+.btn-add-ema:hover { background: color-mix(in srgb, var(--red) 8%, transparent); }
+
 @media (max-width: 480px) {
   .edit-bar { left: 8px; bottom: 44px; padding: 5px 6px 5px 12px; }
   .edit-bar .who { font-size: 12px; }
