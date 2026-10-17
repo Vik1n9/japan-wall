@@ -12,6 +12,8 @@
     "db:setup:local": "npx --yes wrangler@4 d1 execute osaka2026 -c wrangler.back.jsonc --local --file=worker/schema.sql",
     "db:setup:remote": "npx --yes wrangler@4 d1 execute osaka2026 -c wrangler.back.jsonc --remote --file=worker/schema.sql",
     "admin:create": "node scripts/admin-create.mjs",
+    "test:api": "node scripts/api-smoke.mjs",
+    "test:ui": "node scripts/ui-smoke.mjs",
     "ingest": "node scripts/ingest.mjs",
     "check": "node scripts/check.mjs",
     "prebuild": "node scripts/check.mjs && node scripts/gen-targets.mjs",
