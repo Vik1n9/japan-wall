@@ -14,3 +14,6 @@ raw/*
 
 # wrangler 本機暫存
 .wrangler/
+
+# wrangler dev 本機環境變數（DEV_MODE 等；正式環境用 wrangler secret/vars）
+.dev.vars

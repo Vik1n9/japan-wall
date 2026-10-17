@@ -1,11 +1,14 @@
-// Cloudflare Workers（純靜態資源）：npm run deploy
-// 舊的 /api/* 投稿後台（Cloudflare Access 收稿制）已於 2026-10-17 拆除；
-// 新版後台（帳號密碼＋動態公開，前後台雙網域）見 README 待辦。
+// 前台 Worker（純展示）：npm run deploy
+// 只有 /api/*、/edit*、/admin* 進 Worker 回 404，其餘直接由靜態資源回應、不計費。
+// 這個部署裡沒有任何登入/後台程式碼——後台在 wrangler.back.jsonc（kura 網域）。
 {
   "name": "osaka2026",
+  "main": "worker/front.ts",
   "compatibility_date": "2026-10-01",
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/edit", "/edit/*", "/admin", "/admin/*"]
   },
   // 綁定自訂網域；不另外開 workers.dev 網址
   "routes": [{ "pattern": "osaka2026.voriens.dev", "custom_domain": true }],
