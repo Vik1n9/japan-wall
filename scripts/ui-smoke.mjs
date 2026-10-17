@@ -238,6 +238,21 @@ try {
   check('說明卡可往下一件瀏覽', await waitFor(`document.getElementById('lb-count').textContent.length > 0`));
   await run(`document.getElementById('lb-x').click();`);
   await shot('public-wall-dynamic');
+  // 手機寬度（400px）：牆面模式與閱讀模式，有動態內容時頁面本體也不能橫向溢出
+  await cdp('Emulation.setDeviceMetricsOverride', { width: 400, height: 860, deviceScaleFactor: 1, mobile: true });
+  await goto('/');
+  await waitFor(`document.querySelector('.ema-rack')`, 8000);
+  check('手機牆面模式：頁面不橫向溢出', await run(`return document.documentElement.scrollWidth <= innerWidth + 1;`), await run(`return document.documentElement.scrollWidth + ' > ' + innerWidth;`));
+  await run(`document.getElementById('m-read').click();`);
+  await sleep(500);
+  check('手機閱讀模式：頁面不橫向溢出', await run(`return document.documentElement.scrollWidth <= innerWidth + 1;`), await run(`return document.documentElement.scrollWidth + ' > ' + innerWidth;`));
+  check('手機閱讀模式：繪馬與親友照片在當天範圍內', await run(`const d = document.querySelector('.day[data-date="2026-10-05"]').getBoundingClientRect();
+    return [...document.querySelectorAll('.day[data-date="2026-10-05"] .ema-rack, .day[data-date="2026-10-05"] .col-friends')].every((el) => { const r = el.getBoundingClientRect(); return r.left >= d.left - 1 && r.right <= d.right + 1; });`));
+  await run(`document.querySelector('.day[data-date="2026-10-05"] .ema-rack')?.scrollIntoView({ block: 'center' });`);
+  await sleep(300);
+  if (SHOTS) { const r = await cdp('Page.captureScreenshot', { format: 'png' }); writeFileSync(join(SHOTS, 'phone-read-dynamic.png'), Buffer.from(r.result.data, 'base64')); }
+  await run(`document.getElementById('m-wall').click();`);
+  await cdp('Emulation.clearDeviceMetricsOverride');
   // 收尾
   for (const r of [px2, px1, pc1, pe]) if (r.data?.post?.id) await api('DELETE', `/api/posts/${r.data.post.id}`);
   if (pp) await api('DELETE', `/api/photos/${pp}`);
