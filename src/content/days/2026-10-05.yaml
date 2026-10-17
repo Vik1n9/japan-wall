@@ -11,7 +11,7 @@ backdrop:
   - { src: art/days/2026-10-05-04.webp, x: 80, y: 46, h: 40, r: -4 }
   - { src: art/days/2026-10-05-05.webp, x: 98, y: 8, h: 34, r: 5 }
   - { src: art/days/2026-10-05-06.webp, x: 42, y: 48, h: 42, r: -7 }
-# 趣事帶：小小貓一講電話就當機，被其他五隻牽著走（雨天、六隻都撐黃傘）。Qwen-Image 2.1 以定裝貓拼貼重繪，原檔在 raw/art/cats/
+# 趣事帶：小小貓一講電話就當機，腰上綁繩被高高拖著走，可愛推背、漂漂撐傘，雨天。逐隻設計動作→拼貼→Qwen-Image 2.1 重繪→依標定路徑補繩，原檔在 raw/art/cats/scenes/
 story: { src: art/story/2026-10-05.webp, x: 50 }
 columns:
   - width: 420
