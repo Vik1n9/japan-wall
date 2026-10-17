@@ -15,7 +15,7 @@ img{max-width:100%}
   --f-body:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
   --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
   --colw:240px; --wall-scale:1;
-  --dado:116px; --dado-filter:none; --castle-h:520px; --castle-x:40px;
+  --dado:116px; --dado-filter:none; --castle-h:520px; --castle-x:40px; --story:190px; --story-filter:none;
   --eave:26px; --rope:20px; --shide:38px; --rope-filter:none; --ema-filter:none; --days-pt:16px; --banner-w:128px; --era-h:58px; --backdrop-op:.4; --backdrop-filter:saturate(.85);
   --ema-wood:#D8B98C; --ema-edge:#AD8856; --ema-ink:#1C1A18; --ema-cord:#C2332A;
 }
@@ -24,12 +24,14 @@ img{max-width:100%}
     --page:#0F1011; --wall:#25262A; --panel:#2E3034; --ink:#ECEAE4; --muted:#A8A59E; --rule:#4A4B50; --hair:#34363A;
     --red:#D44A3F; --glow:rgba(255,230,185,.11); --track:#09090A; --lamp:#4A4845; --floor:#17181A; --shade:rgba(0,0,0,.7); color-scheme:dark; --dado-filter:brightness(.5) saturate(.75); --backdrop-op:.3; --backdrop-filter:saturate(.8) brightness(.8); --rope-filter:brightness(.82) saturate(.9); --ema-filter:brightness(.8) saturate(.9);
     --ema-wood:#7A5A3A; --ema-edge:#9C7853; --ema-ink:#F2EBDD; --ema-cord:#B83B32;
+    --story-filter:drop-shadow(0 0 1px rgba(236,234,228,.55)) drop-shadow(0 0 4px rgba(236,234,228,.12));
   }
 }
 :root[data-theme="dark"]{
   --page:#0F1011; --wall:#25262A; --panel:#2E3034; --ink:#ECEAE4; --muted:#A8A59E; --rule:#4A4B50; --hair:#34363A;
   --red:#D44A3F; --glow:rgba(255,230,185,.11); --track:#09090A; --lamp:#4A4845; --floor:#17181A; --shade:rgba(0,0,0,.7); color-scheme:dark; --dado-filter:brightness(.5) saturate(.75); --backdrop-op:.3; --backdrop-filter:saturate(.8) brightness(.8); --rope-filter:brightness(.82) saturate(.9); --ema-filter:brightness(.8) saturate(.9);
   --ema-wood:#7A5A3A; --ema-edge:#9C7853; --ema-ink:#F2EBDD; --ema-cord:#B83B32;
+    --story-filter:drop-shadow(0 0 1px rgba(236,234,228,.55)) drop-shadow(0 0 4px rgba(236,234,228,.12));
 }
 *{box-sizing:border-box}
 body{background:var(--page);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.7;padding-inline:16px;padding-block:0 8px}
@@ -71,11 +73,14 @@ button{font:inherit;color:inherit}
   background:var(--eave-img) 0 0/auto 100% repeat-x;filter:var(--dado-filter)}
 .wall.dado > .track{position:absolute}
 
-/* 屋簷上的小動物（裝飾）：腳踩屋簷頂端；屋簷與石垣不隨 --wall-scale 縮放，小動物也不縮，手機用 --critter 縮小；位置由 wall.ts 依視窗寬度排 */
-.wall.dado > .critters{position:absolute;left:0;right:0;bottom:calc(var(--dado) + var(--eave) - 2px);height:0;z-index:2;pointer-events:none}
-.critters img{position:absolute;bottom:0;height:calc(var(--h) * var(--critter,1));width:auto;max-width:none;filter:var(--rope-filter)}
-.critters img.flip{transform:scaleX(-1)}
-.read .critters{display:none}
+/* 趣事帶（裝飾）：每天一張六隻貓的場景，腳踩屋簷頂端。內容區再往上讓出 --story；
+   帶子和屋簷一樣不隨 --wall-scale 縮放。天守閣跟著往下站回屋簷上 */
+.wall.dado.eave.story{padding-bottom:calc(var(--dado) + var(--eave) + var(--story) + 16px)}
+.wall.story .castle{bottom:calc(-16px - var(--story))}
+.wall.story .backdrops{bottom:calc(-1 * (var(--dado) + var(--eave) + var(--story) + 16px))}
+.day > .story{position:absolute;left:var(--x,50%);bottom:calc(-2px - var(--story) - 16px);height:var(--story);width:auto;max-width:none;
+  transform:translateX(-50%);pointer-events:none;user-select:none;filter:var(--story-filter)}
+.read .day > .story{position:static;display:block;height:auto;width:100%;max-width:720px;margin:14px 0 0;transform:none}
 
 /* 書法標題：SVG 當 mask，顏色跟著 currentColor */
 .art-title{display:inline-block;background:currentColor;-webkit-mask:var(--art) center/contain no-repeat;mask:var(--art) center/contain no-repeat}
@@ -320,7 +325,7 @@ button{font:inherit;color:inherit}
 .read .backdrops img{left:0!important;top:0!important;width:100%;height:100%!important;transform:none;object-fit:cover}
 
 @media (max-width:760px){
-  :root{--colw:200px;--critter:.8;--dado:96px;--castle-h:440px;--castle-x:20px;--eave:24px;--rope:18px;--shide:40px;--banner-w:104px;--era-h:60px}
+  :root{--colw:200px;--story:128px;--dado:96px;--castle-h:440px;--castle-x:20px;--eave:24px;--rope:18px;--shide:40px;--banner-w:104px;--era-h:60px}
   .art-title.v{height:240px}
   .bar .t small{display:none}
   .banner{width:74px;height:320px}
