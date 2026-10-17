@@ -194,6 +194,47 @@ try {
   await shot('admin-console-phone', 400);
   check('手機版帳號表格不需左右捲動', await run(`const w = document.querySelector('.tbl-wrap'); return w.scrollWidth <= w.clientWidth + 1;`));
   await cdp('Emulation.clearDeviceMetricsOverride');
+
+  /* ---------- 公開牆：動態內容的呈現（以管理員身分先放測試內容，看首頁） ---------- */
+  const pe = await api('POST', '/api/posts', { kind: 'ema', target: '2026-10-05', body: `公開牆繪馬 ${tag}`, by: '測試署名' });
+  const pc1 = await api('POST', '/api/posts', { kind: 'comment', target: pe.data?.post?.id, body: `繪馬留言 ${tag}` });
+  const px1 = await api('POST', '/api/posts', { kind: 'comment', target: 'JP-01-02', body: `展品留言 ${tag}` });
+  const px2 = await api('POST', '/api/posts', { kind: 'comment', target: 'JP-01-02', body: `回覆 ${tag}`, replyTo: px1.data?.post?.id });
+  const pp = await run(`const c = document.createElement('canvas'); c.width = 90; c.height = 60; const g = c.getContext('2d'); g.fillStyle = '#c63'; g.fillRect(0, 0, 90, 60);
+    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9));
+    const fd = new FormData(); fd.append('file', blob, 'p.jpg'); fd.append('day', '2026-10-05'); fd.append('caption', '公開牆照片 ${tag}');
+    const r = await fetch('/api/photos', { method: 'POST', body: fd, credentials: 'same-origin' }); return (await r.json()).photo?.id;`);
+  await goto('/');
+  check('首頁：繪馬掛在當天的繪馬掛所', await waitFor(`[...document.querySelectorAll('.day[data-date="2026-10-05"] .ema-rack')].some((el) => el.textContent.includes('公開牆繪馬 ${tag}'))`, 8000));
+  check('首頁：繪馬上有留言籤', await run(`const b = [...document.querySelectorAll('.it-ema')].find((el) => el.textContent.includes('公開牆繪馬 ${tag}')); return !!b && b.querySelector('.ofuda')?.textContent === '籤 1';`));
+  check('首頁：展品說明牌出現留言籤', await run(`return /^籤 \\d+$/.test(document.querySelector('.it-media[data-exhibit-id="JP-01-02"] .ofuda')?.textContent || '');`));
+  check('首頁：親友照片欄出現', await run(`return [...document.querySelectorAll('.day[data-date="2026-10-05"] .col-friends')].some((el) => el.textContent.includes('公開牆照片 ${tag}'));`));
+  await run(`[...document.querySelectorAll('.it-ema')].find((el) => el.textContent.includes('公開牆繪馬 ${tag}')).click();`);
+  check('繪馬說明卡：顯示繪馬內容與 1 則留言', await waitFor(`!document.getElementById('lb').hidden && document.getElementById('lb-cmts').textContent.includes('留言 1') && document.getElementById('lb-cmts').textContent.includes('繪馬留言 ${tag}')`));
+  await shot('public-ema-lightbox');
+  await run(`document.getElementById('lb-x').click();`);
+  await run(`document.querySelector('.it-media[data-exhibit-id="JP-01-02"]').click();`);
+  check('展品說明卡：留言串含縮排回覆', await waitFor(`document.getElementById('lb-cmts').textContent.includes('展品留言 ${tag}') && [...document.querySelectorAll('#lb-cmts .cmt.reply')].some((el) => el.textContent.includes('回覆 ${tag}'))`));
+  await run(`document.getElementById('lb-x').click();`);
+  await run(`[...document.querySelectorAll('.it-friend')].find((el) => el.textContent.includes('公開牆照片 ${tag}')).click();`);
+  check('親友照片說明卡：顯示照片與上傳者', await waitFor(`!document.getElementById('lb').hidden && !!document.querySelector('#lb-media img[src^="/api/media/"]') && document.getElementById('lb-place').textContent.length > 0`));
+  await run(`document.getElementById('lb-next').click();`);
+  check('說明卡可往下一件瀏覽', await waitFor(`document.getElementById('lb-count').textContent.length > 0`));
+  await run(`document.getElementById('lb-x').click();`);
+  await shot('public-wall-dynamic');
+  // 收尾
+  for (const r of [px2, px1, pc1, pe]) if (r.data?.post?.id) await api('DELETE', `/api/posts/${r.data.post.id}`);
+  if (pp) await api('DELETE', `/api/photos/${pp}`);
+
+  /* ---------- 深色模式截圖（目視檢查用） ---------- */
+  await goto('/edit');
+  await run(`document.documentElement.dataset.theme = 'dark'; document.getElementById('em-uploads')?.click();`);
+  await shot('edit-dark');
+  await goto('/admin');
+  await waitFor(`!document.getElementById('adm-console').hidden`);
+  await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'dark' }] });
+  await shot('admin-dark');
+  await cdp('Emulation.setEmulatedMedia', { features: [] });
 } catch (err) {
   check('測試流程未中斷', false, err.message);
 } finally {

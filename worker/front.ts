@@ -15,13 +15,20 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === 'GET' && url.pathname === '/api/public/wall') {
-      // 邊緣快取 60 秒（依回應的 Cache-Control）：每個訪客不必都打一次 D1；後台的 /edit 不走這裡，送出後馬上看得到
+      // 邊緣快取 60 秒：每個訪客不必都打一次 D1。存進快取的副本標 max-age=60，回給瀏覽器的一律 no-cache
       const cache = caches.default;
       const key = new Request(url.origin + url.pathname);
+      const noCache = (r: Response) => {
+        const out = new Response(r.body, r);
+        out.headers.set('Cache-Control', 'no-cache');
+        return out;
+      };
       const hit = await cache.match(key);
-      if (hit) return hit;
+      if (hit) return noCache(hit);
       const res = await publicWallResponse(env.DB);
-      ctx.waitUntil(cache.put(key, res.clone()));
+      const stored = new Response(res.clone().body, res);
+      stored.headers.set('Cache-Control', 'public, max-age=60');
+      ctx.waitUntil(cache.put(key, stored));
       return res;
     }
     if (request.method === 'GET' && url.pathname.startsWith('/api/media/')) {

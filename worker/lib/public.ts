@@ -11,6 +11,7 @@ export interface R2BucketLike {
 export const MEDIA_KEY_RE = /^photos\/p-\d{8}-[a-z0-9]{4}\.(jpg|png|webp)$/;
 
 /** 牆上所有 live 的親友照片與投稿（留言/繪馬），給前台動態注入用。
+ *  一律不讓瀏覽器快取（no-cache）：剛投稿的人回到牆上要馬上看得到；前台另在 Worker 邊緣快取 60 秒擋流量。
  *  不回傳登入帳號名稱（author）：公開頁只需要顯示名稱與署名，帳號名稱外流等於替暴力登入省一半功夫 */
 export async function publicWallResponse(db: D1Database): Promise<Response> {
   const [ph, po] = await Promise.all([
@@ -45,7 +46,7 @@ export async function publicWallResponse(db: D1Database): Promise<Response> {
       id: r.id, kind: r.kind, target: r.target, replyTo: r.reply_to, by: r.by,
       body: r.body, postedAt: r.posted_at,
     })),
-  }, 200, { 'Cache-Control': 'public, max-age=60' });
+  }, 200, { 'Cache-Control': 'no-cache' });
 }
 
 /** R2 物件串流：immutable 快取（key 含隨機碼、內容不可變） */
