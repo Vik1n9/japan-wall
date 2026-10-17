@@ -1,4 +1,5 @@
-// /admin 管理台 client 邏輯：登入檢查 → 帳號列表/建號/重設密碼/停用/角色/改名 → 自助變更密碼。
+// /admin 管理台 client 邏輯：登入檢查 → 帳號列表/建號/重設密碼/停用/角色/改名 → 內容審核 → 自助變更密碼。
+// 不用 confirm/prompt/alert：危險操作兩段式確認、改名行內編輯、錯誤顯示在卡片裡。
 // 靜態殼在 src/pages/admin/index.astro；API 在 worker/back.ts（僅 kura 網域可達）。
 
 type Me = { username: string; displayName: string; role: string; mustChangePw: boolean };
@@ -6,18 +7,61 @@ type UserRow = {
   username: string; displayName: string; role: string; status: string;
   mustChangePw: boolean; createdAt: string;
 };
+type Photo = {
+  id: string; author: string; authorName: string; day: string; caption: string;
+  key: string; width: number; height: number; createdAt: string;
+};
+type Post = {
+  id: string; kind: string; target: string; replyTo: string | null; by: string;
+  body: string; author: string; postedAt: string;
+};
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
+/** API 呼叫：網路斷線不丟例外；已登入卻收到 401＝登入過期，回登入卡 */
 async function api(path: string, init?: RequestInit): Promise<{ status: number; data: Record<string, unknown> }> {
-  const res = await fetch(path, {
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    ...init,
-  });
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      ...init,
+    });
+  } catch {
+    return { status: 0, data: { error: '網路連線失敗，請稍後再試' } };
+  }
   let data: Record<string, unknown> = {};
   try { data = await res.json(); } catch { /* 非 JSON 回應 */ }
+  if (res.status === 401 && me && path !== '/api/login') {
+    me = null;
+    show('login');
+    $('login-err').textContent = '登入已過期，請重新登入';
+  }
   return { status: res.status, data };
+}
+
+/** 危險操作兩段式確認：第一次按變成「確定？」，4 秒內再按才執行 */
+function armed(btn: HTMLButtonElement, confirmLabel: string, run: () => Promise<void>): void {
+  const label = btn.textContent || '';
+  let timer = 0;
+  btn.addEventListener('click', async () => {
+    if (!btn.classList.contains('armed')) {
+      btn.classList.add('armed');
+      btn.textContent = confirmLabel;
+      timer = window.setTimeout(() => { btn.classList.remove('armed'); btn.textContent = label; }, 4000);
+      return;
+    }
+    clearTimeout(timer);
+    btn.disabled = true;
+    await run();
+    btn.disabled = false;
+    btn.classList.remove('armed');
+    btn.textContent = label;
+  });
+}
+
+function patchUser(username: string, body: Record<string, unknown>) {
+  return api(`/api/users/${encodeURIComponent(username)}`, { method: 'PATCH', body: JSON.stringify(body) });
 }
 
 /* ---------- 一次性密碼 modal ---------- */
@@ -59,7 +103,7 @@ async function init(): Promise<void> {
   $('must-change').hidden = !me.mustChangePw;
   if (me.mustChangePw) $('change-pw-card').hidden = false;
   show('console');
-  await loadUsers();
+  await Promise.all([loadUsers(), loadContent()]);
 }
 
 /* ---------- 登入/登出 ---------- */
@@ -143,89 +187,109 @@ async function loadUsers(): Promise<void> {
   for (const u of data.users as UserRow[]) tbody.appendChild(userRow(u));
 }
 
+function cell(label: string): HTMLTableCellElement {
+  const td = document.createElement('td');
+  td.dataset.label = label; // 手機版改卡片時當欄位名
+  return td;
+}
+
 function userRow(u: UserRow): HTMLTableRowElement {
   const tr = document.createElement('tr');
   const isSelf = me?.username === u.username;
+  const err = (msg: string) => { $('users-err').textContent = msg; };
 
-  const tdName = document.createElement('td');
+  const tdName = cell('帳號');
   tdName.className = 'name';
   tdName.textContent = u.username;
   tr.append(tdName);
 
-  const tdDisp = document.createElement('td');
+  const tdDisp = cell('顯示名稱');
   tdDisp.textContent = u.displayName;
   if (u.mustChangePw) tdDisp.append(' ', badge('待改密碼', 'must'));
   tr.append(tdDisp);
 
-  const tdRole = document.createElement('td');
+  const tdRole = cell('角色');
   tdRole.append(badge(u.role === 'admin' ? '管理員' : '用戶', u.role === 'admin' ? 'admin' : ''));
   tr.append(tdRole);
 
-  const tdStatus = document.createElement('td');
+  const tdStatus = cell('狀態');
   tdStatus.append(badge(u.status === 'active' ? '啟用' : '停用', u.status === 'active' ? '' : 'disabled'));
   tr.append(tdStatus);
 
-  const tdCreated = document.createElement('td');
+  const tdCreated = cell('建立');
   tdCreated.textContent = u.createdAt.slice(0, 10);
   tr.append(tdCreated);
 
-  const tdOps = document.createElement('td');
+  const tdOps = cell('操作');
   const ops = document.createElement('div');
   ops.className = 'ops';
 
-  ops.append(opButton('重設密碼', 'ghost', async () => {
-    if (!confirm(`重設 ${u.username} 的密碼？該帳號會立即登出。`)) return;
-    const { status, data } = await api(`/api/users/${encodeURIComponent(u.username)}`, {
-      method: 'PATCH', body: JSON.stringify({ resetPassword: true }),
-    });
-    if (status !== 200) { alert((data.error as string) || '重設失敗'); return; }
+  const reset = opButton('重設密碼');
+  armed(reset, '確定重設？', async () => {
+    const { status, data } = await patchUser(u.username, { resetPassword: true });
+    if (status !== 200) { err((data.error as string) || '重設失敗'); return; }
+    err('');
     revealPassword(`${u.username} 的新密碼`, data.password as string);
     await loadUsers();
-  }));
+  });
+  ops.append(reset);
 
-  ops.append(opButton(u.status === 'active' ? '停用' : '啟用', 'ghost', async () => {
-    const next = u.status === 'active' ? 'disabled' : 'active';
-    if (next === 'disabled' && !confirm(`停用 ${u.username}？登入會被擋下，已公開的內容會留在牆上。`)) return;
-    const { status, data } = await api(`/api/users/${encodeURIComponent(u.username)}`, {
-      method: 'PATCH', body: JSON.stringify({ status: next }),
-    });
-    if (status !== 200) alert((data.error as string) || '操作失敗');
+  const toggle = opButton(u.status === 'active' ? '停用' : '啟用', isSelf);
+  const doToggle = async () => {
+    const { status, data } = await patchUser(u.username, { status: u.status === 'active' ? 'disabled' : 'active' });
+    if (status !== 200) { err((data.error as string) || '操作失敗'); return; }
+    err('');
     await loadUsers();
-  }, isSelf));
+  };
+  if (u.status === 'active') armed(toggle, '確定停用？', doToggle); // 停用會立即登出，要確認；啟用直接做
+  else toggle.addEventListener('click', doToggle);
+  ops.append(toggle);
 
-  ops.append(opButton(u.role === 'admin' ? '降為用戶' : '升為管理員', 'ghost', async () => {
-    const next = u.role === 'admin' ? 'user' : 'admin';
-    if (!confirm(`把 ${u.username} ${next === 'admin' ? '升為管理員' : '降為一般用戶'}？`)) return;
-    const { status, data } = await api(`/api/users/${encodeURIComponent(u.username)}`, {
-      method: 'PATCH', body: JSON.stringify({ role: next }),
-    });
-    if (status !== 200) alert((data.error as string) || '操作失敗');
+  const role = opButton(u.role === 'admin' ? '降為用戶' : '升為管理員', isSelf);
+  armed(role, u.role === 'admin' ? '確定降級？' : '確定升級？', async () => {
+    const { status, data } = await patchUser(u.username, { role: u.role === 'admin' ? 'user' : 'admin' });
+    if (status !== 200) { err((data.error as string) || '操作失敗'); return; }
+    err('');
     await loadUsers();
-  }, isSelf));
+  });
+  ops.append(role);
 
-  ops.append(opButton('改名', 'ghost', async () => {
-    const next = prompt(`${u.username} 的新顯示名稱（1–20 字）：`, u.displayName);
-    if (next === null) return;
-    const { status, data } = await api(`/api/users/${encodeURIComponent(u.username)}`, {
-      method: 'PATCH', body: JSON.stringify({ displayName: next.trim() }),
+  const rename = opButton('改名');
+  rename.addEventListener('click', () => {
+    // 行內改名：顯示名稱欄換成輸入框
+    const form = document.createElement('form');
+    form.className = 'rename';
+    const input = document.createElement('input');
+    input.maxLength = 20; input.required = true; input.value = u.displayName;
+    const save = document.createElement('button'); save.type = 'submit'; save.className = 'ghost'; save.textContent = '儲存';
+    const cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'ghost'; cancel.textContent = '取消';
+    form.append(input, save, cancel);
+    const before = [...tdDisp.childNodes];
+    tdDisp.replaceChildren(form);
+    input.focus();
+    cancel.addEventListener('click', () => tdDisp.replaceChildren(...before));
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const { status, data } = await patchUser(u.username, { displayName: input.value.trim() });
+      if (status !== 200) { err((data.error as string) || '改名失敗'); return; }
+      err('');
+      await Promise.all([loadUsers(), loadContent()]);
     });
-    if (status !== 200) alert((data.error as string) || '改名失敗');
-    await loadUsers();
-  }));
+  });
+  ops.append(rename);
 
   tdOps.append(ops);
   tr.append(tdOps);
   return tr;
 }
 
-function opButton(label: string, cls: string, onClick: () => void, disabled = false): HTMLButtonElement {
+function opButton(label: string, disabled = false): HTMLButtonElement {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = cls;
+  btn.className = 'ghost';
   btn.textContent = label;
   btn.disabled = disabled;
   btn.title = disabled ? '不可操作自己的帳號' : '';
-  btn.addEventListener('click', onClick);
   return btn;
 }
 
@@ -256,5 +320,108 @@ $('create-form').addEventListener('submit', async (e) => {
   }
   await loadUsers();
 });
+
+/* ---------- 內容審核 ---------- */
+
+let modTab: 'photos' | 'posts' = 'photos';
+
+document.querySelectorAll<HTMLButtonElement>('.tab').forEach((t) => {
+  t.addEventListener('click', () => {
+    modTab = t.dataset.tab === 'posts' ? 'posts' : 'photos';
+    document.querySelectorAll<HTMLButtonElement>('.tab').forEach((x) => {
+      x.classList.toggle('on', x === t);
+      x.setAttribute('aria-selected', String(x === t));
+    });
+    $('mod-photos').hidden = modTab !== 'photos';
+    $('mod-posts').hidden = modTab !== 'posts';
+  });
+});
+$('mod-reload').addEventListener('click', () => void loadContent());
+
+function emptyNote(text: string): HTMLElement {
+  const p = document.createElement('p');
+  p.className = 'mod-empty';
+  p.textContent = text;
+  return p;
+}
+
+async function loadContent(): Promise<void> {
+  $('mod-err').textContent = '';
+  const [ph, po] = await Promise.all([api('/api/photos'), api('/api/posts')]);
+  if (ph.status !== 200 || po.status !== 200) {
+    $('mod-err').textContent = (ph.data.error as string) || (po.data.error as string) || '載入失敗';
+    return;
+  }
+  const photos = ph.data.photos as Photo[];
+  const posts = po.data.posts as Post[];
+  $('mod-n-photos').textContent = String(photos.length);
+  $('mod-n-posts').textContent = String(posts.length);
+
+  const pg = $('mod-photos');
+  pg.textContent = '';
+  if (!photos.length) pg.append(emptyNote('目前沒有親友照片。'));
+  for (const p of photos) {
+    const card = document.createElement('div');
+    card.className = 'mod-ph';
+    const img = document.createElement('img');
+    img.src = `/api/media/${p.key}`;
+    img.alt = p.caption || p.id;
+    img.loading = 'lazy';
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = `${p.authorName}（${p.author}）· 掛 ${p.day.slice(5)} · ${p.createdAt.slice(5, 16).replace('T', ' ')}`;
+    const cap = document.createElement('div');
+    cap.className = 'cap';
+    cap.textContent = p.caption || '（無說明）';
+    const ops = document.createElement('div');
+    ops.className = 'ops';
+    const del = opButton('刪除');
+    armed(del, '確定刪除？', async () => {
+      const { status, data } = await api(`/api/photos/${p.id}`, { method: 'DELETE', body: '{}' });
+      if (status !== 200) { $('mod-err').textContent = (data.error as string) || '刪除失敗'; return; }
+      await loadContent();
+    });
+    ops.append(del);
+    card.append(img, meta, cap, ops);
+    pg.append(card);
+  }
+
+  const pl = $('mod-posts');
+  pl.textContent = '';
+  if (!posts.length) pl.append(emptyNote('目前沒有留言或繪馬。'));
+  const byId = new Map(posts.map((x) => [x.id, x]));
+  for (const p of [...posts].reverse()) { // 新的在上面
+    const item = document.createElement('div');
+    item.className = 'mod-po';
+    const head = document.createElement('div');
+    head.className = 'head';
+    head.append(badge(p.kind === 'ema' ? '繪馬' : '留言', p.kind === 'ema' ? 'admin' : ''));
+    const where = document.createElement('span');
+    where.className = 'meta';
+    const ema = byId.get(p.target);
+    where.textContent = p.kind === 'ema'
+      ? `掛在 ${p.target}`
+      : ema ? `繪馬「${ema.body.slice(0, 12)}」下` : `展品 ${p.target}`;
+    if (p.replyTo) where.textContent += ' · 回覆';
+    head.append(where);
+    const body = document.createElement('div');
+    body.className = 'body';
+    body.textContent = p.body;
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.textContent = `署名 ${p.by || '（無）'} · 帳號 ${p.author} · ${p.postedAt.slice(5, 16).replace('T', ' ')}`;
+    const ops = document.createElement('div');
+    ops.className = 'ops';
+    const del = opButton('刪除');
+    armed(del, '確定刪除？', async () => {
+      const { status, data } = await api(`/api/posts/${p.id}`, { method: 'DELETE', body: '{}' });
+      if (status !== 200) { $('mod-err').textContent = (data.error as string) || '刪除失敗'; return; }
+      await loadContent();
+    });
+    ops.append(del);
+    item.append(head, body, meta, ops);
+    pl.append(item);
+  }
+}
 
 void init();

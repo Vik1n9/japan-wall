@@ -161,10 +161,38 @@ try {
   check('停用測試帳號', dis.status === 200, JSON.stringify(dis));
 
   /* ---------- /admin ---------- */
+  // 先放一則繪馬與一張照片，給審核介面刪
+  const modEma = await api('POST', '/api/posts', { kind: 'ema', target: '2026-10-09', body: `審核測試 ${tag}` });
   await goto('/admin');
   check('/admin 已登入直接進管理台', await waitFor(`!document.getElementById('adm-console').hidden`));
+  check('審核介面列出投稿', await waitFor(`document.getElementById('mod-posts').textContent.includes('審核測試 ${tag}')`));
+  const before2 = dialogs();
+  // 行內改名
+  await run(`const tr = [...document.querySelectorAll('#users-tbl tbody tr')].find((r) => r.textContent.includes('ui-${tag}'));
+    [...tr.querySelectorAll('button')].find((b) => b.textContent === '改名').click();`);
+  check('改名變成行內輸入框', await waitFor(`document.querySelector('#users-tbl .rename input')`));
+  await run(`const f = document.querySelector('#users-tbl .rename'); f.querySelector('input').value = 'UI 改名 ${tag}'; f.requestSubmit();`);
+  check('改名儲存後列表更新', await waitFor(`document.getElementById('users-tbl').textContent.includes('UI 改名 ${tag}')`));
+  // 兩段式重設密碼
+  await run(`const tr = [...document.querySelectorAll('#users-tbl tbody tr')].find((r) => r.textContent.includes('ui-${tag}'));
+    [...tr.querySelectorAll('button')].find((b) => b.textContent === '重設密碼').click();`);
+  check('重設密碼第一次按只進入確認', await waitFor(`document.querySelector('#users-tbl button.armed')`) && await run(`return document.getElementById('pw-reveal').hidden;`));
+  await run(`document.querySelector('#users-tbl button.armed').click();`);
+  check('第二次按才重設並顯示一次性密碼', await waitFor(`!document.getElementById('pw-reveal').hidden && document.getElementById('pw-reveal-value').textContent.length >= 8`));
+  await run(`document.getElementById('pw-reveal-close').click();`);
+  // 審核刪除投稿
+  await run(`document.querySelector('.tab[data-tab=posts]').click();`);
+  await shot('admin-moderation');
+  await run(`const it = [...document.querySelectorAll('.mod-po')].find((el) => el.textContent.includes('審核測試 ${tag}'));
+    const b = it.querySelector('button'); b.click(); await new Promise((r) => setTimeout(r, 50)); b.click();`);
+  check('審核刪除投稿後從列表消失', await waitFor(`!document.getElementById('mod-posts').textContent.includes('審核測試 ${tag}')`));
+  const wall2 = await api('GET', '/api/public/wall');
+  check('審核刪除後公開牆也消失', !JSON.stringify(wall2.data).includes(`審核測試 ${tag}`));
+  check('/admin 全程沒有跳出原生對話框', dialogs() === before2, `${dialogs() - before2} 次`);
+  void modEma;
   await shot('admin-console');
   await shot('admin-console-phone', 400);
+  check('手機版帳號表格不需左右捲動', await run(`const w = document.querySelector('.tbl-wrap'); return w.scrollWidth <= w.clientWidth + 1;`));
   await cdp('Emulation.clearDeviceMetricsOverride');
 } catch (err) {
   check('測試流程未中斷', false, err.message);

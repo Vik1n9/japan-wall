@@ -138,3 +138,39 @@ td .ops { display: flex; gap: 6px; flex-wrap: wrap; }
   padding: 6px 10px; border-radius: 6px;
   word-break: break-all;
 }
+
+/* 兩段式確認：第一次按變紅「確定？」，4 秒內再按才執行 */
+button.ghost.armed { color: #fff; background: var(--red); border-color: var(--red); }
+td .rename { display: flex; gap: 6px; align-items: center; }
+td .rename input { margin: 0; padding: 4px 8px; width: 9em; font-size: 13px; }
+
+/* 手機：帳號表格改成一列一張卡，不用左右捲動 */
+@media (max-width: 560px) {
+  #users-tbl thead { display: none; }
+  #users-tbl, #users-tbl tbody, #users-tbl tr, #users-tbl td { display: block; width: 100%; }
+  #users-tbl tr { border: 1px solid var(--hair); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
+  #users-tbl td { border: none; padding: 3px 0; white-space: normal; display: flex; gap: 10px; }
+  #users-tbl td::before { content: attr(data-label); color: var(--muted); min-width: 4.5em; flex: none; }
+}
+
+/* 內容審核 */
+.mod-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.mod-head h2 { margin: 0; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab {
+  color: var(--ink); background: transparent; border: 1px solid var(--rule);
+  padding: 5px 12px; font-size: 13px;
+}
+.tab.on { color: var(--btn-fg); background: var(--btn-bg); border-color: var(--btn-bg); }
+.mod-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.mod-ph { border: 1px solid var(--hair); border-radius: 8px; overflow: hidden; background: var(--page); display: flex; flex-direction: column; }
+.mod-ph img { display: block; width: 100%; height: auto; aspect-ratio: 4/3; object-fit: cover; background: var(--hair); }
+.mod-ph .meta, .mod-po .meta { font-size: 12px; color: var(--muted); }
+.mod-ph .meta { padding: 6px 8px 0; }
+.mod-ph .cap { font-size: 13px; padding: 2px 8px 6px; overflow-wrap: anywhere; flex: 1; }
+.mod-ph .ops, .mod-po .ops { padding: 0 8px 8px; display: flex; gap: 6px; }
+.mod-po { border: 1px solid var(--hair); border-radius: 8px; padding: 10px 12px 2px; margin-bottom: 10px; background: var(--page); }
+.mod-po .head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 4px; }
+.mod-po .body { font-size: 14px; white-space: pre-line; overflow-wrap: anywhere; margin: 4px 0 6px; }
+.mod-po .ops { padding: 0 0 8px; }
+.mod-empty { color: var(--muted); font-size: 13px; }

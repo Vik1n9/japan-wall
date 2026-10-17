@@ -95,6 +95,7 @@ import '../../styles/admin.css';
         <!-- 帳號列表 -->
         <div class="card">
           <h2>帳號列表</h2>
+          <p class="err" id="users-err" role="alert"></p>
           <div class="tbl-wrap">
             <table id="users-tbl">
               <thead>
@@ -103,6 +104,22 @@ import '../../styles/admin.css';
               <tbody></tbody>
             </table>
           </div>
+        </div>
+
+        <!-- 內容審核：牆上所有公開中的親友照片與投稿，管理員可刪除不當內容 -->
+        <div class="card" id="mod-card">
+          <div class="mod-head">
+            <h2>內容審核</h2>
+            <div class="tabs" role="tablist">
+              <button type="button" class="tab on" role="tab" aria-selected="true" data-tab="photos">照片 <span id="mod-n-photos">0</span></button>
+              <button type="button" class="tab" role="tab" aria-selected="false" data-tab="posts">投稿 <span id="mod-n-posts">0</span></button>
+              <button type="button" class="ghost" id="mod-reload">重新整理</button>
+            </div>
+          </div>
+          <p class="hint">刪除後牆上立刻消失；照片檔案會一併刪除、無法復原。</p>
+          <p class="err" id="mod-err" role="alert"></p>
+          <div class="mod-photos" id="mod-photos"></div>
+          <div class="mod-posts" id="mod-posts" hidden></div>
         </div>
       </section>
 
