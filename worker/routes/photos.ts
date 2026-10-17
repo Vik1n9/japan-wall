@@ -100,8 +100,8 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
   const { iso } = nowTaipeiIso();
 
   if (method === 'DELETE') {
-    await env.DB.prepare(`UPDATE photos SET status = 'removed', updated_at = ?1 WHERE id = ?2`)
-      .bind(iso, id).run();
+    await env.DB.prepare(`UPDATE photos SET status = 'removed', updated_at = ?1, removed_by = ?2 WHERE id = ?3`)
+      .bind(iso, session.user.username, id).run();
     // 檔案一併刪除：刪除的意義就是不再公開（DB 列保留作 audit；若 R2 刪除失敗留孤兒檔，靠 backup/清理處理）
     try { await env.UPLOADS.delete(row.r2_key); } catch { /* 非致命 */ }
     return json({ ok: true });

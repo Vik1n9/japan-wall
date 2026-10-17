@@ -219,5 +219,17 @@ check('停用測試帳號 → 200', r.status === 200, JSON.stringify(r.data));
 r = await user('GET', '/api/me');
 check('停用後 session 立即失效 → 401', r.status === 401, String(r.status));
 
+// ---------- 前台 Worker（選用：KURA_FRONT=http://localhost:8788，另開 npx wrangler dev --port 8788） ----------
+const FRONT = process.env.KURA_FRONT;
+if (FRONT && /localhost|127\.0\.0\.1/.test(FRONT)) {
+  for (const path of ['/edit', '/edit/targets.json', '/admin', '/api/me', '/api/login', '/api/users']) {
+    const res = await fetch(FRONT + path);
+    check(`前台 ${path} → 404`, res.status === 404, String(res.status));
+  }
+  const pub = await fetch(`${FRONT}/api/public/wall`);
+  const body = await pub.text();
+  check('前台公開牆 → 200 且不含帳號名稱', pub.status === 200 && !body.includes('"author"'), String(pub.status));
+}
+
 console.log(`\n${pass} 通過、${fail} 失敗`);
 process.exit(fail ? 1 : 0);

@@ -5,7 +5,7 @@
 type Me = { username: string; displayName: string; role: string; mustChangePw: boolean };
 type UserRow = {
   username: string; displayName: string; role: string; status: string;
-  mustChangePw: boolean; createdAt: string;
+  mustChangePw: boolean; createdAt: string; lastLoginAt: string | null;
 };
 type Photo = {
   id: string; author: string; authorName: string; day: string; caption: string;
@@ -219,6 +219,10 @@ function userRow(u: UserRow): HTMLTableRowElement {
   const tdCreated = cell('建立');
   tdCreated.textContent = u.createdAt.slice(0, 10);
   tr.append(tdCreated);
+
+  const tdLogin = cell('最後登入');
+  tdLogin.textContent = u.lastLoginAt ? u.lastLoginAt.slice(0, 16).replace('T', ' ') : '尚未登入';
+  tr.append(tdLogin);
 
   const tdOps = cell('操作');
   const ops = document.createElement('div');

@@ -11,11 +11,18 @@ export interface FrontEnv {
 }
 
 export default {
-  async fetch(request: Request, env: FrontEnv): Promise<Response> {
+  async fetch(request: Request, env: FrontEnv, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
     if (request.method === 'GET' && url.pathname === '/api/public/wall') {
-      return publicWallResponse(env.DB);
+      // 邊緣快取 60 秒（依回應的 Cache-Control）：每個訪客不必都打一次 D1；後台的 /edit 不走這裡，送出後馬上看得到
+      const cache = caches.default;
+      const key = new Request(url.origin + url.pathname);
+      const hit = await cache.match(key);
+      if (hit) return hit;
+      const res = await publicWallResponse(env.DB);
+      ctx.waitUntil(cache.put(key, res.clone()));
+      return res;
     }
     if (request.method === 'GET' && url.pathname.startsWith('/api/media/')) {
       return mediaResponse(env.UPLOADS, safeDecode(url.pathname.slice('/api/media/'.length)) ?? '');

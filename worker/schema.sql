@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS users (
   role           TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
   status         TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'disabled')),
   must_change_pw INTEGER NOT NULL DEFAULT 0,
-  created_at     TEXT NOT NULL             -- ISO 8601（+08:00）
+  created_at     TEXT NOT NULL,            -- ISO 8601（+08:00）
+  last_login_at  TEXT                      -- 最近一次登入成功；null＝還沒登入過
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -37,7 +38,8 @@ CREATE TABLE IF NOT EXISTS photos (
   height      INTEGER NOT NULL,
   status      TEXT NOT NULL DEFAULT 'live' CHECK (status IN ('live', 'removed')),
   created_at  TEXT NOT NULL,
-  updated_at  TEXT
+  updated_at  TEXT,
+  removed_by  TEXT                         -- 刪除者 username（本人或管理員）
 );
 CREATE INDEX IF NOT EXISTS photos_day ON photos (day, status);
 CREATE INDEX IF NOT EXISTS photos_author ON photos (author, status);
@@ -52,7 +54,8 @@ CREATE TABLE IF NOT EXISTS posts (
   author      TEXT NOT NULL,               -- users.username
   status      TEXT NOT NULL DEFAULT 'live' CHECK (status IN ('live', 'removed')),
   posted_at   TEXT NOT NULL,
-  updated_at  TEXT
+  updated_at  TEXT,
+  removed_by  TEXT                         -- 刪除者 username（本人或管理員）
 );
 CREATE INDEX IF NOT EXISTS posts_target ON posts (target, status);
 CREATE INDEX IF NOT EXISTS posts_author ON posts (author, status);

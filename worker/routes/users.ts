@@ -15,11 +15,11 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
   /* GET /api/users — 帳號列表 */
   if (method === 'GET' && url.pathname === '/api/users') {
     const { results } = await env.DB.prepare(
-      `SELECT username, display_name, role, status, must_change_pw, created_at
+      `SELECT username, display_name, role, status, must_change_pw, created_at, last_login_at
        FROM users ORDER BY created_at ASC`,
     ).all<{
       username: string; display_name: string; role: string; status: string;
-      must_change_pw: number; created_at: string;
+      must_change_pw: number; created_at: string; last_login_at: string | null;
     }>();
     return json({
       users: (results || []).map((u) => ({
@@ -29,6 +29,7 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
         status: u.status,
         mustChangePw: u.must_change_pw === 1,
         createdAt: u.created_at,
+        lastLoginAt: u.last_login_at,
       })),
     });
   }

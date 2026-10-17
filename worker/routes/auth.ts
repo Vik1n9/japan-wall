@@ -1,5 +1,5 @@
 // 登入／登出／me／變更密碼。
-import { json, safeEqual } from '../lib/util';
+import { json, nowTaipeiIso, safeEqual } from '../lib/util';
 import {
   createSession,
   destroyOtherSessions,
@@ -48,6 +48,8 @@ export async function login({ request, env }: Ctx): Promise<Response> {
 
   await resetLoginFailures(env.DB, lockKey);
   const token = await createSession(env.DB, user.username);
+  await env.DB.prepare(`UPDATE users SET last_login_at = ?1 WHERE username = ?2`)
+    .bind(nowTaipeiIso().iso, user.username).run();
   return json(
     { me: mePayload({ username: user.username, displayName: user.display_name, role: user.role, mustChangePw: user.must_change_pw === 1 }) },
     200,
