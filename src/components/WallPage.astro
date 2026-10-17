@@ -2,7 +2,13 @@
 import '../styles/wall.css';
 import Day from './Day.astro';
 import Lightbox from './Lightbox.astro';
+import EditExtras from './EditExtras.astro';
 import { asset, loadWall } from '../lib/wall';
+
+interface Props {
+  editMode?: boolean; // /edit 編輯模式：登入遮罩＋工具列（前台不載入任何相關 CSS/JS）
+}
+const { editMode = false } = Astro.props;
 
 const { trip, eras, media, unplaced, stats } = await loadWall();
 
@@ -36,8 +42,9 @@ const bodyStyle = [art.emaRoof && `--ema-roof-img:url(${asset(art.emaRoof)})`, a
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>{trip.title} 展覽牆</title>
+    <title>{trip.title} 展覽牆{editMode ? ' · 編輯' : ''}</title>
     <meta name="description" content={trip.intro} />
+    {editMode && <meta name="robots" content="noindex, nofollow" />}
     <link rel="icon" type="image/svg+xml" href={asset("favicon.svg")} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -106,6 +113,7 @@ const bodyStyle = [art.emaRoof && `--ema-roof-img:url(${asset(art.emaRoof)})`, a
     <nav class="map" id="map" aria-label="展覽平面圖"></nav>
 
     <Lightbox />
+    {editMode && <EditExtras />}
     <script type="application/json" id="wall-data" set:html={JSON.stringify(lightboxData).replace(/</g, '\\u003c')}></script>
     <script>import '../scripts/wall.ts';</script>
   </body>

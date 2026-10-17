@@ -1,0 +1,87 @@
+/* /edit 編輯模式專用：登入遮罩＋左下浮動工具列（不佔牆面高度，不影響 --wall-scale 計算） */
+
+/* 登入遮罩 */
+.edit-mask {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(20, 18, 16, .55);
+  backdrop-filter: blur(3px);
+  padding: 16px;
+}
+.edit-mask .em-card,
+.edit-pw .em-card {
+  width: min(360px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .35);
+}
+.edit-mask h1 {
+  font-family: var(--f-display);
+  font-size: 22px; letter-spacing: .04em;
+  margin: 0 0 4px;
+}
+.edit-mask .hint { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+.edit-mask label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+.edit-mask input {
+  display: block; width: 100%; margin-top: 4px;
+  padding: 8px 10px; font: inherit; color: var(--ink);
+  background: var(--page); border: 1px solid var(--rule); border-radius: 6px;
+}
+.edit-mask input:focus { outline: 2px solid var(--red); outline-offset: 1px; border-color: transparent; }
+.edit-mask button {
+  width: 100%; padding: 9px;
+  font: inherit; font-weight: 500;
+  color: var(--btn-fg, #fff); background: var(--btn-bg, #1C1A18);
+  border: 1px solid var(--btn-bg, #1C1A18); border-radius: 6px; cursor: pointer;
+}
+.edit-mask .err { color: var(--red); font-size: 13px; min-height: 1.2em; margin: 10px 0 0; }
+
+/* 左下浮動工具列（bottom 避開 34px 高的平面圖 nav） */
+.edit-bar {
+  position: fixed; left: 12px; bottom: 48px; z-index: 40;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  max-width: calc(100vw - 24px);
+  background: var(--panel);
+  border: 1px solid var(--hair); border-radius: 999px;
+  padding: 6px 8px 6px 14px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, .22);
+  font-size: 13px;
+}
+.edit-bar .who { color: var(--muted); white-space: nowrap; }
+.edit-bar .who b { color: var(--ink); font-weight: 500; }
+.edit-bar button {
+  font: inherit; font-size: 12px;
+  padding: 4px 12px;
+  color: var(--ink); background: transparent;
+  border: 1px solid var(--rule); border-radius: 999px; cursor: pointer;
+}
+.edit-bar button:hover { border-color: var(--ink); }
+
+/* 變更密碼 modal */
+.edit-pw {
+  position: fixed; inset: 0; z-index: 70;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(20, 18, 16, .55);
+  padding: 16px;
+}
+.edit-pw h2 { font-family: var(--f-display); font-size: 18px; margin: 0 0 4px; }
+.edit-pw label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+.edit-pw input {
+  display: block; width: 100%; margin-top: 4px;
+  padding: 8px 10px; font: inherit; color: var(--ink);
+  background: var(--page); border: 1px solid var(--rule); border-radius: 6px;
+}
+.edit-pw .row { display: flex; gap: 8px; }
+.edit-pw .row button {
+  flex: 1; padding: 8px; font: inherit; border-radius: 6px; cursor: pointer;
+  color: var(--btn-fg, #fff); background: var(--btn-bg, #1C1A18); border: 1px solid var(--btn-bg, #1C1A18);
+}
+.edit-pw .row button.ghost { color: var(--ink); background: transparent; border: 1px solid var(--rule); }
+.edit-pw .err { color: var(--red); font-size: 13px; min-height: 1.2em; margin: 10px 0 0; }
+
+@media (max-width: 480px) {
+  .edit-bar { left: 8px; bottom: 44px; padding: 5px 6px 5px 12px; }
+  .edit-bar .who { font-size: 12px; }
+}

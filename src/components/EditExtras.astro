@@ -1,0 +1,42 @@
+---
+// /edit 編輯模式的額外 UI：登入遮罩＋浮動工具列＋變更密碼 modal。
+// 只在 editMode 頁面載入（CSS/JS 不會進前台 bundle）。
+import '../styles/edit.css';
+---
+<div class="edit-mask" id="edit-mask" hidden>
+  <div class="em-card">
+    <h1>編輯模式登入</h1>
+    <p class="hint">這面牆的參與者才能進入；帳號由管理員發放。</p>
+    <form id="em-login">
+      <label>帳號 <input name="username" autocomplete="username" required maxlength="32" /></label>
+      <label>密碼 <input name="password" type="password" autocomplete="current-password" required maxlength="128" /></label>
+      <button type="submit">登入</button>
+      <p class="err" id="em-login-err" role="alert"></p>
+    </form>
+  </div>
+</div>
+
+<div class="edit-bar" id="edit-bar" hidden>
+  <span class="who">編輯模式 · <b id="em-who"></b></span>
+  <button type="button" id="em-admin" hidden>後台</button>
+  <button type="button" id="em-pw">變更密碼</button>
+  <button type="button" id="em-logout">登出</button>
+</div>
+
+<div class="edit-pw" id="edit-pw" hidden>
+  <div class="em-card">
+    <h2 id="em-pw-title">變更密碼</h2>
+    <p class="hint" id="em-pw-hint" hidden>這是管理員發給你的初始密碼，變更後才能繼續使用。</p>
+    <form id="em-pw-form">
+      <label>目前密碼 <input name="currentPassword" type="password" autocomplete="current-password" required maxlength="128" /></label>
+      <label>新密碼 <input name="newPassword" type="password" autocomplete="new-password" required minlength="8" maxlength="128" /></label>
+      <div class="row">
+        <button type="submit">確認變更</button>
+        <button type="button" class="ghost" id="em-pw-cancel">取消</button>
+      </div>
+      <p class="err" id="em-pw-err" role="alert"></p>
+    </form>
+  </div>
+</div>
+
+<script>import '../scripts/edit.ts';</script>
