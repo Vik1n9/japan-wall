@@ -43,7 +43,7 @@ async function api(path: string, init?: RequestInit): Promise<{ status: number; 
 
 /** 通知牆面重新載入動態內容（wall.ts 監聽），新增／修改／刪除後馬上看得到 */
 function refreshWall(): void {
-  window.dispatchEvent(new Event('kura:wall-refresh'));
+  window.dispatchEvent(new Event('wall:refresh'));
 }
 
 /** 刪除鍵兩段式確認：第一次按變成「確定刪除？」，4 秒內再按才執行（不用 confirm 對話框） */
@@ -91,6 +91,8 @@ function setView(): void {
     if (!byInput.value) byInput.value = me.displayName;
   } else {
     $('edit-drawer').hidden = true;
+    const f = document.getElementById('lb-cmt-form');
+    if (f) f.hidden = true;
   }
 }
 
@@ -540,6 +542,92 @@ function postItem(p: Post): HTMLElement {
   item.append(ops);
   return item;
 }
+
+/* ---------- 說明卡裡直接留言／回覆（wall.ts 開說明卡時發 wall:lightbox） ---------- */
+
+let lbTarget: string | null = null;
+let lbReplyTo: string | null = null;
+
+function lbForm(): HTMLFormElement {
+  let form = document.getElementById('lb-cmt-form') as HTMLFormElement | null;
+  if (form) return form;
+  form = document.createElement('form');
+  form.id = 'lb-cmt-form';
+  form.className = 'lb-cmt-form';
+  const replying = document.createElement('div');
+  replying.className = 'replying';
+  replying.hidden = true;
+  const replyTxt = document.createElement('span');
+  const replyX = document.createElement('button');
+  replyX.type = 'button';
+  replyX.textContent = '×';
+  replyX.setAttribute('aria-label', '取消回覆');
+  replyX.addEventListener('click', () => setReply(null));
+  replying.append(replyTxt, replyX);
+  const ta = document.createElement('textarea');
+  ta.name = 'body'; ta.rows = 2; ta.maxLength = 300; ta.required = true; ta.placeholder = '留言（1～300 字，送出後立刻公開）';
+  const row = document.createElement('div');
+  row.className = 'row';
+  const by = document.createElement('input');
+  by.name = 'by'; by.maxLength = 20; by.placeholder = '署名（可留空）';
+  const send = document.createElement('button');
+  send.type = 'submit'; send.textContent = '送出';
+  row.append(by, send);
+  const err = document.createElement('p');
+  err.className = 'err'; err.setAttribute('role', 'alert');
+  form.append(replying, ta, row, err);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!lbTarget) return;
+    send.disabled = true;
+    err.textContent = '';
+    const { status, data } = await api('/api/posts', {
+      method: 'POST',
+      body: JSON.stringify({ kind: 'comment', target: lbTarget, replyTo: lbReplyTo, body: ta.value, by: by.value }),
+    });
+    send.disabled = false;
+    if (status !== 201) { err.textContent = (data.error as string) || '送出失敗'; return; }
+    ta.value = '';
+    setReply(null);
+    refreshWall(); // 牆面重新載入後會重開同一張說明卡、留言串跟著更新
+    void loadMyPosts();
+  });
+  $('lb-cmts').after(form);
+  return form;
+}
+
+function setReply(cid: string | null): void {
+  lbReplyTo = cid;
+  const box = lbForm().querySelector<HTMLElement>('.replying')!;
+  box.hidden = !cid;
+  if (cid) {
+    const head = document.querySelector(`#lb-cmts .cmt[data-cid="${cid}"] .cmt-head`)?.textContent || '';
+    box.querySelector('span')!.textContent = `回覆 ${head.split(' · ')[0] || '這則留言'}`;
+    lbForm().querySelector('textarea')!.focus();
+  }
+}
+
+window.addEventListener('wall:lightbox', (e) => {
+  const { id, kind } = (e as CustomEvent<{ id: string; kind: string }>).detail;
+  if (!me) return;
+  const form = lbForm();
+  // 親友照片不開放留言（API 的 target 只收展品與繪馬）
+  form.hidden = kind === 'friend';
+  if (lbTarget !== id) setReply(null);
+  lbTarget = kind === 'friend' ? null : id;
+  const byIn = form.querySelector<HTMLInputElement>('input[name=by]')!;
+  if (!byIn.value) byIn.value = me.displayName;
+  // 每則留言加「回覆」
+  document.querySelectorAll<HTMLElement>('#lb-cmts .cmt').forEach((c) => {
+    if (c.querySelector('.cmt-reply')) return;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'cmt-reply';
+    b.textContent = '回覆';
+    b.addEventListener('click', () => setReply(c.dataset.cid || null));
+    c.querySelector('.cmt-head')?.append(b);
+  });
+});
 
 /* ---------- 初始 ---------- */
 

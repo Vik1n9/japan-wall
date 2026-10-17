@@ -138,6 +138,22 @@ try {
   check('刪除投稿後牆上繪馬消失', await waitFor(`![...document.querySelectorAll('.ema-list')].some((el) => el.textContent.includes(${JSON.stringify(edited)}))`, 8000));
   check('全程沒有跳出原生對話框', dialogs() === before, `${dialogs() - before} 次`);
 
+  /* ---------- 說明卡裡直接留言、回覆 ---------- */
+  await run(`document.getElementById('ed-close').click(); document.querySelector('.it-media[data-exhibit-id="JP-01-03"]').click();`);
+  check('編輯模式說明卡出現留言表單', await waitFor(`!document.getElementById('lb').hidden && document.getElementById('lb-cmt-form') && !document.getElementById('lb-cmt-form').hidden`));
+  await run(`const ta = document.querySelector('#lb-cmt-form textarea'); ta.focus(); ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));`);
+  check('在留言框按右鍵不會換下一件', await run(`return document.getElementById('lb-no').textContent === 'JP-01-03';`));
+  await run(`const f = document.getElementById('lb-cmt-form'); f.querySelector('textarea').value = '說明卡留言 ${tag}'; f.requestSubmit();`);
+  check('送出後留言串更新、說明卡仍停在同一件', await waitFor(`document.getElementById('lb-cmts').textContent.includes('說明卡留言 ${tag}') && document.getElementById('lb-no').textContent === 'JP-01-03' && !document.getElementById('lb').hidden`, 8000));
+  await run(`const c = [...document.querySelectorAll('#lb-cmts .cmt')].find((el) => el.textContent.includes('說明卡留言 ${tag}')); c.querySelector('.cmt-reply').click();`);
+  check('按回覆顯示「回覆 …」提示', await waitFor(`!document.querySelector('#lb-cmt-form .replying').hidden`));
+  await run(`const f = document.getElementById('lb-cmt-form'); f.querySelector('textarea').value = '說明卡回覆 ${tag}'; f.requestSubmit();`);
+  check('回覆以縮排顯示在原留言下', await waitFor(`[...document.querySelectorAll('#lb-cmts .cmt.reply')].some((el) => el.textContent.includes('說明卡回覆 ${tag}'))`, 8000));
+  await shot('edit-lightbox-comment');
+  await run(`document.getElementById('lb-x').click();`);
+  const mine = await api('GET', '/api/posts');
+  for (const p of (mine.data?.posts || []).filter((x) => x.body.includes(`說明卡`) && x.body.includes(tag))) await api('DELETE', `/api/posts/${p.id}`);
+
   /* ---------- 新帳號：必須先改密碼 ---------- */
   const uname = `ui-${tag}`;
   const created = await api('POST', '/api/users', { username: uname, displayName: 'UI 測試' });

@@ -196,3 +196,27 @@
 .ep-edit .ops { padding: 0; }
 .ops button.del.armed { color: #fff; background: var(--red); }
 .ops-err { color: var(--red); font-size: 12px; margin: 4px 8px 6px; }
+
+/* 編輯模式：說明卡裡的留言／回覆表單 */
+.lb-cmt-form { margin: 10px 0 12px; display: grid; gap: 6px; }
+.lb-cmt-form textarea, .lb-cmt-form input {
+  width: 100%; padding: 6px 8px; font: inherit; font-size: 13px; color: var(--ink);
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 6px;
+}
+.lb-cmt-form textarea { resize: vertical; min-height: 52px; }
+.lb-cmt-form .row { display: flex; gap: 6px; }
+.lb-cmt-form .row button {
+  flex: none; padding: 6px 16px; font: inherit; font-size: 13px; font-weight: 500;
+  color: #fff; background: var(--btn-bg, #1C1A18); border: 1px solid var(--btn-bg, #1C1A18); border-radius: 6px; cursor: pointer;
+}
+.lb-cmt-form .replying { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--red); }
+.lb-cmt-form .replying button { font: inherit; color: var(--muted); background: none; border: none; cursor: pointer; padding: 0 4px; }
+.lb-cmt-form .err { color: var(--red); font-size: 12px; min-height: 0; margin: 0; }
+.cmt-reply {
+  margin-left: 8px; font: inherit; font-size: 11px; color: var(--red);
+  background: none; border: none; cursor: pointer; padding: 0;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .lb-cmt-form .row button { color: #171614; background: #ECEAE4; border-color: #ECEAE4; }
+}
+:root[data-theme="dark"] .lb-cmt-form .row button { color: #171614; background: #ECEAE4; border-color: #ECEAE4; }

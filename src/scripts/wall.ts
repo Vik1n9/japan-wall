@@ -176,6 +176,9 @@ function show(i: number) {
   }
   renderComments(m.id);
   $('lb-count').textContent = `${cur + 1} / ${MEDIA.length}`;
+  // 編輯模式（edit.ts）靠這個事件在說明卡裡掛留言／回覆表單；前台沒人聽，無作用
+  const kind = m.dyn === 'ema' ? 'ema' : m.dyn === 'friend' ? 'friend' : 'exhibit';
+  window.dispatchEvent(new CustomEvent('wall:lightbox', { detail: { id: m.id, kind } }));
 }
 function open(i: number) {
   lastFocus = document.activeElement as HTMLElement | null;
@@ -200,7 +203,10 @@ $('lb-next').onclick = () => show(cur + 1);
 lb.addEventListener('click', (e) => { if (e.target === lb) close(); });
 addEventListener('keydown', (e) => {
   if (lb.hidden) return;
+  // 在說明卡裡打字（編輯模式的留言框）時，左右鍵是移動游標，不是換下一件
+  const typing = (e.target as HTMLElement | null)?.closest('input, textarea, select');
   if (e.key === 'Escape') close();
+  if (typing) return;
   if (e.key === 'ArrowLeft') show(cur - 1);
   if (e.key === 'ArrowRight') show(cur + 1);
 });
@@ -327,6 +333,7 @@ function renderComments(targetId: string): void {
   const render = (c: PubPost, depth: number): void => {
     const div = document.createElement('div');
     div.className = depth > 0 ? 'cmt reply' : 'cmt';
+    div.dataset.cid = c.id;
     const head = document.createElement('div');
     head.className = 'cmt-head';
     head.textContent = `${c.by || '無署名'} · ${c.postedAt.slice(0, 10)}`;
@@ -457,14 +464,20 @@ async function loadDynamic(fresh = false): Promise<void> {
     const res = await fetch('/api/public/wall', fresh ? { cache: 'no-store' } : undefined);
     if (!res.ok) return;
     const data = (await res.json()) as { photos: PubPhoto[]; posts: PubPost[] };
+    const openId = lb.hidden ? null : MEDIA[cur]?.id; // 說明卡開著：重新載入後留在同一件
     clearDynamic();
     if (data.photos.length || data.posts.length) injectDynamic(data.photos, data.posts);
     rebuildMediaOrder();
     fit(); // 牆變寬/變高：重算 --wall-scale、平面圖
+    if (openId) {
+      const i = MEDIA.findIndex((m) => m.id === openId);
+      if (i >= 0) show(i);
+      else close(); // 正在看的那件被刪了
+    }
   } catch {
     /* 公開端點不可用就維持靜態牆 */
   }
 }
 void loadDynamic();
 // 編輯模式（edit.ts）新增／修改／刪除後通知重新載入
-window.addEventListener('kura:wall-refresh', () => void loadDynamic(true));
+window.addEventListener('wall:refresh', () => void loadDynamic(true));
