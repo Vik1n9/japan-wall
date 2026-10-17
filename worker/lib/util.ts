@@ -35,6 +35,14 @@ export function randomCode(len = 4): string {
   return out;
 }
 
+/** 人類可讀的隨機密碼（去掉 0/O、1/l/I 等易混字元），給 admin 建號/重設用 */
+export function randomPassword(len = 12): string {
+  const alphabet = '23456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ';
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  return [...bytes].map((b) => alphabet[b % alphabet.length]).join('');
+}
+
 /** 隨機 token（base64url），預設 32 bytes = 256-bit 熵 */
 export function randomTokenBase64url(bytes = 32): string {
   const buf = new Uint8Array(bytes);

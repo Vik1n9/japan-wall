@@ -118,6 +118,11 @@ export async function destroyOtherSessions(db: D1Database, username: string, kee
     .run();
 }
 
+/** admin 重設密碼/停用帳號時，把該使用者全部登出 */
+export async function destroyAllSessions(db: D1Database, username: string): Promise<void> {
+  await db.prepare(`DELETE FROM sessions WHERE username = ?1`).bind(username).run();
+}
+
 /* ---------- 登入限速 ---------- */
 
 /** 回傳剩餘鎖定秒數；0 表示未鎖定 */
