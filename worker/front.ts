@@ -2,6 +2,7 @@
 // 只開放兩個公開唯讀端點：/api/public/wall（動態內容）與 /api/media/:key（親友照片）。
 // 其餘 /api/*、/edit*、/admin* 一律 404——dist 裡即使有 /edit 空殼 HTML 也拿不到。
 import { mediaResponse, publicWallResponse, type R2BucketLike } from './lib/public';
+import { safeDecode } from './lib/util';
 
 export interface FrontEnv {
   ASSETS: Fetcher;
@@ -17,7 +18,7 @@ export default {
       return publicWallResponse(env.DB);
     }
     if (request.method === 'GET' && url.pathname.startsWith('/api/media/')) {
-      return mediaResponse(env.UPLOADS, decodeURIComponent(url.pathname.slice('/api/media/'.length)));
+      return mediaResponse(env.UPLOADS, safeDecode(url.pathname.slice('/api/media/'.length)) ?? '');
     }
 
     const blocked =

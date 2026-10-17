@@ -10,35 +10,40 @@ export interface R2BucketLike {
 
 export const MEDIA_KEY_RE = /^photos\/p-\d{8}-[a-z0-9]{4}\.(jpg|png|webp)$/;
 
-/** 牆上所有 live 的親友照片與投稿（留言/繪馬），給前台動態注入用 */
+/** 牆上所有 live 的親友照片與投稿（留言/繪馬），給前台動態注入用。
+ *  不回傳登入帳號名稱（author）：公開頁只需要顯示名稱與署名，帳號名稱外流等於替暴力登入省一半功夫 */
 export async function publicWallResponse(db: D1Database): Promise<Response> {
   const [ph, po] = await Promise.all([
     db.prepare(
-      `SELECT p.id, p.author, u.display_name AS author_name, p.day, p.caption, p.r2_key, p.mime, p.width, p.height, p.created_at
+      `SELECT p.id, u.display_name AS author_name, p.day, p.caption, p.r2_key, p.mime, p.width, p.height, p.created_at
        FROM photos p JOIN users u ON u.username = p.author
        WHERE p.status = 'live'
        ORDER BY p.created_at ASC, p.id ASC`,
     ).all<{
-      id: string; author: string; author_name: string; day: string; caption: string;
+      author_name: string; id: string; day: string; caption: string;
       r2_key: string; mime: string; width: number; height: number; created_at: string;
     }>(),
     db.prepare(
-      `SELECT id, kind, target, reply_to, by, body, author, posted_at
-       FROM posts WHERE status = 'live'
-       ORDER BY posted_at ASC, id ASC`,
+      // 掛在繪馬上的留言：繪馬被刪了就跟著不公開
+      `SELECT p.id, p.kind, p.target, p.reply_to, p.by, p.body, p.posted_at
+       FROM posts p
+       WHERE p.status = 'live'
+         AND (p.kind = 'ema' OR p.target NOT LIKE 'n-%'
+              OR EXISTS (SELECT 1 FROM posts e WHERE e.id = p.target AND e.kind = 'ema' AND e.status = 'live'))
+       ORDER BY p.posted_at ASC, p.id ASC`,
     ).all<{
       id: string; kind: string; target: string; reply_to: string | null; by: string;
-      body: string; author: string; posted_at: string;
+      body: string; posted_at: string;
     }>(),
   ]);
   return json({
     photos: (ph.results || []).map((r) => ({
-      id: r.id, author: r.author, authorName: r.author_name, day: r.day, caption: r.caption,
+      id: r.id, authorName: r.author_name, day: r.day, caption: r.caption,
       key: r.r2_key, mime: r.mime, width: r.width, height: r.height, createdAt: r.created_at,
     })),
     posts: (po.results || []).map((r) => ({
       id: r.id, kind: r.kind, target: r.target, replyTo: r.reply_to, by: r.by,
-      body: r.body, author: r.author, postedAt: r.posted_at,
+      body: r.body, postedAt: r.posted_at,
     })),
   }, 200, { 'Cache-Control': 'public, max-age=60' });
 }

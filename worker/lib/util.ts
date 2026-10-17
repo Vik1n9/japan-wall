@@ -58,6 +58,15 @@ export async function sha256Hex(data: string | Uint8Array): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** decodeURIComponent 失敗（%E0 這類殘缺序列）時回 null，不讓整個請求變 500 */
+export function safeDecode(s: string): string | null {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return null;
+  }
+}
+
 /** 固定時間字串比較，避免 timing attack */
 export function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;

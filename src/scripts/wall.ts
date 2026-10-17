@@ -208,12 +208,12 @@ addEventListener('keydown', (e) => {
    樣式全部沿用 wall.css 既有規則；注入完重建 MEDIA 瀏覽順序（照牆上 DOM 順序）並重算 fit/map。 */
 
 type PubPhoto = {
-  id: string; author: string; authorName: string; day: string; caption: string;
+  id: string; authorName: string; day: string; caption: string;
   key: string; mime: string; width: number; height: number; createdAt: string;
 };
 type PubPost = {
   id: string; kind: string; target: string; replyTo: string | null; by: string;
-  body: string; author: string; postedAt: string;
+  body: string; postedAt: string;
 };
 
 const FRIENDS_PER_COL = 3; // 每欄三張：欄自然高（≈756px）不超過展品欄，才不會拉低整面牆的 --wall-scale；第四張起往右加欄（橫向擴充）

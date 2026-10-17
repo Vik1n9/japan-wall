@@ -1,8 +1,7 @@
 // 後台 Worker（kura.osaka2026.voriens.dev）：完整 API＋靜態資源。
-// 階段 1：auth 核心（login / logout / me / change-password）。
-// 之後階段在這裡加 users 管理、photos、posts、public/media。
+// auth（login / logout / me / change-password）、帳號管理、照片、投稿、公開唯讀端點。
 
-import { json, nowTaipeiIso, randomCode, randomPassword, safeEqual } from './lib/util';
+import { json, nowTaipeiIso, randomCode, randomPassword, safeDecode, safeEqual } from './lib/util';
 import { parseAndClean } from './lib/images';
 import { mediaResponse, publicWallResponse, type R2BucketLike } from './lib/public';
 import {
@@ -66,6 +65,16 @@ async function loadTargets(env: Env, request: Request): Promise<{ exhibits: Set<
     return { exhibits: new Set(), days: new Set() };
   }
   return targetsCache;
+}
+
+/** 產生當天未用過的編號（隨機 4 碼，一天 36^4 種；撞號就重抽，最多 8 次） */
+async function freshId(db: D1Database, table: 'photos' | 'posts', prefix: string): Promise<string> {
+  for (let i = 0; i < 8; i++) {
+    const id = prefix + randomCode(4);
+    const hit = await db.prepare(`SELECT 1 FROM ${table} WHERE id = ?1`).bind(id).first();
+    if (!hit) return id;
+  }
+  throw new Error('編號產生失敗');
 }
 
 function clientIp(request: Request): string {
@@ -132,8 +141,8 @@ export default {
         .bind(username)
         .first<UserRow>();
 
-      // 帳號不存在也走一次雜湊，避免用回應時間分辨帳號是否存在
-      if (!user || !(await verifyPassword(password, user.password_hash))) {
+      // 帳號不存在也走一次雜湊（verifyPassword 收到空值會比對假雜湊），避免用回應時間分辨帳號是否存在
+      if (!(await verifyPassword(password, user?.password_hash)) || !user) {
         await recordLoginFailure(env.DB, lockKey);
         return json({ error: '帳號或密碼錯誤' }, 401);
       }
@@ -152,7 +161,7 @@ export default {
 
     /* ---------- GET /api/media/:key 與 /api/public/wall（公開唯讀，與前台共用模組） ---------- */
     if (method === 'GET' && url.pathname.startsWith('/api/media/')) {
-      return mediaResponse(env.UPLOADS, decodeURIComponent(url.pathname.slice('/api/media/'.length)));
+      return mediaResponse(env.UPLOADS, safeDecode(url.pathname.slice('/api/media/'.length)) ?? '');
     }
     if (method === 'GET' && url.pathname === '/api/public/wall') {
       return publicWallResponse(env.DB);
@@ -174,6 +183,11 @@ export default {
     /* ---------- GET /api/me ---------- */
     if (method === 'GET' && url.pathname === '/api/me') {
       return json({ me: mePayload(session.user) });
+    }
+
+    // 必須先改密碼的帳號（新建或被重設）：除了讀取與改密碼之外一律擋下，不能只靠介面擋
+    if (session.user.mustChangePw && method !== 'GET' && url.pathname !== '/api/change-password') {
+      return json({ error: '請先變更密碼', mustChangePw: true }, 403);
     }
 
     /* ---------- POST /api/change-password ---------- */
@@ -254,13 +268,13 @@ export default {
 
       const { ymd, datePrefix, iso } = nowTaipeiIso();
       const quota = await env.DB.prepare(
-        `SELECT COUNT(*) AS n FROM photos WHERE author = ?1 AND status = 'live' AND created_at LIKE ?2`,
+        `SELECT COUNT(*) AS n FROM photos WHERE author = ?1 AND created_at LIKE ?2`, // 含已刪除：刪掉重傳不能繞過上限
       ).bind(session.user.username, `${datePrefix}%`).first<{ n: number }>();
       if ((quota?.n ?? 0) >= PHOTOS_PER_DAY) {
         return json({ error: `一天最多上傳 ${PHOTOS_PER_DAY} 張照片` }, 429);
       }
 
-      const id = `p-${ymd}-${randomCode(4)}`;
+      const id = await freshId(env.DB, 'photos', `p-${ymd}-`);
       const key = `photos/${id}.${img.ext}`;
       await env.UPLOADS.put(key, img.clean, { httpMetadata: { contentType: img.mime } });
       await env.DB.prepare(
@@ -379,11 +393,11 @@ export default {
 
       const { ymd, datePrefix, iso } = nowTaipeiIso();
       const quota = await env.DB.prepare(
-        `SELECT COUNT(*) AS n FROM posts WHERE author = ?1 AND status = 'live' AND posted_at LIKE ?2`,
+        `SELECT COUNT(*) AS n FROM posts WHERE author = ?1 AND posted_at LIKE ?2`, // 含已刪除
       ).bind(session.user.username, `${datePrefix}%`).first<{ n: number }>();
       if ((quota?.n ?? 0) >= POSTS_PER_DAY) return json({ error: `一天最多 ${POSTS_PER_DAY} 則投稿` }, 429);
 
-      const id = `n-${ymd}-${randomCode(4)}`;
+      const id = await freshId(env.DB, 'posts', `n-${ymd}-`);
       await env.DB.prepare(
         `INSERT INTO posts (id, kind, target, reply_to, by, body, author, status, posted_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'live', ?8)`,
@@ -496,7 +510,7 @@ export default {
       /* PATCH /api/users/:username — 重設密碼、停用/啟用、改角色、改顯示名稱 */
       const patchMatch = url.pathname.match(/^\/api\/users\/([^/]+)$/);
       if (method === 'PATCH' && patchMatch) {
-        const target = decodeURIComponent(patchMatch[1]).toLowerCase();
+        const target = (safeDecode(patchMatch[1]) ?? '').toLowerCase();
         const body = await readJsonBody(request);
         if (!body) return json({ error: '無效的 JSON' }, 400);
         const row = await env.DB.prepare(`SELECT * FROM users WHERE username = ?1`).bind(target).first<UserRow>();

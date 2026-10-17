@@ -1,7 +1,7 @@
 // 帳號密碼驗證核心：PBKDF2 雜湊、opaque session token、cookie、登入限速。
 // 不使用 SESSION_SECRET：token 本身是 256-bit 隨機值，D1 只存 SHA-256 雜湊，可隨時撤銷。
 
-import { randomTokenBase64url, safeEqual, sha256Hex, nowTaipeiIso } from './util';
+import { randomTokenBase64url, safeDecode, safeEqual, sha256Hex, nowTaipeiIso } from './util';
 
 const PBKDF2_ITERATIONS = 150_000;
 const MAX_FAILS = 5;
@@ -43,7 +43,14 @@ export async function hashPassword(password: string, saltHex?: string): Promise<
   return `pbkdf2$${PBKDF2_ITERATIONS}$${hex}$${hashHex}`;
 }
 
-export async function verifyPassword(password: string, stored: string): Promise<boolean> {
+/** 帳號不存在時拿來比對的假雜湊：照樣跑一次 PBKDF2，回應時間才不會洩漏帳號是否存在 */
+const DUMMY_HASH = `pbkdf2$${PBKDF2_ITERATIONS}$${'00'.repeat(16)}$${'00'.repeat(32)}`;
+
+export async function verifyPassword(password: string, stored: string | null | undefined): Promise<boolean> {
+  if (!stored) {
+    await hashPassword(password, DUMMY_HASH.split('$')[2]);
+    return false;
+  }
   const parts = stored.split('$');
   if (parts.length !== 4 || parts[0] !== 'pbkdf2') return false;
   const expected = await hashPassword(password, parts[2]);
@@ -57,7 +64,9 @@ export function parseCookies(header: string | null): Map<string, string> {
   if (!header) return out;
   for (const part of header.split(';')) {
     const i = part.indexOf('=');
-    if (i > 0) out.set(part.slice(0, i).trim(), decodeURIComponent(part.slice(i + 1).trim()));
+    if (i <= 0) continue;
+    const value = safeDecode(part.slice(i + 1).trim());
+    if (value !== null) out.set(part.slice(0, i).trim(), value);
   }
   return out;
 }
@@ -78,6 +87,11 @@ export async function createSession(db: D1Database, username: string): Promise<s
   const token = randomTokenBase64url(32);
   const tokenHash = await sha256Hex(token);
   const { iso } = nowTaipeiIso();
+  // 順手清掉過期的 session 與早已解鎖的登入失敗紀錄（登入頻率低，放這裡就夠，不必排程）
+  await db.batch([
+    db.prepare(`DELETE FROM sessions WHERE expires_at <= ?1`).bind(iso),
+    db.prepare(`DELETE FROM login_attempts WHERE locked_until IS NOT NULL AND locked_until <= ?1`).bind(iso),
+  ]);
   const expires = new Date(Date.now() + SESSION_DAYS * 86400_000 + 8 * 3600_000).toISOString().replace('Z', '+08:00');
   await db
     .prepare(`INSERT INTO sessions (token_hash, username, expires_at, created_at) VALUES (?1, ?2, ?3, ?4)`)
