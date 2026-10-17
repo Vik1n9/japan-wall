@@ -11,6 +11,10 @@ backdrop:
   - { src: art/days/2026-10-09-04.webp, x: 62, y: 2, h: 44, r: -6 }
   - { src: art/days/2026-10-09-05.webp, x: 88, y: 40, h: 34, r: 3 }
   - { src: art/days/2026-10-09-06.webp, x: 10, y: 4, h: 30, r: 7 }
+# 趣事帶（分左右兩張、中間留白）：左＝老老打保齡球洗溝；右＝其他五隻提大包小包購物，右上角一架小客機。原檔在 raw/art/cats/scenes/d5/
+story:
+  - { src: art/story/2026-10-09-left.webp, x: 19 }
+  - { src: art/story/2026-10-09-right.webp, x: 79 }
 columns:
   - width: 200
     items:
