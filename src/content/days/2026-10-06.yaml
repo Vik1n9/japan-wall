@@ -12,6 +12,8 @@ backdrop:
   - { src: art/days/2026-10-06-05.webp, x: 64, y: 40, h: 50, r: 4 }
   - { src: art/days/2026-10-06-06.webp, x: 82, y: 0, h: 60, r: -3 }
   - { src: art/days/2026-10-06-07.webp, x: 97, y: 52, h: 34, r: 6 }
+# 趣事帶：萬聖節生化危機殭屍與暴君在後面追，六隻貓往綠色水管逃；高高牽著回頭看的可愛，老老站在水管口招手。Qwen-Image 2.1 多角色參考生成後局部重做、統一畫風，原檔在 raw/art/cats/scenes/d2/
+story: { src: art/story/2026-10-06.webp, x: 50 }
 columns:
   - width: 300
     items:
