@@ -19,7 +19,12 @@
 | `npm run ingest -- <日期> --redo <編號>` | 依展品檔的 `crop` / `blur` / `edit`（短片剪輯）重新轉檔 |
 | `npm run check` | 隱私與引用檢查（`npm run build` 前會自動執行） |
 | `npm run build` | 建置到 `dist/` |
-| `npm run deploy` | 建置並部署到 Cloudflare Workers（https://osaka2026.voriens.dev），對外發布前先問 Viking |
+| `npm run deploy` | 建置並部署前台 Worker（https://osaka2026.voriens.dev），對外發布前先問 Viking |
+| `npm run deploy:back` | 建置並部署後台 Worker（https://kura.osaka2026.voriens.dev），同樣先問 Viking |
+| `npm run dev:api` | 本機跑後台 Worker（http://localhost:8787，含 `/edit`、`/admin`；先 `npm run build`） |
+| `npm run db:setup:local` | 建立本機 D1 資料表（第一次跑 `dev:api` 前） |
+| `npm run admin:create -- <帳號> [名稱] [--local]` | 建立或重設管理員（不加 `--local` 是寫正式資料庫） |
+| `npm run test:api` ／ `npm run test:ui` | 後台煙霧測試（對本機 `dev:api`；需 `KURA_ADMIN`、`KURA_ADMIN_PW` 環境變數） |
 
 專案指令：`/add-day <日期>`（新增一天）、`/review`（分享前檢查）。
 
@@ -38,7 +43,7 @@
 3. **隱私**：`public/` 不得有帶 metadata 的檔案，也不得有 HEIC/MOV 原檔（`npm run check` 會擋）。看到路人正臉要告知 Viking，不要自行刪除。
 4. **排版是策展決定**：ingest 只把新展品放進 `unsorted` 欄。可以提出排版建議，但要說明依據（拍攝時間、主題、直橫幅比例），由 Viking 確認。
 5. **外觀以 `prototype/index.html` 為準**：改樣式前先比對原型；新增樣式要同時支援淺色與深色模式、手機寬度 400px。
-6. **驗證**：每次修改後執行 `npm run build`；動到版面時，用瀏覽器在桌機與手機寬度各看一次，並開一次展品說明卡。
+6. **驗證**：每次修改後執行 `npm run build`；動到版面時，用瀏覽器在桌機與手機寬度各看一次，並開一次展品說明卡。動到 `worker/` 或 `/edit`、`/admin` 時，本機跑 `npm run dev:api` 後執行 `npm run test:api` 與 `npm run test:ui`，全部通過才 commit。
 7. 不要再推薦一般部落格或攝影作品集主題（已被否決）。
 
 ## 已知限制

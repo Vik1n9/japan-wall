@@ -104,6 +104,14 @@ npm run dev                 # http://localhost:4321
 - **呈現方式**：所有天的背景在牆面同一層，壓在展品後面、燈軌與屋簷石垣前面，不會蓋到隔壁天的展品（淺色模式不透明度 0.4，深色 0.3）。日期、說明與圖說加牆色光暈，背景再雜也讀得清楚。為了讓背景用整面牆高計算，年代區段與當天欄位改成撐滿牆高。閱讀模式只在每天開頭鋪主圖，最多 520px 高。
 - **序幕**：照片布條換成環球影城 VIP 卡（JP-02-13），寬度和紅布條相同。石垣上方加一道瓦屋簷（`public/art/eave.svg`，SVG 手繪暫用），天守閣站在屋簷上。
 
+### 屋簷趣事帶：六隻貓（2026-10-17～18 加入）
+
+- **取代屋簷小動物**：每天（DAY 1–5，不含序幕與結尾）在屋簷上放一條「趣事帶」，用六隻擬人貓（鳥獸戲畫的站姿、全彩浮世繪）演出當天的一件趣事。**這是裝飾，不是展品**，不加任何說明文字。
+- **六隻貓**代表同行六人（依 JP-02-11 由左至右）：呆呆（黑貓、黑 T、抱托特包）、漂漂（白色緬因貓、藍格圍巾、斜背小包）、老老（銀灰虎斑、白西裝、黑框眼鏡、灰色報童帽、黃手環）、小小（曼赤肯、奶油色重點色、黑框眼鏡、白 T、背包）、高高（高瘦賓士貓、綠色連帽外套、金框眼鏡、不戴帽）、可愛（微胖橘虎斑、圓眼鏡、卡其短外套）。定裝圖在 `raw/art/cats/`（不進版控），只當長相參考，每一幕的動作另外設計。
+- **每天的趣事**（只來自 Viking 的描述）：DAY 1 小小講電話當機、腰綁繩子被拖著走；DAY 2 萬聖節殭屍與暴君追、往綠色水管逃；DAY 3 四隻爬完勝尾寺在達摩旁喘氣／漂漂呆呆先在茶屋喝茶；DAY 4 老老小小坐御座船／四隻吃螃蟹；DAY 5 老老保齡球洗溝／五隻大包小包購物。
+- **做法**：Qwen-Image 2.1（mflux，本機）。先構思整幅動作給 Viking 確認 → 一張六貓排排站的參考圖讓 Qwen 直接生成整幕（或逐隻生動作再拼貼）→ 局部重畫修細節 → 洋紅底去背。腳本在 `raw/art/cats/scripts/`。
+- **資料**：`days/*.yaml` 的 `story`，可放一張或多張（陣列，各自 `x` 定位）；DAY 3–5 是左右各一張、中間留白。圖片在 `public/art/story/`，高 380px（顯示 190px，手機 128px），腳踩屋簷頂端。
+
 ### 原型檔
 
 `prototype/index.html` 是 v3 的單檔原型（含第二天真實素材），**Astro 版應以它的外觀與互動為準來移植**。
@@ -212,13 +220,37 @@ japan-wall/
 │   ├── lib/wall.ts         ← 計算 DAY n、星期、城市年代分組與說明卡資料
 │   ├── components/         ← WallPage / Day / Plate / Lightbox
 │   ├── pages/
-│   │   └── index.astro     ← 公開展覽牆
-│   ├── scripts/            ← wall.ts（公開互動）
-│   └── styles/wall.css     ← 由原型移植
+│   │   ├── index.astro     ← 公開展覽牆
+│   │   ├── edit/           ← 編輯模式（同一面牆＋登入、上傳、投稿；只在後台網域可達）
+│   │   └── admin/          ← 後台管理（帳號、內容審核；只在後台網域可達）
+│   ├── scripts/            ← wall.ts（公開互動＋動態內容注入）、edit.ts、admin.ts
+│   └── styles/             ← wall.css（由原型移植）、edit.css、admin.css
+├── worker/                 ← Cloudflare Workers（見下方「後台 2.0」）
+│   ├── front.ts            ← 前台 Worker：純展示，只開公開唯讀端點
+│   ├── back.ts             ← 後台 Worker：分派與共用檢查
+│   ├── routes/             ← auth / photos / posts / users
+│   ├── lib/                ← auth、http、images（剝 metadata）、public（雙域共用）、util
+│   └── schema.sql          ← D1 資料表
+├── wrangler.jsonc          ← 前台（osaka2026.voriens.dev）
+├── wrangler.back.jsonc     ← 後台（kura.osaka2026.voriens.dev）
 └── scripts/
     ├── ingest.mjs          ← 匯入 raw/ 素材
-    └── check.mjs           ← 隱私與引用檢查（prebuild 自動執行）
+    ├── check.mjs           ← 隱私與引用檢查（prebuild 自動執行）
+    ├── gen-targets.mjs     ← 投稿目標白名單（prebuild 自動執行）
+    ├── admin-create.mjs    ← 建立／重設管理員
+    ├── api-smoke.mjs       ← 後台 API 煙霧測試（npm run test:api）
+    └── ui-smoke.mjs        ← 後台介面煙霧測試（npm run test:ui，無頭 Chrome）
 ```
+
+### 後台 2.0（帳號、親友照片、留言繪馬，2026-10-17～18）
+
+- **雙網域**：前台 `osaka2026.voriens.dev`（Worker `osaka2026`，零登入痕跡，`/api/*`、`/edit*`、`/admin*` 一律 404，只開 `/api/public/wall` 與 `/api/media/*`）；後台 `kura.osaka2026.voriens.dev`（Worker `osaka2026-kura`，完整 API＋`/edit`＋`/admin`）。兩者共用同一個 D1（`osaka2026`）與 R2（`osaka2026-uploads`）。
+- **帳號**：由管理員在 `/admin` 發放（不開放註冊）；新帳號或被重設密碼都必須先改密碼，API 層也會擋。密碼 PBKDF2-SHA256 15 萬次；session 是隨機 token、D1 只存雜湊；同帳號＋IP 失敗 5 次鎖 15 分鐘；所有變更請求檢查 Origin。
+- **親友照片**：`/edit` 抽屜上傳，瀏覽器先縮圖（長邊 ≤2048）抹 EXIF，伺服器再剝一次 metadata；每人每天 20 張（含已刪除）。上傳即公開，掛在指定那天最右邊的「親友照片」欄。
+- **留言／繪馬**：留言掛在展品或繪馬下（說明卡裡的討論串），繪馬像展品一樣掛在當天的「繪馬掛所」；每人每天 100 則。繪馬刪除後，掛在上面的留言不再公開。
+- **審核**：`/admin` 的「內容審核」列出全部公開中的照片與投稿，管理員可刪除；刪除＝不再公開（照片檔一併刪除，資料列留作紀錄）。
+- **公開資料不含登入帳號名稱**：牆上只顯示顯示名稱與署名。
+- **測試**：改後台後在本機跑 `npm run dev:api`，再跑 `npm run test:api` 與 `npm run test:ui`（需環境變數 `KURA_ADMIN`／`KURA_ADMIN_PW`，本機管理員用 `npm run admin:create -- <帳號> --local` 建立）。
 
 ### 版本
 
@@ -270,6 +302,8 @@ japan-wall/
 - [x] LINE 相簿補充的 23 件：標題與說明 Viking 確認（2026-10-15，`draft: false`）。
 - [ ] 每天的心得欄位：Viking 之後自己填（填好改成 `text` 文字卡；`slot` 在公開版不顯示）。
 - [ ] **向同行友人索取原始照片**（HEIC／JPEG 原檔，保留 EXIF 拍攝時間），方便彙整；LINE 相簿的 23 件拿到原檔後可補上時刻。
+- [x] **後台 2.0**：帳號、親友照片、留言繪馬、內容審核、雙網域（2026-10-17～18，本機測試通過）。**尚未部署**，見第 9 節的部署清單。
+- [x] **屋簷趣事帶**：六隻貓、DAY 1–5 全部完成（2026-10-18）。
 - [x] ~~設計與實作後台系統（第 1～4 段）~~：**已拆除（2026-10-17）**。原 Cloudflare Access 收稿制後台（留言/繪馬投稿、`notes:pull`）從未上線，經 Viking 決定廢除，改為「後台 2.0：帳號密碼登入＋照片上傳＋繪馬留言動態公開＋前後台雙網域」。規格選型紀錄保留在 `docs/admin-design.md`、`docs/notes-spec.md`（均已標記廢棄）。
 - [ ] **背景圖片後製**：回到 Mac mini，用圖片模型後製 `public/art/days/` 的 33 張背景拼貼（以及 `eave.svg` 屋簷），替換同名檔案；Commons 來源的兩張後製版本須維持 CC BY-SA。
 - [ ] 日期不明、尚未放上牆的 LINE 相簿照片（梅田藍天大廈夜景、寶可夢中心、JUMP SHOP、螃蟹宴等），之後再處理。
@@ -297,9 +331,19 @@ claude.ai 上已發佈的三個版本（私人連結，只有使用者能開）�
 - Travelens（每趟旅程一個 repo 的架構）：https://github.com/travelens
 - astro-photo-folio（相簿與燈箱元件）：https://astro.build/themes/details/astro-photo-folio/
 
-## 9. 交接：下一步（2026-10-15）
+## 9. 交接：下一步（2026-10-18 更新）
 
-**目前狀態**：五天 66 件展品（其中 23 件 LINE 相簿補充）、短片剪輯、視覺素材與暫用背景拼貼都已完成，**已部署到 https://osaka2026.voriens.dev**（2026-10-15，Worker `osaka2026`）。
+**目前狀態**：五天 66 件展品、短片、視覺素材、屋簷趣事帶與後台 2.0 都已完成並 push。線上 https://osaka2026.voriens.dev 還是 2026-10-15 的版本：**前台綁定了後台的 D1／R2，所以要先完成下面的 Cloudflare 設定，前台才部署得上去**。
+
+**第一次部署後台 2.0（Viking 在自己電腦做一次，約 10 分鐘）**：
+
+1. `npx --yes wrangler@4 login`（登入 Viking 的 Cloudflare 帳號；token 過期時也要重跑）。
+2. `npx --yes wrangler@4 d1 create osaka2026`，把印出的 `database_id` 填進 `wrangler.jsonc` 與 `wrangler.back.jsonc`（兩處都是 `00000000-…` 的那行）。
+3. `npx --yes wrangler@4 r2 bucket create osaka2026-uploads`。
+4. `npm run db:setup:remote`（建資料表）。
+5. `npm run admin:create -- <帳號> <顯示名稱>`（建第一個管理員；初始密碼只印這一次，第一次登入會要求改密碼）。
+6. `npm run deploy:back`（後台 kura.osaka2026.voriens.dev），再 `npm run deploy`（前台）。
+7. 檢查：前台桌機與手機各看一次、開一張說明卡、播一支短片；後台登入 `/admin` 建好親友帳號，用 `/edit` 試傳一張照片、掛一塊繪馬，回前台確認看得到，再到 `/admin` 的內容審核刪掉測試內容。
 
 **重新部署**（在任何一台機器）：
 
@@ -308,6 +352,6 @@ claude.ai 上已發佈的三個版本（私人連結，只有使用者能開）�
 3. `npm run deploy`：建置後部署 Worker `osaka2026` 與自訂網域 `osaka2026.voriens.dev`。
 4. 部署後用瀏覽器檢查桌機與手機寬度、開一張展品說明卡、播一支短片。
 
-**下一步**：見第 7 節待辦（向友人索取原始照片、後台 2.0 重建、Mac mini 後製背景圖）。
+**下一步**：見第 7 節待辦（向友人索取原始照片、Mac mini 後製背景圖）。
 
 **之後**：心得欄位（`slot`）由 Viking 自己填，填好改成 `text` 文字卡；`slot` 在公開版不顯示。
