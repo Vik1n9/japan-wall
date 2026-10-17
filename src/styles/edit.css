@@ -182,6 +182,17 @@
   .edit-bar .who { font-size: 12px; }
 }
 @media (prefers-color-scheme: dark) {
-  .ep-card button[type=submit] { color: #171614; background: #ECEAE4; border-color: #ECEAE4; }
-  .ep-card .ok { color: #7FBF85; }
+  :root:not([data-theme="light"]) .ep-card button[type=submit] { color: #171614; background: #ECEAE4; border-color: #ECEAE4; }
+  :root:not([data-theme="light"]) .ep-card .ok { color: #7FBF85; }
 }
+/* 與 wall.css 一致：系統深色（未指定淺色）或手動指定深色都套用 */
+:root[data-theme="dark"] .ep-card button[type=submit] { color: #171614; background: #ECEAE4; border-color: #ECEAE4; }
+:root[data-theme="dark"] .ep-card .ok { color: #7FBF85; }
+
+/* 行內編輯（照片、投稿）與兩段式刪除 */
+.ep-edit { padding: 6px 8px 8px; }
+.pst-item .ep-edit { padding: 0; }
+.ep-edit input, .ep-edit select, .ep-edit textarea { margin: 0 0 6px; font-size: 12px; }
+.ep-edit .ops { padding: 0; }
+.ops button.del.armed { color: #fff; background: var(--red); }
+.ops-err { color: var(--red); font-size: 12px; margin: 4px 8px 6px; }

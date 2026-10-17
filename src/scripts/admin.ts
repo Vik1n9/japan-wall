@@ -241,7 +241,7 @@ $('create-form').addEventListener('submit', async (e) => {
     body: JSON.stringify({
       username: form.username.value,
       displayName: form.displayName.value,
-      role: form.role.value,
+      role: (form.elements.namedItem('role') as HTMLSelectElement).value, // form.role 會被型別當成 ARIA 的 role 屬性
       password: form.password.value, // 留空字串 → 後端自動產生
     }),
   });

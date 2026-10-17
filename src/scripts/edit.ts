@@ -14,18 +14,68 @@ type Post = {
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
+let me: Me | null = null;
+
+/** 所有 API 呼叫走這裡：網路斷線不丟例外；401＝登入過期（回登入遮罩）；403 mustChangePw＝強制改密碼 */
 async function api(path: string, init?: RequestInit): Promise<{ status: number; data: Record<string, unknown> }> {
-  const res = await fetch(path, {
-    headers: init?.body instanceof FormData ? undefined : { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    ...init,
-  });
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      headers: init?.body instanceof FormData ? undefined : { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      ...init,
+    });
+  } catch {
+    return { status: 0, data: { error: '網路連線失敗，請稍後再試' } };
+  }
   let data: Record<string, unknown> = {};
   try { data = await res.json(); } catch { /* 非 JSON */ }
+  if (res.status === 401 && me && path !== '/api/login') {
+    me = null;
+    setView();
+    $('em-login-err').textContent = '登入已過期，請重新登入';
+  } else if (res.status === 403 && data.mustChangePw && me) {
+    me.mustChangePw = true;
+    openPw(true);
+  }
   return { status: res.status, data };
 }
 
-let me: Me | null = null;
+/** 通知牆面重新載入動態內容（wall.ts 監聽），新增／修改／刪除後馬上看得到 */
+function refreshWall(): void {
+  window.dispatchEvent(new Event('kura:wall-refresh'));
+}
+
+/** 刪除鍵兩段式確認：第一次按變成「確定刪除？」，4 秒內再按才執行（不用 confirm 對話框） */
+function armDelete(btn: HTMLButtonElement, run: () => Promise<void>): void {
+  let timer = 0;
+  const label = btn.textContent || '刪除';
+  btn.addEventListener('click', async () => {
+    if (!btn.classList.contains('armed')) {
+      btn.classList.add('armed');
+      btn.textContent = '確定刪除？';
+      timer = window.setTimeout(() => { btn.classList.remove('armed'); btn.textContent = label; }, 4000);
+      return;
+    }
+    clearTimeout(timer);
+    btn.disabled = true;
+    await run();
+    btn.disabled = false;
+    btn.classList.remove('armed');
+    btn.textContent = label;
+  });
+}
+
+function opsError(host: HTMLElement): HTMLParagraphElement {
+  let el = host.querySelector<HTMLParagraphElement>('.ops-err');
+  if (!el) {
+    el = document.createElement('p');
+    el.className = 'ops-err';
+    el.setAttribute('role', 'alert');
+    host.append(el);
+  }
+  return el;
+}
 
 function setView(): void {
   const logged = me !== null;
@@ -131,7 +181,12 @@ $('ed-close').addEventListener('click', () => { $('edit-drawer').hidden = true; 
 
 /** canvas 重編碼：長邊 ≤2048、JPEG 85%；順帶抹掉所有 EXIF/GPS */
 async function reencode(file: File): Promise<Blob> {
-  const bmp = await createImageBitmap(file);
+  let bmp: ImageBitmap;
+  try {
+    bmp = await createImageBitmap(file);
+  } catch {
+    throw new Error('這個檔案讀不出來（iPhone 的 HEIC 請先在相簿轉成 JPEG，或改用 Safari 上傳）');
+  }
   const scale = Math.min(1, 2048 / Math.max(bmp.width, bmp.height));
   const w = Math.max(1, Math.round(bmp.width * scale));
   const h = Math.max(1, Math.round(bmp.height * scale));
@@ -172,8 +227,9 @@ $('up-form').addEventListener('submit', async (e) => {
       return;
     }
     form.reset();
-    $('up-ok').textContent = '已上傳，馬上就出現在牆上了。';
+    $('up-ok').textContent = '已上傳，牆上已更新。';
     await loadMyPhotos();
+    refreshWall();
   } catch (err) {
     $('up-err').textContent = err instanceof Error ? err.message : '上傳失敗';
   } finally {
@@ -230,17 +286,41 @@ function photoCard(p: Photo): HTMLElement {
   const editBtn = document.createElement('button');
   editBtn.type = 'button';
   editBtn.textContent = '編輯';
-  editBtn.addEventListener('click', async () => {
-    const caption = prompt('照片說明（≤300 字，留空＝無說明）：', p.caption);
-    if (caption === null) return;
-    const day = prompt('掛在哪一天？（YYYY-MM-DD）', p.day);
-    if (day === null) return;
-    const { status, data } = await api(`/api/photos/${p.id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ caption, day: day.trim() }),
+  editBtn.addEventListener('click', () => {
+    // 行內編輯：說明＋掛在哪一天
+    const form = document.createElement('form');
+    form.className = 'ep-edit';
+    const capIn = document.createElement('input');
+    capIn.name = 'caption'; capIn.maxLength = 300; capIn.value = p.caption; capIn.placeholder = '說明（可留空）';
+    const daySel = document.createElement('select');
+    daySel.name = 'day';
+    for (const d of days) {
+      const opt = document.createElement('option');
+      opt.value = d.date; opt.textContent = d.label; opt.selected = d.date === p.day;
+      daySel.append(opt);
+    }
+    const row = document.createElement('div');
+    row.className = 'ops';
+    const save = document.createElement('button'); save.type = 'submit'; save.textContent = '儲存';
+    const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = '取消';
+    row.append(save, cancel);
+    form.append(capIn, daySel, row);
+    cap.hidden = meta.hidden = ops.hidden = true;
+    item.append(form);
+    capIn.focus();
+    cancel.addEventListener('click', () => { form.remove(); cap.hidden = meta.hidden = ops.hidden = false; });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      save.disabled = true;
+      const { status, data } = await api(`/api/photos/${p.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ caption: capIn.value, day: daySel.value }),
+      });
+      save.disabled = false;
+      if (status !== 200) { opsError(form).textContent = (data.error as string) || '更新失敗'; return; }
+      await loadMyPhotos();
+      refreshWall();
     });
-    if (status !== 200) { alert((data.error as string) || '更新失敗'); return; }
-    await loadMyPhotos();
   });
   ops.append(editBtn);
 
@@ -248,11 +328,11 @@ function photoCard(p: Photo): HTMLElement {
   delBtn.type = 'button';
   delBtn.className = 'del';
   delBtn.textContent = '刪除';
-  delBtn.addEventListener('click', async () => {
-    if (!confirm('刪除這張照片？牆上會立刻消失。')) return;
+  armDelete(delBtn, async () => {
     const { status, data } = await api(`/api/photos/${p.id}`, { method: 'DELETE', body: '{}' });
-    if (status !== 200) { alert((data.error as string) || '刪除失敗'); return; }
+    if (status !== 200) { opsError(item).textContent = (data.error as string) || '刪除失敗'; return; }
     await loadMyPhotos();
+    refreshWall();
   });
   ops.append(delBtn);
 
@@ -358,8 +438,9 @@ $('post-form').addEventListener('submit', async (e) => {
   }
   form.body.value = '';
   $('post-count').textContent = '0/300';
-  $('post-ok').textContent = '已送出，馬上就出現在牆上了。';
+  $('post-ok').textContent = '已送出，牆上已更新。';
   await loadMyPosts();
+  refreshWall();
 });
 
 async function loadMyPosts(): Promise<void> {
@@ -412,17 +493,35 @@ function postItem(p: Post): HTMLElement {
   const editBtn = document.createElement('button');
   editBtn.type = 'button';
   editBtn.textContent = '編輯';
-  editBtn.addEventListener('click', async () => {
-    const nextBody = prompt('內容（1～300 字）：', p.body);
-    if (nextBody === null) return;
-    const nextBy = prompt('署名（0～20 字，留空＝無署名）：', p.by);
-    if (nextBy === null) return;
-    const { status, data } = await api(`/api/posts/${p.id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ body: nextBody, by: nextBy }),
+  editBtn.addEventListener('click', () => {
+    const form = document.createElement('form');
+    form.className = 'ep-edit';
+    const bodyIn = document.createElement('textarea');
+    bodyIn.maxLength = 300; bodyIn.rows = 3; bodyIn.required = true; bodyIn.value = p.body;
+    const byIn = document.createElement('input');
+    byIn.maxLength = 20; byIn.value = p.by; byIn.placeholder = '署名（可留空）';
+    const row = document.createElement('div');
+    row.className = 'ops';
+    const save = document.createElement('button'); save.type = 'submit'; save.textContent = '儲存';
+    const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = '取消';
+    row.append(save, cancel);
+    form.append(bodyIn, byIn, row);
+    body.hidden = meta.hidden = ops.hidden = true;
+    item.append(form);
+    bodyIn.focus();
+    cancel.addEventListener('click', () => { form.remove(); body.hidden = meta.hidden = ops.hidden = false; });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      save.disabled = true;
+      const { status, data } = await api(`/api/posts/${p.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ body: bodyIn.value, by: byIn.value }),
+      });
+      save.disabled = false;
+      if (status !== 200) { opsError(form).textContent = (data.error as string) || '更新失敗'; return; }
+      await loadMyPosts();
+      refreshWall();
     });
-    if (status !== 200) { alert((data.error as string) || '更新失敗'); return; }
-    await loadMyPosts();
   });
   ops.append(editBtn);
 
@@ -430,11 +529,11 @@ function postItem(p: Post): HTMLElement {
   delBtn.type = 'button';
   delBtn.className = 'del';
   delBtn.textContent = '刪除';
-  delBtn.addEventListener('click', async () => {
-    if (!confirm('刪除這則投稿？牆上會立刻消失。')) return;
+  armDelete(delBtn, async () => {
     const { status, data } = await api(`/api/posts/${p.id}`, { method: 'DELETE', body: '{}' });
-    if (status !== 200) { alert((data.error as string) || '刪除失敗'); return; }
+    if (status !== 200) { opsError(item).textContent = (data.error as string) || '刪除失敗'; return; }
     await loadMyPosts();
+    refreshWall();
   });
   ops.append(delBtn);
 

@@ -22,6 +22,8 @@ export interface Media {
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 const MEDIA: Media[] = JSON.parse($('wall-data').textContent || '[]');
+// 靜態展品（建置時產生）；動態內容重新載入時拿它重建瀏覽順序，不會沿用舊的動態項目
+const STATIC_MEDIA = new Map(MEDIA.map((m) => [m.id, m]));
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const smooth: ScrollBehavior = reduce ? 'auto' : 'smooth';
 const body = document.body;
@@ -339,6 +341,13 @@ function renderComments(targetId: string): void {
   for (const c of list.filter((x) => !x.replyTo || !list.some((y) => y.id === x.replyTo))) render(c, 0);
 }
 
+/** 拿掉上一次注入的動態內容（重新載入前用） */
+function clearDynamic(): void {
+  wall.querySelectorAll('.col-friends, .ema-rack, .ofuda').forEach((el) => el.remove());
+  COMMENTS.length = 0;
+  dynMedia.clear();
+}
+
 function injectDynamic(photos: PubPhoto[], posts: PubPost[]): void {
   const comments = posts.filter((p) => p.kind === 'comment');
   COMMENTS.push(...comments);
@@ -429,7 +438,7 @@ function injectDynamic(photos: PubPhoto[], posts: PubPost[]): void {
 
 /* 瀏覽順序（← →）照牆上 DOM 順序重建：展品＋注入的親友照片/繪馬混排 */
 function rebuildMediaOrder(): void {
-  const exhibits = new Map(MEDIA.map((m) => [m.id, m]));
+  const exhibits = STATIC_MEDIA;
   const next: Media[] = [];
   wall.querySelectorAll<HTMLElement>('.it-media').forEach((el) => {
     const id = el.dataset.exhibitId || el.dataset.friend || el.dataset.emaId;
@@ -442,16 +451,20 @@ function rebuildMediaOrder(): void {
   MEDIA.push(...next);
 }
 
-void (async () => {
+/** 載入（或重新載入）動態內容。fresh＝略過瀏覽器快取（編輯模式送出後用） */
+async function loadDynamic(fresh = false): Promise<void> {
   try {
-    const res = await fetch('/api/public/wall');
+    const res = await fetch('/api/public/wall', fresh ? { cache: 'no-store' } : undefined);
     if (!res.ok) return;
     const data = (await res.json()) as { photos: PubPhoto[]; posts: PubPost[] };
-    if (data.photos.length === 0 && data.posts.length === 0) return;
-    injectDynamic(data.photos, data.posts);
+    clearDynamic();
+    if (data.photos.length || data.posts.length) injectDynamic(data.photos, data.posts);
     rebuildMediaOrder();
-    fit(); // 牆變寬/變高：重算 --wall-scale、平面圖、屋簷小動物
+    fit(); // 牆變寬/變高：重算 --wall-scale、平面圖
   } catch {
     /* 公開端點不可用就維持靜態牆 */
   }
-})();
+}
+void loadDynamic();
+// 編輯模式（edit.ts）新增／修改／刪除後通知重新載入
+window.addEventListener('kura:wall-refresh', () => void loadDynamic(true));
