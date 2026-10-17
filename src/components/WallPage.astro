@@ -125,6 +125,15 @@ const bodyStyle = [art.emaRoof && `--ema-roof-img:url(${asset(art.emaRoof)})`, a
         ></script>
       )
     }
+    {
+      editMode && (
+        <script
+          type="application/json"
+          id="edit-exhibits"
+          set:html={JSON.stringify(media.map((m) => ({ id: m.id, title: m.title || '（待命名）', date: m.date })))}
+        ></script>
+      )
+    }
     <script type="application/json" id="wall-data" set:html={JSON.stringify(lightboxData).replace(/</g, '\\u003c')}></script>
     <script>import '../scripts/wall.ts';</script>
   </body>

@@ -47,6 +47,32 @@
       <h3>我的照片</h3>
       <div class="ep-grid" id="my-photos"></div>
     </div>
+    <div class="ep-card">
+      <h3>留言／掛繪馬</h3>
+      <p class="hint">留言掛在展品說明卡下、繪馬像展品一樣掛在當天牆上；送出後立刻公開。</p>
+      <form id="post-form">
+        <label>種類
+          <select name="kind" id="post-kind">
+            <option value="comment" selected>留言</option>
+            <option value="ema">繪馬</option>
+          </select>
+        </label>
+        <label id="post-target-exhibit-label">目標展品 <select name="targetExhibit" id="post-target-exhibit"></select></label>
+        <label id="post-target-day-label" hidden>掛在哪一天 <select name="targetDay" id="post-target-day"></select></label>
+        <label>署名（0～20 字，可留空） <input name="by" maxlength="20" /></label>
+        <label>內容（1～300 字）
+          <textarea name="body" rows="4" maxlength="300" required></textarea>
+          <span class="count" id="post-count">0/300</span>
+        </label>
+        <button type="submit">送出</button>
+        <p class="err" id="post-err" role="alert"></p>
+        <p class="ok" id="post-ok" role="status"></p>
+      </form>
+    </div>
+    <div class="ep-card">
+      <h3>我的投稿</h3>
+      <div id="my-posts"></div>
+    </div>
   </div>
 </aside>
 

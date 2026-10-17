@@ -14,7 +14,7 @@
     "admin:create": "node scripts/admin-create.mjs",
     "ingest": "node scripts/ingest.mjs",
     "check": "node scripts/check.mjs",
-    "prebuild": "node scripts/check.mjs",
+    "prebuild": "node scripts/check.mjs && node scripts/gen-targets.mjs",
     "build": "astro build",
     "preview": "astro preview",
     "deploy": "npm run build && npx --yes wrangler@4 deploy",
