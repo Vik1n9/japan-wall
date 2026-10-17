@@ -71,7 +71,11 @@ const days = defineCollection({
       .array(z.object({ src: z.string(), x: z.number(), y: z.number().default(0), h: z.number().default(50), r: z.number().default(0) }))
       .default([]),
     // 當天的趣事帶（裝飾，不是展品）：六隻貓走在屋簷上，透明背景、不加說明文字。x：圖片中心在當天寬度的位置（%）
-    story: z.object({ src: z.string(), x: z.number().default(50) }).optional(),
+    // 可以是一張，或分成幾張各自定位（例：左右兩側各一張、中間留白）
+    story: z
+      .union([z.object({ src: z.string(), x: z.number().default(50) }), z.array(z.object({ src: z.string(), x: z.number().default(50) }))])
+      .optional()
+      .transform((s) => (s === undefined ? [] : Array.isArray(s) ? s : [s])),
     columns: z
       .array(
         z.object({

@@ -46,5 +46,5 @@ const meta = day.status === 'pending'
     ))}
   </div>
   {/* 趣事帶：牆面模式絕對定位在屋簷上；閱讀模式排在當天最後 */}
-  {day.story && <img class="story" src={asset(day.story.src)} alt="" aria-hidden="true" loading="lazy" decoding="async" style={`--x:${day.story.x}%`} />}
+  {day.story.map((s) => <img class="story" src={asset(s.src)} alt="" aria-hidden="true" loading="lazy" decoding="async" style={`--x:${s.x}%`} />)}
 </div>
