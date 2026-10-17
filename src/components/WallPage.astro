@@ -3,6 +3,7 @@ import '../styles/wall.css';
 import Day from './Day.astro';
 import Lightbox from './Lightbox.astro';
 import EditExtras from './EditExtras.astro';
+import editCss from '../styles/edit.css?url';
 import { asset, loadWall } from '../lib/wall';
 
 interface Props {
@@ -45,6 +46,7 @@ const bodyStyle = [art.emaRoof && `--ema-roof-img:url(${asset(art.emaRoof)})`, a
     <title>{trip.title} 展覽牆{editMode ? ' · 編輯' : ''}</title>
     <meta name="description" content={trip.intro} />
     {editMode && <meta name="robots" content="noindex, nofollow" />}
+    {editMode && <link rel="stylesheet" href={editCss} />}
     <link rel="icon" type="image/svg+xml" href={asset("favicon.svg")} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

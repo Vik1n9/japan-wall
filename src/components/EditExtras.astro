@@ -1,7 +1,7 @@
 ---
 // /edit 編輯模式的額外 UI：登入遮罩＋浮動工具列＋變更密碼 modal。
-// 只在 editMode 頁面載入（CSS/JS 不會進前台 bundle）。
-import '../styles/edit.css';
+// 樣式在 src/styles/edit.css，由 WallPage 以 ?url 資產方式條件掛 <link>——
+// Astro 會把 component 內的 <style>/import css 無條件收進頁面 bundle，只有 ?url＋條件 link 能做到前台零痕跡。
 ---
 <div class="edit-mask" id="edit-mask" hidden>
   <div class="em-card">
