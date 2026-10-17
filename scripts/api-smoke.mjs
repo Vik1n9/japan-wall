@@ -3,6 +3,7 @@
 // 用法：KURA_ADMIN=<帳號> KURA_ADMIN_PW=<密碼> node scripts/api-smoke.mjs [http://localhost:8787]
 // 會建立 smoke-* 測試帳號與投稿，跑完把測試帳號停用、測試內容刪除。只對本機用，不要指向正式站。
 import sharp from 'sharp';
+import zlib from 'node:zlib';
 
 const BASE = process.argv[2] || 'http://localhost:8787';
 const ORIGIN = 'http://localhost:8787';
@@ -131,6 +132,64 @@ if (photo) {
   check('EXIF 已剝除', !Buffer.from(buf).includes('should-be-stripped'));
 }
 
+// ---------- 各格式的 metadata 剝除（直接打 API，繞過瀏覽器縮圖這一層） ----------
+async function uploadRaw(buf, mime, name) {
+  const f = new FormData();
+  f.append('file', new Blob([buf], { type: mime }), name);
+  f.append('day', '2026-10-06');
+  return user('POST', '/api/photos', { form: f });
+}
+async function fetchMedia(key) {
+  return Buffer.from(await (await fetch(`${BASE}/api/media/${key}`)).arrayBuffer());
+}
+const extraPhotos = [];
+{
+  // JPEG：EOI 之後的附加資料（iPhone 的第二張圖會帶自己的 EXIF）要整段丟掉；ICC 色彩描述保留、照樣能解碼
+  const base = await sharp({ create: { width: 40, height: 30, channels: 3, background: '#336699' } })
+    .withMetadata({ icc: 'p3', exif: { IFD0: { Copyright: 'jpeg-exif-secret' } } }).jpeg().toBuffer();
+  const trailing = Buffer.concat([base, Buffer.from('trailing-secret-after-EOI')]);
+  const r1 = await uploadRaw(trailing, 'image/jpeg', 't.jpg');
+  check('JPEG（含 EOI 後附加資料）上傳 → 201', r1.status === 201, JSON.stringify(r1.data));
+  if (r1.data.photo) {
+    extraPhotos.push(r1.data.photo.id);
+    const out = await fetchMedia(r1.data.photo.key);
+    check('JPEG：EXIF 與 EOI 後的附加資料都剝除', !out.includes('jpeg-exif-secret') && !out.includes('trailing-secret'));
+    const meta = await sharp(out).metadata().catch(() => null);
+    check('JPEG：剝完仍可解碼、保留 ICC', !!meta && meta.width === 40 && !!meta.icc, JSON.stringify(meta && { w: meta.width, icc: !!meta.icc }));
+  }
+  // PNG：tEXt／iTXt／eXIf 剝除
+  const png = await sharp({ create: { width: 20, height: 20, channels: 3, background: '#aa3311' } }).png().toBuffer();
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const td = Buffer.concat([Buffer.from(type), data]);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32(td) >>> 0);
+    return Buffer.concat([len, td, crc]);
+  };
+  const iend = png.length - 12;
+  const pngWithText = Buffer.concat([png.subarray(0, iend), chunk('tEXt', Buffer.from('Comment\0png-text-secret')), png.subarray(iend)]);
+  const r2 = await uploadRaw(pngWithText, 'image/png', 't.png');
+  check('PNG（含 tEXt）上傳 → 201', r2.status === 201, JSON.stringify(r2.data));
+  if (r2.data.photo) {
+    extraPhotos.push(r2.data.photo.id);
+    const out = await fetchMedia(r2.data.photo.key);
+    check('PNG：tEXt 剝除且可解碼', !out.includes('png-text-secret') && !!(await sharp(out).metadata().catch(() => null)));
+  }
+  // WebP：EXIF 區塊剝除、VP8X 旗標同步清掉
+  const webp = await sharp({ create: { width: 24, height: 16, channels: 3, background: '#118844' } })
+    .withMetadata({ exif: { IFD0: { Copyright: 'webp-exif-secret' } } }).webp().toBuffer();
+  const r3 = await uploadRaw(webp, 'image/webp', 't.webp');
+  check('WebP（含 EXIF）上傳 → 201', r3.status === 201, JSON.stringify(r3.data));
+  if (r3.data.photo) {
+    extraPhotos.push(r3.data.photo.id);
+    const out = await fetchMedia(r3.data.photo.key);
+    const meta = await sharp(out).metadata().catch(() => null);
+    check('WebP：EXIF 剝除且可解碼', !out.includes('webp-exif-secret') && !!meta && meta.width === 24 && !meta.exif);
+  }
+  // 假冒副檔名
+  const r4 = await uploadRaw(Buffer.from('GIF89a not really an image'), 'image/jpeg', 'x.jpg');
+  check('非圖片內容 → 400', r4.status === 400, String(r4.status));
+}
+
 // ---------- 公開牆 ----------
 r = await client()('GET', '/api/public/wall', { origin: null });
 check('公開牆 → 200', r.status === 200, String(r.status));
@@ -154,6 +213,7 @@ if (photo) {
   check('刪除後 media → 404', m.status === 404, String(m.status));
 }
 for (const id of [cmtId, exCmtId].filter(Boolean)) await admin('DELETE', `/api/posts/${id}`);
+for (const id of extraPhotos) await admin('DELETE', `/api/photos/${id}`);
 r = await admin('PATCH', `/api/users/${uname}`, { body: { status: 'disabled' } });
 check('停用測試帳號 → 200', r.status === 200, JSON.stringify(r.data));
 r = await user('GET', '/api/me');

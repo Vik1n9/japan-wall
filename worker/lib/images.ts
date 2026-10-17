@@ -33,7 +33,17 @@ const u32le = (b: Uint8Array, i: number) => (b[i + 3] * 0x1000000) + ((b[i + 2] 
 
 /* ---------- JPEG ---------- */
 
-/** 剝除 APP1(EXIF/XMP)、APP2..APP15、COM 段；保留 APP0(JFIF) 與所有圖像資料段 */
+/** 這個 APPn 段要不要留：APP0(JFIF)、APP2 的 ICC 色彩描述、APP14(Adobe 色彩轉換) 不含個資且影響顏色，保留；
+ *  其餘（APP1 EXIF/XMP、APP2 的 MPF 多圖索引、APP13 IPTC…）一律剝除 */
+function keepApp(src: Uint8Array, i: number, marker: number): boolean {
+  const tag = (s: string) => s.split('').every((c, k) => src[i + 4 + k] === c.charCodeAt(0));
+  if (marker === 0xE2) return tag('ICC_PROFILE\0');
+  if (marker === 0xEE) return tag('Adobe');
+  return false;
+}
+
+/** 剝除 metadata 段；保留圖像資料段。SOS 之後只複製到 EOI 為止——
+ *  EOI 之後的附加資料（iPhone 的深度圖／增益圖等第二張 JPEG，帶自己的 EXIF）整段丟掉 */
 function stripJpeg(src: Uint8Array): { clean: Uint8Array; width: number; height: number } {
   const out: number[] = [0xFF, 0xD8];
   let width = 0;
@@ -50,11 +60,16 @@ function stripJpeg(src: Uint8Array): { clean: Uint8Array; width: number; height:
     if (i + 3 >= src.length) break;
     const len = u16be(src, i + 2);
     if (len < 2 || i + 2 + len > src.length) break;
-    const isApp = marker >= 0xE1 && marker <= 0xEF; // APP1..APP15（APP0=E0 保留）
+    const isApp = marker >= 0xE1 && marker <= 0xEF && !keepApp(src, i, marker); // APP0=E0 保留
     const isCom = marker === 0xFE;
     if (marker === 0xDA) {
-      // SOS：header＋entropy 原樣全複製到結尾（只複製一次！）
-      for (let k = i; k < src.length; k++) out.push(src[k]);
+      // SOS：header＋entropy 原樣複製到 EOI（FF D9）為止（只複製一次！）。entropy 裡的 0xFF 後面只會接 00（填充）
+      // 或 D0–D7（RST），漸進式 JPEG 的後續 DHT/SOS 段也照樣複製；遇到 EOI 就停。
+      let k = i;
+      for (; k < src.length; k++) {
+        out.push(src[k]);
+        if (src[k] === 0xFF && src[k + 1] === 0xD9) { out.push(0xD9); break; }
+      }
       i = src.length;
       break;
     }
@@ -120,7 +135,11 @@ function stripWebp(src: Uint8Array): { clean: Uint8Array; width: number; height:
       width = (b & 0x3FFF) + 1;
       height = ((b >>> 14) & 0x3FFF) + 1;
     }
-    if (fourcc !== 'EXIF' && fourcc !== 'XMP ') {
+    if (fourcc === 'VP8X') {
+      // 擴充標頭的旗標也要清掉 EXIF（bit 3）與 XMP（bit 2），不然解碼器會去找已刪除的區塊
+      for (let k = i; k < i + 8 + size; k++) out.push(k === i + 8 ? src[k] & ~0x0C : src[k]);
+      if (size % 2) out.push(0);
+    } else if (fourcc !== 'EXIF' && fourcc !== 'XMP ') {
       for (let k = i; k < i + 8 + size; k++) out.push(src[k]);
       if (size % 2) out.push(0); // RIFF chunk padding
     }
