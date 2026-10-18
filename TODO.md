@@ -18,7 +18,6 @@
 - [ ] Viking 用手機實際傳一支 iPhone 直拍影片：確認自動選對日期、牆上位置正確、說明卡有聲音，再到 `/admin` 刪掉。
 - [ ] Viking 聽幾支展品短片，確認音量與放慢段落的聲音可以接受。
 - [ ] 部署後第一次排程（台灣凌晨 3:17）：到 Cloudflare Dashboard → Workers → osaka2026-kura → Logs 確認執行成功（本機模擬環境用 batch 會出錯，已改成兩次獨立查詢，正式環境要觀察一次）。
-- [ ] Viking 用 iPhone 的 Safari 實際播幾支展品短片（2026-10-19 已讓短片支援分段請求，線上回 206 正常，但沒在真的 iPhone 上試過）。
 - [ ] Go 的 API key 已過期：到 OpenCode Console 建新 key，用 `opencode auth login` 換上（之後 opencode 才能用 Go 方案的模型）。
 
 ## 可選（Viking 尚未要求，提出即可，不要自行動手）

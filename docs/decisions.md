@@ -237,7 +237,7 @@ japan-wall/
   - IPv6 的 IP 層限速以 **/64 網段**計數（隱私位址每個連線都會換尾碼；`worker/lib/ip-subnet.ts`），`::ffff:x.x.x.x` 視為 IPv4；帳號＋IP 層仍用完整位址（2026-10-19，Viking 決定）。
   - 帳號清理的 `LIKE` 會跳脫 `_`、`%`（帳號名稱允許 `_`，不跳脫會誤刪別人的鎖定紀錄）。
   - 請求 body 上限：JSON API 64KB；上傳 50MB＋封面，沒有 `Content-Length` 時串流計數、超過就中斷（正式站 HTTP/2、3 不保證帶這個 header，不能直接拒收）。
-- **展品短片的 Range**（2026-10-19）：Cloudflare 靜態檔對 Range 一律回 200 完整檔，iPhone Safari 播 `<video>` 需要 206。前後台的 `run_worker_first` 加 `/media/*.mp4`，由 Worker 從 assets 取檔切片（`worker/lib/media-assets.ts`，支援 If-Range）。代價是每次播放、拖動進度都算一次 Worker 呼叫（Free 方案每天 10 萬次）；Viking 決定維持這個做法，不搬到 R2 公開網域。
+- **展品短片的 Range**（2026-10-19）：Cloudflare 靜態檔對 Range 一律回 200 完整檔，iPhone Safari 播 `<video>` 需要 206。前後台的 `run_worker_first` 加 `/media/*.mp4`，由 Worker 從 assets 取檔切片（`worker/lib/media-assets.ts`，支援 If-Range）。代價是每次播放、拖動進度都算一次 Worker 呼叫（Free 方案每天 10 萬次）；Viking 決定維持這個做法，不搬到 R2 公開網域。2026-10-19 Viking 用 iPhone Safari 實測播放正常。
 - **資料表變更**：`worker/schema.sql` 是全新資料庫用的；既有資料庫要跑 `worker/migrations/` 裡對應的檔案（例：`001-photos-taken-at.sql` 加 `photos.taken_at`）。
 - **上傳影片**（2026-10-18，Viking 決定）：與照片同一張表（`kind` 區分），一樣依拍攝時間與展品混排、可留言。上限：轉檔後 50MB、60 秒、每人每天 5 支。
   - 瀏覽器先從原檔讀拍攝時間與地點（`worker/lib/capture-meta.ts`：iPhone 的 `com.apple.quicktime.creationdate`／`location.ISO6709`、Android 的 `udta/©xyz`、3GPP `loci`；都沒有就用 `mvhd` 的 UTC 換算日本時間），再用 Mediabunny（WebCodecs）轉成 H.264＋AAC 的 MP4：橫式寬 ≤1280、直式寬 ≤720（與展品短片相同）、30fps、`tags: {}` 不帶 metadata、旋轉燒進畫面（`allowTransformationMetadata: false`，伺服器讀 `tkhd` 寬高才對）。封面取約 1 秒處的畫面。
