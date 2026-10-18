@@ -116,20 +116,42 @@ r = await user('POST', '/api/posts', { body: { kind: 'comment', target: 'JP-01-0
 check('301 字 → 400', r.status === 400, String(r.status));
 
 // ---------- 照片 ----------
+const extraPhotos = [];
+const extraPosts = [];
 const jpeg = await sharp({ create: { width: 64, height: 48, channels: 3, background: '#c2332a' } })
   .withMetadata({ exif: { IFD0: { Artist: 'should-be-stripped' } } }).jpeg().toBuffer();
 const fd = new FormData();
 fd.append('file', new Blob([jpeg], { type: 'image/jpeg' }), 'smoke.jpg');
 fd.append('day', '2026-10-06');
 fd.append('caption', '煙霧測試照片');
+fd.append('takenAt', '2026-10-06T13:40:05');
 r = await user('POST', '/api/photos', { form: fd });
 check('上傳照片 → 201', r.status === 201, JSON.stringify(r.data));
 const photo = r.data.photo;
+let photoCmtId = null;
 if (photo) {
   const m = await fetch(`${BASE}/api/media/${photo.key}`);
   const buf = new Uint8Array(await m.arrayBuffer());
   check('media 可取回', m.status === 200, String(m.status));
   check('EXIF 已剝除', !Buffer.from(buf).includes('should-be-stripped'));
+  check('拍攝時刻 takenAt 存起來', photo.takenAt === '2026-10-06T13:40:05', String(photo.takenAt));
+  r = await user('POST', '/api/posts', { body: { kind: 'comment', target: photo.id, body: '照片留言', by: '測試' } });
+  check('照片可以留言 → 201', r.status === 201, JSON.stringify(r.data));
+  photoCmtId = r.data.post?.id ?? null;
+  if (photoCmtId) {
+    r = await user('POST', '/api/posts', { body: { kind: 'comment', target: photo.id, replyTo: photoCmtId, body: '照片回覆', by: '測試' } });
+    check('照片留言可以回覆 → 201', r.status === 201, JSON.stringify(r.data));
+    if (r.data.post?.id) extraPosts.push(r.data.post.id);
+  }
+}
+{
+  const f = new FormData();
+  f.append('file', new Blob([jpeg], { type: 'image/jpeg' }), 'bad.jpg');
+  f.append('day', '2026-10-06');
+  f.append('takenAt', 'not-a-date');
+  const rb = await user('POST', '/api/photos', { form: f });
+  check('takenAt 格式不對 → 照樣上傳、存成 null', rb.status === 201 && rb.data.photo?.takenAt === null, JSON.stringify(rb.data.photo?.takenAt));
+  if (rb.data.photo) extraPhotos.push(rb.data.photo.id);
 }
 
 // ---------- 各格式的 metadata 剝除（直接打 API，繞過瀏覽器縮圖這一層） ----------
@@ -142,7 +164,6 @@ async function uploadRaw(buf, mime, name) {
 async function fetchMedia(key) {
   return Buffer.from(await (await fetch(`${BASE}/api/media/${key}`)).arrayBuffer());
 }
-const extraPhotos = [];
 {
   // JPEG：EOI 之後的附加資料（iPhone 的第二張圖會帶自己的 EXIF）要整段丟掉；ICC 色彩描述保留、照樣能解碼
   const base = await sharp({ create: { width: 40, height: 30, channels: 3, background: '#336699' } })
@@ -196,6 +217,10 @@ check('公開牆 → 200', r.status === 200, String(r.status));
 const wall = r.data;
 check('公開牆不含登入帳號名稱', !JSON.stringify(wall).includes(uname));
 check('公開牆有測試繪馬與留言', wall.posts.some((p) => p.id === emaId) && wall.posts.some((p) => p.id === cmtId));
+if (photo) {
+  check('公開牆的照片帶拍攝時刻', wall.photos.find((p) => p.id === photo.id)?.takenAt === '2026-10-06T13:40:05');
+  check('公開牆有照片上的留言', !!photoCmtId && wall.posts.some((p) => p.id === photoCmtId));
+}
 
 // ---------- 他人權限 ----------
 const other = client();
@@ -211,8 +236,12 @@ if (photo) {
   check('admin 刪他人照片 → 200', r.status === 200, JSON.stringify(r.data));
   const m = await fetch(`${BASE}/api/media/${photo.key}`);
   check('刪除後 media → 404', m.status === 404, String(m.status));
+  r = await client()('GET', '/api/public/wall', { origin: null });
+  check('照片刪除後，上面的留言不再公開', !r.data.posts.some((p) => p.id === photoCmtId));
+  r = await user('POST', '/api/posts', { body: { kind: 'comment', target: photo.id, body: '刪掉後留言', by: '測試' } });
+  check('已刪除的照片不能留言 → 400', r.status === 400, String(r.status));
 }
-for (const id of [cmtId, exCmtId].filter(Boolean)) await admin('DELETE', `/api/posts/${id}`);
+for (const id of [cmtId, exCmtId, photoCmtId, ...extraPosts].filter(Boolean)) await admin('DELETE', `/api/posts/${id}`);
 for (const id of extraPhotos) await admin('DELETE', `/api/photos/${id}`);
 r = await admin('PATCH', `/api/users/${uname}`, { body: { status: 'disabled' } });
 check('停用測試帳號 → 200', r.status === 200, JSON.stringify(r.data));

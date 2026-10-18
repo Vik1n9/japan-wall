@@ -232,17 +232,8 @@ button{font:inherit;color:inherit}
 .ema .ema-body,.ema .ema-by{color:#1C1A18}
 @media (prefers-reduced-motion:reduce){.ema-frame{transition:none}}
 
-/* 留言籤（cap 上的計數 badge）與親友照片欄（動態注入） */
+/* 留言籤（cap 上的計數 badge）。上傳的照片（.col-photos／.it-photo，動態注入）直接沿用展品的 .plate／.cap 樣式 */
 .ofuda{display:inline-block;margin-left:6px;padding:0 6px;border:1px solid var(--red);border-radius:999px;color:var(--red);font-family:var(--f-mono);font-size:.58rem;letter-spacing:.06em;vertical-align:1px}
-.col-friends{gap:0}
-.f-rail{position:relative;height:20px;background:linear-gradient(180deg,var(--rule),var(--panel) 45%,var(--rule));border:1px solid var(--rule);box-shadow:0 4px 10px -4px var(--shade);display:flex;align-items:center;justify-content:center;z-index:2}
-.f-rail::before,.f-rail::after{content:"";position:absolute;top:50%;width:5px;height:5px;border-radius:50%;background:var(--ink);transform:translateY(-50%)}
-.f-rail::before{left:8px}.f-rail::after{right:8px}
-.f-rail span{font-family:var(--f-mono);font-size:.58rem;letter-spacing:.18em;color:var(--muted);background:var(--panel);padding:0 6px}
-.f-list{display:flex;flex-direction:column;gap:calc(12px * var(--wall-scale,1));padding-top:calc(10px * var(--wall-scale,1))}
-.it-friend .ph{display:block;background:var(--panel);border:1px solid var(--hair);padding:5px;box-shadow:0 2px 0 var(--shade);transition:transform .2s,box-shadow .2s}
-.it-friend:hover .ph{transform:translateY(-2px);box-shadow:0 4px 8px var(--shade)}
-.it-friend .ph img{display:block;width:100%;height:auto}
 
 /* end panel */
 .finale{flex:none;width:240px;padding-top:150px;font-size:.8rem;color:var(--muted)}

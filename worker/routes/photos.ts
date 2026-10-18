@@ -1,4 +1,4 @@
-// 親友照片：GET/POST /api/photos、PUT/DELETE /api/photos/:id。
+// 照片（每個帳號上傳的照片，地位相同）：GET/POST /api/photos、PUT/DELETE /api/photos/:id。
 import { json, nowTaipeiIso } from '../lib/util';
 import { parseAndClean } from '../lib/images';
 import { cleanSingleLine, freshId, readJsonBody, type AuthedCtx } from '../lib/http';
@@ -10,15 +10,26 @@ const CAPTION_MAX = 300;
 
 type PhotoRow = {
   id: string; author: string; author_name?: string; day: string; caption: string;
-  r2_key: string; mime: string; width: number; height: number; created_at: string;
+  r2_key: string; mime: string; width: number; height: number; taken_at: string | null; created_at: string;
 };
 
 function photoDto(r: PhotoRow, mine: boolean) {
   return {
     id: r.id, author: r.author, authorName: r.author_name ?? r.author, day: r.day,
     caption: r.caption, key: r.r2_key, mime: r.mime, width: r.width, height: r.height,
-    createdAt: r.created_at, mine,
+    takenAt: r.taken_at, createdAt: r.created_at, mine,
   };
+}
+
+/** 拍攝時刻：瀏覽器在重編碼前從 EXIF DateTimeOriginal 讀出（當地時間、不做時區換算，與 ingest 相同）。
+ *  格式不對或日期不合理就當作沒有，不擋上傳 */
+function cleanTakenAt(v: FormDataEntryValue | null): string | null {
+  if (typeof v !== 'string') return null;
+  const m = v.trim().match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  const [y, mo, d, h, mi, se] = m.slice(1).map(Number);
+  if (y < 2000 || y > 2100 || mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || se > 59) return null;
+  return m[0];
 }
 
 /** 牆上的展覽日（上傳照片要指定掛在哪一天）來自 wrangler vars DAYS */
@@ -31,7 +42,7 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
 
   if (method === 'GET' && url.pathname === '/api/photos') {
     const { results } = await env.DB.prepare(
-      `SELECT p.id, p.author, u.display_name AS author_name, p.day, p.caption, p.r2_key, p.mime, p.width, p.height, p.created_at
+      `SELECT p.id, p.author, u.display_name AS author_name, p.day, p.caption, p.r2_key, p.mime, p.width, p.height, p.taken_at, p.created_at
        FROM photos p JOIN users u ON u.username = p.author
        WHERE p.status = 'live'
        ORDER BY p.created_at DESC, p.id DESC`,
@@ -52,6 +63,7 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
     const caption = cleanSingleLine(typeof form.get('caption') === 'string' ? (form.get('caption') as string) : '');
     if (!exhibitionDays(env).has(day)) return json({ error: '指定的展覽日不存在' }, 400);
     if (caption.length > CAPTION_MAX) return json({ error: `說明上限 ${CAPTION_MAX} 字` }, 400);
+    const takenAt = cleanTakenAt(form.get('takenAt'));
 
     const buf = new Uint8Array(await file.arrayBuffer());
     const img = parseAndClean(buf);
@@ -72,15 +84,15 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
     const key = `photos/${id}.${img.ext}`;
     await env.UPLOADS.put(key, img.clean, { httpMetadata: { contentType: img.mime } });
     await env.DB.prepare(
-      `INSERT INTO photos (id, author, day, caption, r2_key, mime, bytes, width, height, status, created_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 'live', ?10)`,
-    ).bind(id, session.user.username, day, caption, key, img.mime, img.clean.length, img.width, img.height, iso).run();
+      `INSERT INTO photos (id, author, day, caption, r2_key, mime, bytes, width, height, taken_at, status, created_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'live', ?11)`,
+    ).bind(id, session.user.username, day, caption, key, img.mime, img.clean.length, img.width, img.height, takenAt, iso).run();
 
     return json({
       ok: true,
       photo: photoDto({
         id, author: session.user.username, author_name: session.user.displayName, day,
-        caption, r2_key: key, mime: img.mime, width: img.width, height: img.height, created_at: iso,
+        caption, r2_key: key, mime: img.mime, width: img.width, height: img.height, taken_at: takenAt, created_at: iso,
       }, true),
     }, 201);
   }

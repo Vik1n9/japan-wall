@@ -124,7 +124,7 @@ try {
     const dt = new DataTransfer(); dt.items.add(new File([blob], 'ui.png', { type: 'image/png' }));
     const f = document.getElementById('up-form'); f.file.files = dt.files; f.day.value = '2026-10-08'; f.caption.value = 'UI 測試照片 ${tag}'; f.requestSubmit();`);
   check('上傳照片顯示成功', await waitFor(`document.getElementById('up-ok').textContent.includes('已上傳')`, 10000));
-  check('牆上自動出現親友照片', await waitFor(`[...document.querySelectorAll('.col-friends')].some((el) => el.innerHTML.includes('UI 測試照片 ${tag}'))`, 8000));
+  check('牆上自動出現上傳的照片', await waitFor(`[...document.querySelectorAll('.col-photos')].some((el) => el.innerHTML.includes('UI 測試照片 ${tag}'))`, 8000));
 
   /* ---------- 兩段式刪除（不能跳原生對話框） ---------- */
   const before = dialogs();
@@ -132,7 +132,7 @@ try {
     item.querySelector('.del').click();`);
   check('第一次按刪除只變成確認狀態', await waitFor(`document.querySelector('.ep-item .del.armed')`));
   await run(`document.querySelector('.ep-item .del.armed').click();`);
-  check('第二次按才刪除，牆上同步消失', await waitFor(`![...document.querySelectorAll('.col-friends')].some((el) => el.innerHTML.includes('UI 測試照片 ${tag}'))`, 8000));
+  check('第二次按才刪除，牆上同步消失', await waitFor(`![...document.querySelectorAll('.col-photos')].some((el) => el.innerHTML.includes('UI 測試照片 ${tag}'))`, 8000));
   await run(`const item = [...document.querySelectorAll('.pst-item')].find((el) => el.textContent.includes(${JSON.stringify(edited)}));
     item.querySelector('.del').click(); await new Promise((r) => setTimeout(r, 50)); item.querySelector('.del').click();`);
   check('刪除投稿後牆上繪馬消失', await waitFor(`![...document.querySelectorAll('.ema-list')].some((el) => el.textContent.includes(${JSON.stringify(edited)}))`, 8000));
@@ -218,13 +218,37 @@ try {
   const px2 = await api('POST', '/api/posts', { kind: 'comment', target: 'JP-01-02', body: `回覆 ${tag}`, replyTo: px1.data?.post?.id });
   const pp = await run(`const c = document.createElement('canvas'); c.width = 90; c.height = 60; const g = c.getContext('2d'); g.fillStyle = '#c63'; g.fillRect(0, 0, 90, 60);
     const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9));
-    const fd = new FormData(); fd.append('file', blob, 'p.jpg'); fd.append('day', '2026-10-05'); fd.append('caption', '公開牆照片 ${tag}');
+    const fd = new FormData(); fd.append('file', blob, 'p.jpg'); fd.append('day', '2026-10-05'); fd.append('caption', '公開牆照片 ${tag}'); fd.append('takenAt', '2026-10-05T09:30:00');
     const r = await fetch('/api/photos', { method: 'POST', body: fd, credentials: 'same-origin' }); return (await r.json()).photo?.id;`);
+  // 直幅長圖：與上一張同一欄（09:31），兩張疊起來會超過展品欄，要觸發欄寬縮窄
+  const pp2 = await run(`const c = document.createElement('canvas'); c.width = 60; c.height = 220; const g = c.getContext('2d'); g.fillStyle = '#36c'; g.fillRect(0, 0, 60, 220);
+    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9));
+    const fd = new FormData(); fd.append('file', blob, 'p2.jpg'); fd.append('day', '2026-10-05'); fd.append('caption', '直幅照片 ${tag}'); fd.append('takenAt', '2026-10-05T09:31:00');
+    const r = await fetch('/api/photos', { method: 'POST', body: fd, credentials: 'same-origin' }); return (await r.json()).photo?.id;`);
+  const ppc = pp ? await api('POST', '/api/posts', { kind: 'comment', target: pp, body: `照片留言 ${tag}` }) : null;
+  // 每欄最多兩個：再放兩塊繪馬（共三塊），繪馬掛所要分成兩欄
+  const pe2 = await api('POST', '/api/posts', { kind: 'ema', target: '2026-10-05', body: `第二塊 ${tag}` });
+  const pe3 = await api('POST', '/api/posts', { kind: 'ema', target: '2026-10-05', body: `第三塊 ${tag}` });
   await goto('/');
   check('首頁：繪馬掛在當天的繪馬掛所', await waitFor(`[...document.querySelectorAll('.day[data-date="2026-10-05"] .ema-rack')].some((el) => el.textContent.includes('公開牆繪馬 ${tag}'))`, 8000));
+  check('首頁：每欄最多兩個（照片欄、繪馬欄）', await run(`return [...document.querySelectorAll('.col-photos')].every((c) => c.querySelectorAll('.it-photo').length <= 2)
+    && [...document.querySelectorAll('.ema-rack')].every((c) => c.querySelectorAll('.it-ema').length <= 2)
+    && document.querySelectorAll('.day[data-date="2026-10-05"] .ema-rack').length >= 2;`));
+  check('首頁：照片欄不高過最高的展品欄（直幅照片自動縮窄）', await run(`document.getElementById('wall').style.setProperty('--wall-scale', '1');
+    const H = (c) => c.lastElementChild ? c.lastElementChild.getBoundingClientRect().bottom - c.getBoundingClientRect().top : 0;
+    const ref = Math.max(...[...document.querySelectorAll('.cols > .col:not(.col-photos):not(.ema-rack)')].map(H));
+    const cols = [...document.querySelectorAll('.col-photos')]; const tall = cols.find((c) => c.textContent.includes('直幅照片 ${tag}'));
+    const ok = !!tall && tall.style.getPropertyValue('--colw') !== '240px' && cols.every((c) => H(c) <= ref + 2);
+    dispatchEvent(new Event('resize')); return ok;`), await run(`return [...document.querySelectorAll('.col-photos')].map((c) => c.style.getPropertyValue('--colw') + ':' + Math.round(c.lastElementChild.getBoundingClientRect().bottom - c.getBoundingClientRect().top)).join(' ');`));
   check('首頁：繪馬上有留言籤', await run(`const b = [...document.querySelectorAll('.it-ema')].find((el) => el.textContent.includes('公開牆繪馬 ${tag}')); return !!b && b.querySelector('.ofuda')?.textContent === '籤 1';`));
   check('首頁：展品說明牌出現留言籤', await run(`return /^籤 \\d+$/.test(document.querySelector('.it-media[data-exhibit-id="JP-01-02"] .ofuda')?.textContent || '');`));
-  check('首頁：親友照片欄出現', await run(`return [...document.querySelectorAll('.day[data-date="2026-10-05"] .col-friends')].some((el) => el.textContent.includes('公開牆照片 ${tag}'));`));
+  check('首頁：照片依拍攝時刻插在展品之間（09:30 在 JP-01-04 06:46 與 JP-01-05 12:13 之間）', await run(`const col = [...document.querySelectorAll('.day[data-date="2026-10-05"] .col-photos')].find((el) => el.textContent.includes('公開牆照片 ${tag}'));
+    if (!col) return false; let p = col.previousElementSibling; while (p && p.classList.contains('col-photos')) p = p.previousElementSibling;
+    let n = col.nextElementSibling; while (n && n.classList.contains('col-photos')) n = n.nextElementSibling;
+    return !!p?.querySelector('[data-exhibit-id="JP-01-04"]') && !!n?.querySelector('[data-exhibit-id="JP-01-05"]');`));
+  check('首頁：照片外觀與展品相同（畫框）、沒有「親友」字樣', await run(`const b = [...document.querySelectorAll('.it-photo')].find((el) => el.textContent.includes('公開牆照片 ${tag}'));
+    return !!b?.querySelector('figure.plate img') && !document.body.innerHTML.includes('親友');`));
+  check('首頁：照片上有留言籤', await run(`const b = [...document.querySelectorAll('.it-photo')].find((el) => el.textContent.includes('公開牆照片 ${tag}')); return b?.querySelector('.ofuda')?.textContent === '籤 1';`));
   await run(`[...document.querySelectorAll('.it-ema')].find((el) => el.textContent.includes('公開牆繪馬 ${tag}')).click();`);
   check('繪馬說明卡：顯示繪馬內容與 1 則留言', await waitFor(`!document.getElementById('lb').hidden && document.getElementById('lb-cmts').textContent.includes('留言 1') && document.getElementById('lb-cmts').textContent.includes('繪馬留言 ${tag}')`));
   await shot('public-ema-lightbox');
@@ -232,8 +256,8 @@ try {
   await run(`document.querySelector('.it-media[data-exhibit-id="JP-01-02"]').click();`);
   check('展品說明卡：留言串含縮排回覆', await waitFor(`document.getElementById('lb-cmts').textContent.includes('展品留言 ${tag}') && [...document.querySelectorAll('#lb-cmts .cmt.reply')].some((el) => el.textContent.includes('回覆 ${tag}'))`));
   await run(`document.getElementById('lb-x').click();`);
-  await run(`[...document.querySelectorAll('.it-friend')].find((el) => el.textContent.includes('公開牆照片 ${tag}')).click();`);
-  check('親友照片說明卡：顯示照片與上傳者', await waitFor(`!document.getElementById('lb').hidden && !!document.querySelector('#lb-media img[src^="/api/media/"]') && document.getElementById('lb-place').textContent.length > 0`));
+  await run(`[...document.querySelectorAll('.it-photo')].find((el) => el.textContent.includes('公開牆照片 ${tag}')).click();`);
+  check('照片說明卡：顯示照片、拍攝時刻與留言', await waitFor(`!document.getElementById('lb').hidden && !!document.querySelector('#lb-media img[src^="/api/media/"]') && document.getElementById('lb-place').textContent.includes('09:30') && document.getElementById('lb-cmts').textContent.includes('照片留言 ${tag}')`));
   await run(`document.getElementById('lb-next').click();`);
   check('說明卡可往下一件瀏覽', await waitFor(`document.getElementById('lb-count').textContent.length > 0`));
   await run(`document.getElementById('lb-x').click();`);
@@ -246,16 +270,17 @@ try {
   await run(`document.getElementById('m-read').click();`);
   await sleep(500);
   check('手機閱讀模式：頁面不橫向溢出', await run(`return document.documentElement.scrollWidth <= innerWidth + 1;`), await run(`return document.documentElement.scrollWidth + ' > ' + innerWidth;`));
-  check('手機閱讀模式：繪馬與親友照片在當天範圍內', await run(`const d = document.querySelector('.day[data-date="2026-10-05"]').getBoundingClientRect();
-    return [...document.querySelectorAll('.day[data-date="2026-10-05"] .ema-rack, .day[data-date="2026-10-05"] .col-friends')].every((el) => { const r = el.getBoundingClientRect(); return r.left >= d.left - 1 && r.right <= d.right + 1; });`));
+  check('手機閱讀模式：繪馬與照片在當天範圍內', await run(`const d = document.querySelector('.day[data-date="2026-10-05"]').getBoundingClientRect();
+    return [...document.querySelectorAll('.day[data-date="2026-10-05"] .ema-rack, .day[data-date="2026-10-05"] .col-photos')].every((el) => { const r = el.getBoundingClientRect(); return r.left >= d.left - 1 && r.right <= d.right + 1; });`));
   await run(`document.querySelector('.day[data-date="2026-10-05"] .ema-rack')?.scrollIntoView({ block: 'center' });`);
   await sleep(300);
   if (SHOTS) { const r = await cdp('Page.captureScreenshot', { format: 'png' }); writeFileSync(join(SHOTS, 'phone-read-dynamic.png'), Buffer.from(r.result.data, 'base64')); }
   await run(`document.getElementById('m-wall').click();`);
   await cdp('Emulation.clearDeviceMetricsOverride');
   // 收尾
-  for (const r of [px2, px1, pc1, pe]) if (r.data?.post?.id) await api('DELETE', `/api/posts/${r.data.post.id}`);
+  for (const r of [px2, px1, pc1, ppc, pe, pe2, pe3]) if (r?.data?.post?.id) await api('DELETE', `/api/posts/${r.data.post.id}`);
   if (pp) await api('DELETE', `/api/photos/${pp}`);
+  if (pp2) await api('DELETE', `/api/photos/${pp2}`);
 
   /* ---------- 深色模式截圖（目視檢查用） ---------- */
   await goto('/edit');

@@ -1,11 +1,12 @@
 // /edit 編輯模式 client 邏輯：登入遮罩、浮動工具列、變更密碼、上傳照片（canvas 縮圖）、我的照片管理。
 // 上傳隱私第一層：這裡先 canvas 重編碼（長邊 ≤2048、JPEG ~85%），EXIF/GPS 自然消失；
 // server（worker/lib/images.ts）還會再剝一次 metadata 防繞過。
+// 重編碼前只讀出 EXIF 的拍攝時刻（DateTimeOriginal）一起送出，牆上依它排序；GPS 等其他欄位不讀不送。
 
 type Me = { username: string; displayName: string; role: string; mustChangePw: boolean };
 type Photo = {
   id: string; author: string; authorName: string; day: string; caption: string;
-  key: string; mime: string; width: number; height: number; createdAt: string; mine: boolean;
+  key: string; mime: string; width: number; height: number; takenAt: string | null; createdAt: string; mine: boolean;
 };
 type Post = {
   id: string; kind: string; target: string; replyTo: string | null; by: string;
@@ -181,6 +182,71 @@ $('em-uploads').addEventListener('click', () => {
 });
 $('ed-close').addEventListener('click', () => { $('edit-drawer').hidden = true; });
 
+/** 從 JPEG 的 EXIF 讀拍攝時刻（DateTimeOriginal，當地時間），回傳 YYYY-MM-DDTHH:MM:SS；讀不到回 null。
+ *  只解析 APP1 → IFD0 → Exif IFD 的 0x9003 一個欄位；PNG／WebP／HEIC 一律當作沒有 */
+async function readTakenAt(file: File): Promise<string | null> {
+  try {
+    const v = new DataView(await file.slice(0, 256 * 1024).arrayBuffer());
+    if (v.getUint16(0) !== 0xffd8) return null;
+    let off = 2;
+    while (off + 4 <= v.byteLength) {
+      const marker = v.getUint16(off);
+      const len = v.getUint16(off + 2);
+      if ((marker & 0xff00) !== 0xff00 || marker === 0xffda) return null; // 掃到影像資料還沒找到
+      if (marker === 0xffe1 && v.getUint32(off + 4) === 0x45786966) { // "Exif"
+        const tiff = off + 10;
+        const le = v.getUint16(tiff) === 0x4949;
+        const u16 = (o: number) => v.getUint16(tiff + o, le);
+        const u32 = (o: number) => v.getUint32(tiff + o, le);
+        const findTag = (ifd: number, tag: number): number | null => {
+          const n = u16(ifd);
+          for (let i = 0; i < n; i++) {
+            const e = ifd + 2 + i * 12;
+            if (u16(e) === tag) return e;
+          }
+          return null;
+        };
+        const ptr = findTag(u32(4), 0x8769); // Exif IFD
+        if (ptr === null) return null;
+        const e = findTag(u32(ptr + 8), 0x9003); // DateTimeOriginal，ASCII 20 bytes
+        if (e === null) return null;
+        const at = u32(e + 8);
+        let str = '';
+        for (let i = 0; i < 19; i++) str += String.fromCharCode(v.getUint8(tiff + at + i));
+        const m = str.match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
+        return m ? `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}` : null;
+      }
+      off += 2 + len;
+    }
+  } catch { /* 壞檔或截斷：當作沒有拍攝時刻 */ }
+  return null;
+}
+
+/** 拍攝時刻 → 掛在哪一天（30 小時制：凌晨 0:00–5:59 算前一天；前一天不是展覽日就算當天，例如出發日凌晨） */
+function dayOfTakenAt(takenAt: string): string {
+  const date = takenAt.slice(0, 10);
+  if (Number(takenAt.slice(11, 13)) >= 6) return date;
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  const prev = d.toISOString().slice(0, 10);
+  return days.some((x) => x.date === prev) ? prev : date;
+}
+
+let pickedTakenAt: string | null = null;
+($('up-form') as HTMLFormElement).file.addEventListener('change', async (e: Event) => {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  pickedTakenAt = file ? await readTakenAt(file) : null;
+  const hint = $('up-taken');
+  if (!pickedTakenAt) {
+    hint.textContent = file ? '讀不到拍攝時間，會排在當天最後。' : '';
+    return;
+  }
+  const day = dayOfTakenAt(pickedTakenAt);
+  const known = days.some((d) => d.date === day);
+  if (known) ($('up-day') as HTMLSelectElement).value = day;
+  hint.textContent = `拍攝時間 ${pickedTakenAt.slice(0, 16).replace('T', ' ')}${known ? '，已選好那一天' : '，不在展覽日內，請自己選'}。`;
+});
+
 /** canvas 重編碼：長邊 ≤2048、JPEG 85%；順帶抹掉所有 EXIF/GPS */
 async function reencode(file: File): Promise<Blob> {
   let bmp: ImageBitmap;
@@ -222,6 +288,7 @@ $('up-form').addEventListener('submit', async (e) => {
     fd.append('file', blob, 'photo.jpg');
     fd.append('day', form.day.value);
     fd.append('caption', form.caption.value);
+    if (pickedTakenAt) fd.append('takenAt', pickedTakenAt);
     btn.textContent = '上傳中……';
     const { status, data } = await api('/api/photos', { method: 'POST', body: fd });
     if (status !== 201) {
@@ -229,6 +296,8 @@ $('up-form').addEventListener('submit', async (e) => {
       return;
     }
     form.reset();
+    pickedTakenAt = null;
+    $('up-taken').textContent = '';
     $('up-ok').textContent = '已上傳，牆上已更新。';
     await loadMyPhotos();
     refreshWall();
@@ -242,12 +311,15 @@ $('up-form').addEventListener('submit', async (e) => {
 
 /* ---------- 我的照片 ---------- */
 
+let allPhotos: Photo[] = [];
+
 async function loadMyPhotos(): Promise<void> {
   const grid = $('my-photos');
   grid.textContent = '';
   const { status, data } = await api('/api/photos');
   if (status !== 200) return;
-  const mine = (data.photos as Photo[]).filter((p) => p.mine);
+  allPhotos = data.photos as Photo[];
+  const mine = allPhotos.filter((p) => p.mine);
   if (mine.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'ep-empty';
@@ -279,7 +351,9 @@ function photoCard(p: Photo): HTMLElement {
   const meta = document.createElement('div');
   meta.className = 'meta';
   const dayLabel = days.find((d) => d.date === p.day)?.label ?? p.day;
-  meta.textContent = `${dayLabel} · ${p.createdAt.slice(5, 10)}`;
+  meta.textContent = p.takenAt
+    ? `${dayLabel} · 拍攝 ${p.takenAt.slice(5, 16).replace('T', ' ')}`
+    : `${dayLabel} · 上傳 ${p.createdAt.slice(5, 10)}`;
   item.append(meta);
 
   const ops = document.createElement('div');
@@ -363,7 +437,9 @@ function targetLabel(p: { kind: string; target: string }): string {
   const ex = exhibits.find((e) => e.id === p.target);
   if (ex) return `${p.target} ${ex.title}`;
   const ema = allPosts.find((x) => x.id === p.target);
-  return ema ? `繪馬 ${p.target}` : p.target;
+  if (ema) return `繪馬 ${p.target}`;
+  const ph = allPhotos.find((x) => x.id === p.target);
+  return ph ? `照片 · ${ph.authorName}${ph.caption ? ' ' + ph.caption : ''}` : p.target;
 }
 
 function buildDayOptions(): void {
@@ -611,10 +687,8 @@ window.addEventListener('wall:lightbox', (e) => {
   const { id, kind } = (e as CustomEvent<{ id: string; kind: string }>).detail;
   if (!me) return;
   const form = lbForm();
-  // 親友照片不開放留言（API 的 target 只收展品與繪馬）
-  form.hidden = kind === 'friend';
   if (lbTarget !== id) setReply(null);
-  lbTarget = kind === 'friend' ? null : id;
+  lbTarget = id; // 展品、照片、繪馬都能留言
   const byIn = form.querySelector<HTMLInputElement>('input[name=by]')!;
   if (!byIn.value) byIn.value = me.displayName;
   // 每則留言加「回覆」

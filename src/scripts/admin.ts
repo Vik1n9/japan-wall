@@ -363,7 +363,7 @@ async function loadContent(): Promise<void> {
 
   const pg = $('mod-photos');
   pg.textContent = '';
-  if (!photos.length) pg.append(emptyNote('目前沒有親友照片。'));
+  if (!photos.length) pg.append(emptyNote('目前沒有上傳的照片。'));
   for (const p of photos) {
     const card = document.createElement('div');
     card.className = 'mod-ph';

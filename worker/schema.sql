@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS photos (
   bytes       INTEGER NOT NULL,
   width       INTEGER NOT NULL,
   height      INTEGER NOT NULL,
+  taken_at    TEXT,                        -- 拍攝時刻（EXIF DateTimeOriginal，當地時間 YYYY-MM-DDTHH:MM:SS）；讀不到為 null
   status      TEXT NOT NULL DEFAULT 'live' CHECK (status IN ('live', 'removed')),
   created_at  TEXT NOT NULL,
   updated_at  TEXT,

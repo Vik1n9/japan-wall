@@ -11,18 +11,16 @@
 - 後台本機測試：`test:api` 45/45、`test:ui` 45/45 通過（後台第十輪，`07e8ed0`）。
 - Git：2026-10-18 已全部 push 到 GitHub。之後的 commit 要 push 前先問 Viking。
 
-## 後台 2.0 上線後，Viking 要做的
+## 後台 2.0 上線後
 
-2026-10-18 已完成 Cloudflare 設定（D1 `osaka2026`、R2 `osaka2026-uploads`、遠端 5 張表、管理員 `viking`）並部署兩個 Worker。之後的例行部署照 README「部署」一節，部署前先問 Viking。
+2026-10-18 已完成 Cloudflare 設定與部署；Viking 已登入、建好親友帳號，試傳照片與繪馬都正常。之後的例行部署照 README「部署」一節，部署前先問 Viking。
 
-已驗證：前台桌機 1440px 與手機 400px 無橫向溢出，66 件展品、趣事帶都在，說明卡與短片正常；前台 `/edit`、`/admin`、`/api/auth/*` 都是 404，前台 JS 沒有後台痕跡；後台 `/admin` 登入頁正常。
-
-正式密碼工作階段不代為登入，以下由 Viking 自己做：
-
-- [ ] 用 `~/Documents/kura-admin-viking.txt` 的密碼登入 https://kura.osaka2026.voriens.dev/admin，自己改密碼（指令建立的管理員不會被強制改），**改完刪掉這個檔**。
-  - 2026-10-18 第一次部署時登入一律 500：正式環境 PBKDF2 上限 10 萬次，原本設 15 萬次（`1cd4e67` 修正）。viking 已用新雜湊重設，登入端點已確認不再 500（錯誤帳號回 401）；正確密碼的登入由 Viking 實測。
-- [ ] 在 `/admin` 建親友帳號。
-- [ ] 用 `/edit` 試傳一張照片、掛一塊繪馬，回前台確認看得到；再到 `/admin` 的內容審核刪掉測試內容。
+- [ ] **部署「所有人同等級」改版**（本機 test:api 46/46、test:ui 49/49 通過，尚未上線）。順序不能換：
+  1. 正式資料庫加欄位：`npx --yes wrangler@4 d1 execute osaka2026 -c wrangler.back.jsonc --remote --file=worker/migrations/001-photos-taken-at.sql`
+  2. `npm run deploy:back`，再 `npm run deploy`
+  3. 上線檢查：桌機與手機看一次有照片的那天、開一張照片說明卡、試留言。
+- [ ] 改版前上傳的照片沒有拍攝時刻，上線後會排在當天最後。要插到正確時間點得刪掉重傳（重傳時會讀 EXIF）。
+- [ ] 確認 `~/Documents/kura-admin-viking.txt` 已刪除（密碼改過之後就用不到）。
 - 忘記密碼：`npm run admin:create -- viking Viking` 重設。新密碼只印一次，**不要貼在對話裡**，寫進檔案再告訴 Viking 路徑。
 
 ## 等 Viking 決定

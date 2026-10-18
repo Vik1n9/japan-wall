@@ -62,14 +62,16 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
     if (kind === 'ema') {
       if (!targets.days.has(target)) return json({ error: '指定的展覽日不存在' }, 400);
     } else {
-      const isExhibit = targets.exhibits.has(target);
-      let isEma = false;
-      if (!isExhibit && /^n-\d{8}-[a-z0-9]{4}$/.test(target)) {
-        const ema = await env.DB.prepare(`SELECT id FROM posts WHERE id = ?1 AND kind = 'ema' AND status = 'live'`)
-          .bind(target).first();
-        isEma = !!ema;
+      // 留言對象：展品、繪馬、上傳的照片（照片與展品同等，都能留言）
+      let ok = targets.exhibits.has(target);
+      if (!ok && /^n-\d{8}-[a-z0-9]{4}$/.test(target)) {
+        ok = !!(await env.DB.prepare(`SELECT id FROM posts WHERE id = ?1 AND kind = 'ema' AND status = 'live'`)
+          .bind(target).first());
+      } else if (!ok && /^p-\d{8}-[a-z0-9]{4}$/.test(target)) {
+        ok = !!(await env.DB.prepare(`SELECT id FROM photos WHERE id = ?1 AND status = 'live'`)
+          .bind(target).first());
       }
-      if (!isExhibit && !isEma) return json({ error: '留言的目標不存在' }, 400);
+      if (!ok) return json({ error: '留言的目標不存在' }, 400);
     }
 
     const replyTo = typeof body.replyTo === 'string' && body.replyTo ? body.replyTo.trim() : null;

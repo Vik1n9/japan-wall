@@ -1,5 +1,5 @@
 // 前台 Worker（osaka2026.voriens.dev）：純展示，零登入痕跡。
-// 只開放兩個公開唯讀端點：/api/public/wall（動態內容）與 /api/media/:key（親友照片）。
+// 只開放兩個公開唯讀端點：/api/public/wall（動態內容）與 /api/media/:key（上傳的照片）。
 // 其餘 /api/*、/edit*、/admin* 一律 404——dist 裡即使有 /edit 空殼 HTML 也拿不到。
 import { mediaResponse, publicWallResponse, type R2BucketLike } from './lib/public';
 import { safeDecode } from './lib/util';
