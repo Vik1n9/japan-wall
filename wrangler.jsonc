@@ -15,8 +15,7 @@
     {
       "binding": "DB",
       "database_name": "osaka2026",
-      // TODO: wrangler d1 create osaka2026 後填入真實 ID（與 wrangler.back.jsonc 相同）
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      "database_id": "b517067c-48fa-4d82-b267-0db4be6d1f19"
     }
   ],
   "r2_buckets": [
