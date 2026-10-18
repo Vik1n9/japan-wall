@@ -5,7 +5,9 @@ import {
   destroyOtherSessions,
   destroySession,
   hashPassword,
+  ipLockKey,
   loginLockSeconds,
+  recordIpLoginFailure,
   recordLoginFailure,
   resetLoginFailures,
   sessionCookie,
@@ -27,10 +29,17 @@ export async function login({ request, env }: Ctx): Promise<Response> {
   if (!username || !password) return json({ error: '請輸入帳號與密碼' }, 400);
   if (username.length > 32 || password.length > 128) return json({ error: '帳號或密碼格式錯誤' }, 400);
 
-  const lockKey = `${username}|${clientIp(request)}`;
+  const ip = clientIp(request);
+  const lockKey = `${username}|${ip}`;
+  const ipKey = ipLockKey(ip);
   const locked = await loginLockSeconds(env.DB, lockKey);
   if (locked > 0) {
     return json({ error: `失敗次數過多，請 ${Math.ceil(locked / 60)} 分鐘後再試` }, 429);
+  }
+  // IP 層：同一個 IP 不論試哪個帳號，累計失敗 20 次鎖 15 分鐘（擋分散帳號的密碼噴灑）
+  const ipLocked = await loginLockSeconds(env.DB, ipKey);
+  if (ipLocked > 0) {
+    return json({ error: `失敗次數過多，請 ${Math.ceil(ipLocked / 60)} 分鐘後再試` }, 429);
   }
 
   const user = await env.DB.prepare(`SELECT * FROM users WHERE username = ?1`)
@@ -40,12 +49,14 @@ export async function login({ request, env }: Ctx): Promise<Response> {
   // 帳號不存在也走一次雜湊（verifyPassword 收到空值會比對假雜湊），避免用回應時間分辨帳號是否存在
   if (!(await verifyPassword(password, user?.password_hash)) || !user) {
     await recordLoginFailure(env.DB, lockKey);
+    await recordIpLoginFailure(env.DB, ip);
     return json({ error: '帳號或密碼錯誤' }, 401);
   }
   if (user.status !== 'active') {
     return json({ error: '帳號已停用，請聯絡管理員' }, 403);
   }
 
+  // 只歸零「帳號＋IP」的計數；IP 計數不歸零，否則攻擊者可以穿插自己的正確帳號來重置
   await resetLoginFailures(env.DB, lockKey);
   const token = await createSession(env.DB, user.username);
   await env.DB.prepare(`UPDATE users SET last_login_at = ?1 WHERE username = ?2`)

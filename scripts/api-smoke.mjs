@@ -30,12 +30,13 @@ function check(name, ok, detail = '') {
   console.log(`${ok ? '✓' : '✗'} ${name}${ok || !detail ? '' : ` — ${detail}`}`);
 }
 
-/** 簡易 cookie jar：一個 client 一個 session */
+/** 簡易 cookie jar：一個 client 一個 session；cfIp 預設用這次執行專用的假 IP */
 function client() {
   let cookie = '';
-  return async function call(method, path, { body, form, origin = ORIGIN, rawCookie } = {}) {
+  return async function call(method, path, { body, form, origin = ORIGIN, rawCookie, cfIp = SMOKE_IP } = {}) {
     const headers = {};
     if (origin) headers.Origin = origin;
+    if (cfIp) headers['CF-Connecting-IP'] = cfIp;
     if (rawCookie !== undefined) headers.Cookie = rawCookie;
     else if (cookie) headers.Cookie = cookie;
     let payload;
@@ -55,6 +56,11 @@ function client() {
 }
 
 const tag = Math.random().toString(36).slice(2, 6);
+// wrangler dev 會原樣傳遞 CF-Connecting-IP（實測過；正式環境 Cloudflare 會覆寫，偽造無效）。
+// 整份測試的請求都掛同一個「這一次執行專用」的假 IP：除了貼近正式行為，
+// 也避免所有失敗登入都累積在 IP 'local' 上，觸發 IP 層限速（20 次）而污染下一次執行。
+const fakeIp = (n) => `198.18.${(parseInt(tag, 36) % 250) + 1}.${n}`;
+const SMOKE_IP = fakeIp(1);
 const admin = client();
 
 // ---------- 登入 ----------
@@ -344,6 +350,35 @@ check('建立限速測試帳號 → 201', r.status === 201, String(r.status));
   check('鎖定只針對該帳號＋IP，不影響其他帳號', r.status === 200, String(r.status));
   r = await admin('PATCH', `/api/users/${lockName}`, { body: { status: 'disabled' } });
   check('停用限速測試帳號 → 200', r.status === 200, String(r.status));
+}
+
+// ---------- IP 層級限速：同一 IP 不論帳號，累計失敗 20 次 → 鎖 IP 15 分鐘 ----------
+{
+  // 每個情境用不同的假 IP（wrangler dev 原樣傳遞 CF-Connecting-IP），互不干擾也不污染其他測試
+  const ipA = fakeIp(10);
+  const ipB = fakeIp(11);
+  const ipC = fakeIp(12);
+  let st = 0;
+  for (let i = 0; i < 20; i++) {
+    // 每次換不存在的帳號：避免先觸發「帳號＋IP 5 次」那層鎖，確定測到的是 IP 層
+    st = (await client()('POST', '/api/login', { body: { username: `iplock-${tag}-${i}`, password: 'bad' }, cfIp: ipA })).status;
+  }
+  check('同一 IP 對不同帳號連錯 20 次 → 401', st === 401, String(st));
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: ipA });
+  check('第 21 次即使帳號密碼正確 → 429（IP 被鎖）', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: ipB });
+  check('IP 鎖只針對該 IP，另一個 IP 不受影響 → 200', r.status === 200, String(r.status));
+
+  // 成功登入不歸零 IP 計數（否則攻擊者可穿插自己的正確帳號重置）
+  for (let i = 0; i < 19; i++) {
+    await client()('POST', '/api/login', { body: { username: `ipreset-${tag}-${i}`, password: 'bad' }, cfIp: ipC });
+  }
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: ipC });
+  check('IP 計數 19 時成功登入 → 200', r.status === 200, String(r.status));
+  st = (await client()('POST', '/api/login', { body: { username: `ipreset-${tag}-x`, password: 'bad' }, cfIp: ipC })).status;
+  check('成功登入後再失敗一次（累計滿 20）→ 401 且觸發 IP 鎖', st === 401, String(st));
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: ipC });
+  check('成功登入沒有歸零 IP 計數：第 21 次正確密碼也 429', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
 }
 
 // ---------- 防點擊劫持：/admin、/edit 不可被框架嵌入；公開牆（/）不加 ----------

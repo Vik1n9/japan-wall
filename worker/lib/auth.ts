@@ -152,7 +152,12 @@ export async function loginLockSeconds(db: D1Database, key: string): Promise<num
   return remain > 0 ? remain : 0;
 }
 
-export async function recordLoginFailure(db: D1Database, key: string): Promise<void> {
+export async function recordLoginFailure(
+  db: D1Database,
+  key: string,
+  opts: { maxFails?: number; staleMinutes?: number } = {},
+): Promise<void> {
+  const maxFails = opts.maxFails ?? MAX_FAILS;
   const row = await db
     .prepare(`SELECT fails, locked_until, updated_at FROM login_attempts WHERE key = ?1`)
     .bind(key)
@@ -160,8 +165,12 @@ export async function recordLoginFailure(db: D1Database, key: string): Promise<v
   // 鎖定期已過就重新起算：規格是「失敗 5 次鎖 15 分鐘」，不是「累積滿 5 次後每次失敗都再鎖」。
   // 不重設的話舊紀錄會永久累積，解鎖後再打錯一次密碼又立刻鎖 15 分鐘。
   const lockExpired = !!row?.locked_until && Date.parse(row.locked_until) <= Date.now();
-  const fails = row && !lockExpired ? row.fails + 1 : 1;
-  const lockedUntil = fails >= MAX_FAILS
+  // staleMinutes：距離上次失敗（updated_at）超過這個分鐘數也重新起算（IP 層限速用）
+  const stale =
+    opts.staleMinutes !== undefined && !!row?.updated_at &&
+    Date.now() - Date.parse(row.updated_at) > opts.staleMinutes * 60_000;
+  const fails = row && !lockExpired && !stale ? row.fails + 1 : 1;
+  const lockedUntil = fails >= maxFails
     ? new Date(Date.now() + LOCK_MINUTES * 60_000 + 8 * 3600_000).toISOString().replace('Z', '+08:00')
     : null;
   const { iso } = nowTaipeiIso();
@@ -176,6 +185,22 @@ export async function recordLoginFailure(db: D1Database, key: string): Promise<v
 
 export async function resetLoginFailures(db: D1Database, key: string): Promise<void> {
   await db.prepare(`DELETE FROM login_attempts WHERE key = ?1`).bind(key).run();
+}
+
+/* ---------- IP 層級限速 ----------
+ * 在「帳號＋IP 5 次鎖 15 分鐘」之外另一層：同一個 IP 不論嘗試哪個帳號，
+ * 失敗累計 20 次就鎖這個 IP 15 分鐘（擋分散帳號的密碼噴灑）。
+ * 成功登入「不」歸零 IP 計數，否則攻擊者可以穿插自己的正確帳號來重置；
+ * 計數改在鎖定到期後、或距離上次失敗超過 15 分鐘時重新起算（靠 updated_at）。 */
+
+export const IP_MAX_FAILS = 20;
+
+export function ipLockKey(ip: string): string {
+  return `ip|${ip}`;
+}
+
+export async function recordIpLoginFailure(db: D1Database, ip: string): Promise<void> {
+  await recordLoginFailure(db, ipLockKey(ip), { maxFails: IP_MAX_FAILS, staleMinutes: LOCK_MINUTES });
 }
 
 /* ---------- 每日排程清理 ---------- */
