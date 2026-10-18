@@ -1,7 +1,9 @@
 // 前台 Worker（osaka2026.voriens.dev）：純展示，零登入痕跡。
 // 只開放兩個公開唯讀端點：/api/public/wall（動態內容）與 /api/media/:key（上傳的照片）。
 // 其餘 /api/*、/edit*、/admin* 一律 404——dist 裡即使有 /edit 空殼 HTML 也拿不到。
+// /media/*.mp4（展品短片）由 run_worker_first 先進來做 Range 切片（lib/media-assets.ts）。
 import { mediaResponse, publicWallResponse, type R2BucketLike } from './lib/public';
+import { isMediaVideo, mediaAssetResponse } from './lib/media-assets';
 import { safeDecode } from './lib/util';
 
 export interface FrontEnv {
@@ -33,6 +35,10 @@ export default {
     }
     if (request.method === 'GET' && url.pathname.startsWith('/api/media/')) {
       return mediaResponse(env.UPLOADS, safeDecode(url.pathname.slice('/api/media/'.length)) ?? '', request);
+    }
+    // 展品短片：靜態資源不支援 Range，Safari 要 206 才播得到
+    if ((request.method === 'GET' || request.method === 'HEAD') && isMediaVideo(url.pathname)) {
+      return mediaAssetResponse(env.ASSETS, request);
     }
 
     const blocked =

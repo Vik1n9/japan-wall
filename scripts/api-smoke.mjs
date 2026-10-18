@@ -5,9 +5,10 @@
 import sharp from 'sharp';
 import zlib from 'node:zlib';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const BASE = process.argv[2] || 'http://localhost:8787';
 const ORIGIN = new URL(BASE).origin; // 跟 BASE 同埠：wrangler dev 的 Origin 白名單才不會擋
@@ -420,6 +421,65 @@ check('建立限速測試帳號 → 201', r.status === 201, String(r.status));
   check('公開牆（/）沒有框架限制', root.status === 200 && root.xfo === null && root.csp === null, JSON.stringify(root));
 }
 
+// ---------- 展品短片 Range（靜態資源 /media/*.mp4：Safari 的 <video> 要 206 才播得到） ----------
+// 從 public/media 挑一支短片與一張照片（build 後 dist 內容相同；前台與後台 Worker 都要測）
+const mediaRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'media');
+const findMedia = (ext) => {
+  for (const day of readdirSync(mediaRoot).sort()) {
+    const dir = join(mediaRoot, day);
+    if (!statSync(dir).isDirectory()) continue;
+    const hit = readdirSync(dir).filter((f) => f.endsWith(ext)).sort()[0];
+    if (hit) return `/media/${day}/${hit}`;
+  }
+  return null;
+};
+const vidPath = findMedia('.mp4');
+const webpPath = findMedia('.webp');
+const vidBuf = vidPath ? readFileSync(join(mediaRoot, vidPath.slice('/media/'.length))) : null;
+
+async function checkAssetRange(base, label) {
+  if (!vidPath || !vidBuf) { check(`${label}：找到展品短片`, false, 'public/media 裡沒有 mp4'); return; }
+  const vidUrl = base + vidPath;
+  const size = vidBuf.length;
+  let res = await fetch(vidUrl, { headers: { Range: 'bytes=100-199' } });
+  let part = Buffer.from(await res.arrayBuffer());
+  check(`${label}：短片 Range bytes=100-199 → 206、bytes 正確`,
+    res.status === 206 && part.equals(vidBuf.subarray(100, 200))
+    && res.headers.get('content-range') === `bytes 100-199/${size}`
+    && Number(res.headers.get('content-length')) === 100
+    && res.headers.get('accept-ranges') === 'bytes',
+    `${res.status} ${res.headers.get('content-range')} len=${res.headers.get('content-length')} got=${part.length}`);
+  check(`${label}：短片 206 保留 Content-Type 與快取 header`,
+    res.headers.get('content-type') === 'video/mp4' && /max-age=86400/.test(res.headers.get('cache-control') || ''),
+    `${res.headers.get('content-type')} / ${res.headers.get('cache-control')}`);
+  res = await fetch(vidUrl);
+  const full = Buffer.from(await res.arrayBuffer());
+  check(`${label}：短片不帶 Range → 200 完整檔且 Accept-Ranges: bytes`,
+    res.status === 200 && res.headers.get('accept-ranges') === 'bytes' && full.equals(vidBuf), String(res.status));
+  res = await fetch(vidUrl, { headers: { Range: 'bytes=-50' } });
+  part = Buffer.from(await res.arrayBuffer());
+  check(`${label}：短片尾段 Range bytes=-50 → 206 最後 50 bytes`,
+    res.status === 206 && part.equals(vidBuf.subarray(size - 50))
+    && res.headers.get('content-range') === `bytes ${size - 50}-${size - 1}/${size}`,
+    `${res.status} ${res.headers.get('content-range')} got=${part.length}`);
+  res = await fetch(vidUrl, { headers: { Range: `bytes=${size}-${size + 100}` } });
+  await res.arrayBuffer();
+  check(`${label}：短片 Range 超出檔案 → 416 且 Content-Range: bytes */${size}`,
+    res.status === 416 && res.headers.get('content-range') === `bytes */${size}`,
+    `${res.status} ${res.headers.get('content-range')}`);
+  res = await fetch(vidUrl, { headers: { Range: 'bytes=abc' } });
+  part = Buffer.from(await res.arrayBuffer());
+  check(`${label}：短片格式不對的 Range → 200 完整檔`, res.status === 200 && part.length === size, String(res.status));
+  if (webpPath) {
+    res = await fetch(base + webpPath);
+    await res.arrayBuffer();
+    check(`${label}：照片（webp）等其他靜態檔行為不變 → 200、不走 Range 處理`,
+      res.status === 200 && res.headers.get('accept-ranges') === null,
+      `${res.status} accept-ranges=${res.headers.get('accept-ranges')}`);
+  }
+}
+await checkAssetRange(BASE, '後台');
+
 // ---------- 收尾 ----------
 if (photo) {
   r = await admin('DELETE', `/api/photos/${photo.id}`);
@@ -448,6 +508,7 @@ if (FRONT && /localhost|127\.0\.0\.1/.test(FRONT)) {
   const pub = await fetch(`${FRONT}/api/public/wall`);
   const body = await pub.text();
   check('前台公開牆 → 200 且不含帳號名稱', pub.status === 200 && !body.includes('"author"'), String(pub.status));
+  await checkAssetRange(FRONT, '前台');
 }
 
 console.log(`\n${pass} 通過、${fail} 失敗`);

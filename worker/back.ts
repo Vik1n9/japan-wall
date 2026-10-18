@@ -5,6 +5,7 @@
 
 import { json, safeDecode } from './lib/util';
 import { cleanupStaleAuthRows, getSessionUser } from './lib/auth';
+import { isMediaVideo, mediaAssetResponse } from './lib/media-assets';
 import { mediaResponse, publicWallResponse } from './lib/public';
 import { originAllowed, type AuthedCtx, type Ctx, type Env } from './lib/http';
 import * as auth from './routes/auth';
@@ -18,6 +19,10 @@ export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (!url.pathname.startsWith('/api/')) {
+      // 展品短片（run_worker_first 送進來的 /media/*.mp4）：靜態資源不支援 Range，Safari 要 206 才播得到
+      if ((request.method === 'GET' || request.method === 'HEAD') && isMediaVideo(url.pathname)) {
+        return mediaAssetResponse(env.ASSETS, request);
+      }
       return env.ASSETS.fetch(request);
     }
 

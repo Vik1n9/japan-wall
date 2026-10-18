@@ -55,8 +55,9 @@ export async function publicWallResponse(db: D1Database): Promise<Response> {
   }, 200, { 'Cache-Control': 'no-cache' });
 }
 
-/** 「bytes=a-b」「bytes=a-」「bytes=-n」→ R2 range；格式不對回 null（當作沒帶 Range） */
-function parseRange(h: string | null): R2RangeLike | null {
+/** 「bytes=a-b」「bytes=a-」「bytes=-n」→ R2 range；格式不對回 null（當作沒帶 Range）。
+ *  靜態資源的 Range 切片（media-assets.ts）也共用這支 */
+export function parseRange(h: string | null): R2RangeLike | null {
   const m = h?.match(/^bytes=(\d*)-(\d*)$/);
   if (!m || (!m[1] && !m[2])) return null;
   if (!m[1]) return { suffix: Number(m[2]) };
