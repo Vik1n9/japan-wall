@@ -403,9 +403,16 @@ async function loadContent(): Promise<void> {
     const where = document.createElement('span');
     where.className = 'meta';
     const ema = byId.get(p.target);
-    where.textContent = p.kind === 'ema'
+    // 留言的 target 有三種：展品（JP-…）、繪馬（n-…，在 byId 裡）、照片（p-…）。
+    // 不然照片下的留言會顯示成「展品 p-20261018-xxxx」，審核時看不出掛在哪。
+    const whereText = p.kind === 'ema'
       ? `掛在 ${p.target}`
-      : ema ? `繪馬「${ema.body.slice(0, 12)}」下` : `展品 ${p.target}`;
+      : ema
+        ? `繪馬「${ema.body.slice(0, 12)}」下`
+        : /^p-\d{8}-[a-z0-9]{4}$/.test(p.target)
+          ? `照片 ${p.target} 下`
+          : `展品 ${p.target}`;
+    where.textContent = whereText;
     if (p.replyTo) where.textContent += ' · 回覆';
     head.append(where);
     const body = document.createElement('div');

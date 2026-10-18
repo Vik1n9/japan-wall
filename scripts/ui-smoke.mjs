@@ -179,6 +179,12 @@ try {
   /* ---------- /admin ---------- */
   // 先放一則繪馬與一張照片，給審核介面刪
   const modEma = await api('POST', '/api/posts', { kind: 'ema', target: '2026-10-09', body: `審核測試 ${tag}` });
+  // 照片＋照片下的留言：審核介面要標「照片 p-…」而不是「展品 p-…」
+  const modPhoto = await run(`const c = document.createElement('canvas'); c.width = 60; c.height = 40; const g = c.getContext('2d'); g.fillStyle = '#37a'; g.fillRect(0, 0, 60, 40);
+    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.9));
+    const fd = new FormData(); fd.append('file', blob, 'm.jpg'); fd.append('day', '2026-10-09'); fd.append('caption', '審核照片 ${tag}');
+    const r = await fetch('/api/photos', { method: 'POST', body: fd, credentials: 'same-origin' }); return (await r.json()).photo?.id;`);
+  const modPc = modPhoto ? await api('POST', '/api/posts', { kind: 'comment', target: modPhoto, body: `照片留言審核 ${tag}` }) : null;
   await goto('/admin');
   check('/admin 已登入直接進管理台', await waitFor(`!document.getElementById('adm-console').hidden`));
   check('審核介面列出投稿', await waitFor(`document.getElementById('mod-posts').textContent.includes('審核測試 ${tag}')`));
@@ -202,6 +208,11 @@ try {
   await run(`const it = [...document.querySelectorAll('.mod-po')].find((el) => el.textContent.includes('審核測試 ${tag}'));
     const b = it.querySelector('button'); b.click(); await new Promise((r) => setTimeout(r, 50)); b.click();`);
   check('審核刪除投稿後從列表消失', await waitFor(`!document.getElementById('mod-posts').textContent.includes('審核測試 ${tag}')`));
+  if (modPc?.data?.post?.id) {
+    check('審核介面：照片下的留言標為「照片 p-…」', await waitFor(`[...document.querySelectorAll('.mod-po')].some((el) => el.textContent.includes('照片留言審核 ${tag}') && el.textContent.includes('照片 p-'))`));
+  } else {
+    check('審核介面：照片下的留言標為「照片 p-…」', false, '測試照片建立失敗');
+  }
   const wall2 = await api('GET', '/api/public/wall');
   check('審核刪除後公開牆也消失', !JSON.stringify(wall2.data).includes(`審核測試 ${tag}`));
   check('/admin 全程沒有跳出原生對話框', dialogs() === before2, `${dialogs() - before2} 次`);
@@ -278,7 +289,8 @@ try {
   await run(`document.getElementById('m-wall').click();`);
   await cdp('Emulation.clearDeviceMetricsOverride');
   // 收尾
-  for (const r of [px2, px1, pc1, ppc, pe, pe2, pe3]) if (r?.data?.post?.id) await api('DELETE', `/api/posts/${r.data.post.id}`);
+  for (const r of [px2, px1, pc1, ppc, pe, pe2, pe3, modPc]) if (r?.data?.post?.id) await api('DELETE', `/api/posts/${r.data.post.id}`);
+  if (modPhoto) await api('DELETE', `/api/photos/${modPhoto}`);
   if (pp) await api('DELETE', `/api/photos/${pp}`);
   if (pp2) await api('DELETE', `/api/photos/${pp2}`);
 
