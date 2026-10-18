@@ -90,6 +90,22 @@ const api = (method, path, body) => run(`
   return { status: r.status, data: d };`);
 const dialogs = () => events.filter((e) => e.method === 'Page.javascriptDialogOpening').length;
 
+/** Node 端用的簡易 client（自己管 cookie）：用來以「另一個帳號」身分準備內容，不佔用瀏覽器的登入 session */
+function nodeClient() {
+  let cookie = '';
+  return async function call(method, path, body) {
+    const headers = { Origin: new URL(BASE).origin };
+    if (cookie) headers.Cookie = cookie;
+    let payload;
+    if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }
+    const res = await fetch(BASE + path, { method, headers, body: payload });
+    const set = res.headers.get('set-cookie');
+    if (set) cookie = set.split(';')[0];
+    let data = null; try { data = await res.json(); } catch {}
+    return { status: res.status, data };
+  };
+}
+
 const tag = Math.random().toString(36).slice(2, 6);
 try {
   /* ---------- /edit 登入 ---------- */
@@ -248,6 +264,20 @@ try {
     const fd = new FormData(); fd.append('file', blob, 'm.jpg'); fd.append('day', '2026-10-09'); fd.append('caption', '審核照片 ${tag}');
     const r = await fetch('/api/photos', { method: 'POST', body: fd, credentials: 'same-origin' }); return (await r.json()).photo?.id;`);
   const modPc = modPhoto ? await api('POST', '/api/posts', { kind: 'comment', target: modPhoto, body: `照片留言審核 ${tag}` }) : null;
+  // 有內容的帳號：為了測「有內容」的三段確認，先用 Node client 以該帳號身分放一則繪馬
+  const contUname = `uicont-${tag}`;
+  let contEmaId = null;
+  {
+    const admNode = nodeClient();
+    await admNode('POST', '/api/login', { username: ADMIN, password: ADMIN_PW });
+    const created = await admNode('POST', '/api/users', { username: contUname, displayName: 'UI 有內容' });
+    const contPw = created.data?.password;
+    const uc = nodeClient();
+    await uc('POST', '/api/login', { username: contUname, password: contPw });
+    await uc('POST', '/api/change-password', { currentPassword: contPw, newPassword: `Ui-cont-${tag}-pw` });
+    const ema = await uc('POST', '/api/posts', { kind: 'ema', target: '2026-10-08', body: `UI 內容帳號繪馬 ${tag}` });
+    contEmaId = ema.data?.post?.id ?? null;
+  }
   await goto('/admin');
   check('/admin 已登入直接進管理台', await waitFor(`!document.getElementById('adm-console').hidden`));
   check('審核介面列出投稿', await waitFor(`document.getElementById('mod-posts').textContent.includes('審核測試 ${tag}')`));
@@ -266,6 +296,76 @@ try {
   check('第二次按才重設並顯示一次性密碼', await waitFor(`!document.getElementById('pw-reveal').hidden && document.getElementById('pw-reveal-value').textContent.length >= 8`));
   await run(`document.getElementById('pw-reveal-close').click();`);
   check('一次性密碼視窗關閉後不殘留密碼', await run(`return document.getElementById('pw-reveal').hidden && document.getElementById('pw-reveal-value').textContent === '';`));
+  // 刪除帳號：自己那一列沒有刪除鈕
+  check('帳號列表：自己那一列沒有刪除鈕', await run(`const tr = [...document.querySelectorAll('#users-tbl tbody tr')].find((r) => r.querySelector('td.name')?.textContent === ${JSON.stringify(ADMIN)});
+    return !!tr && ![...tr.querySelectorAll('button')].some((b) => b.textContent === '刪除');`));
+
+  /** 在帳號列上點某個按鈕（armed 中的按鈕也可用「刪除」再次點到） */
+  const clickUserBtn = (uname, label) => run(`const tr = [...document.querySelectorAll('#users-tbl tbody tr')].find((r) => r.querySelector('td.name')?.textContent === ${JSON.stringify(uname)});
+    if (!tr) return false;
+    const b = [...tr.querySelectorAll('.ops button')].find((x) => x.textContent === ${JSON.stringify(label)} || x.classList.contains('armed'));
+    if (!b) return false; b.click(); return true;`);
+  const statusOf = (uname) => run(`const tr = [...document.querySelectorAll('#users-tbl tbody tr')].find((r) => r.querySelector('td.name')?.textContent === ${JSON.stringify(uname)});
+    return tr ? tr.querySelector('td[data-label="狀態"]').textContent : '';`);
+  const btnLabels = (uname) => run(`const tr = [...document.querySelectorAll('#users-tbl tbody tr')].find((r) => r.querySelector('td.name')?.textContent === ${JSON.stringify(uname)});
+    return tr ? [...tr.querySelectorAll('.ops button')].map((b) => b.textContent) : [];`);
+
+  // 無內容帳號：兩段確認（按一次 → 「確定刪除？」→ 再按才真的刪）
+  const delUname = `uidel-${tag}`;
+  await run(`const f = document.getElementById('create-form');
+    f.username.value = ${JSON.stringify(delUname)}; f.displayName.value = 'UI 刪除'; f.password.value = 'Ui-del-${tag}-pw'; f.requestSubmit();`);
+  check('建立待刪除帳號後列表出現', await waitFor(`[...document.querySelectorAll('#users-tbl tbody tr')].some((r) => r.querySelector('td.name')?.textContent === ${JSON.stringify(delUname)})`));
+  const before3 = dialogs();
+  await clickUserBtn(delUname, '刪除');
+  check('無內容：第一次按變「確定刪除？」（不顯示數量）', await waitFor(`(() => {
+    const tr = [...document.querySelectorAll('#users-tbl tbody tr')].find((r) => r.querySelector('td.name')?.textContent === ${JSON.stringify(delUname)});
+    const b = tr && [...tr.querySelectorAll('.ops button')].find((x) => x.classList.contains('armed'));
+    return !!b && b.textContent.includes('確定刪除') && !b.textContent.includes('繪馬') && !b.textContent.includes('有內容');
+  })()`));
+  check('無內容：第一段後帳號還在（還沒送出）', await run(`return [...document.querySelectorAll('#users-tbl tbody tr')].some((r) => r.querySelector('td.name')?.textContent === ${JSON.stringify(delUname)});`));
+  // 逾時不送出：4 秒內不再按就回到原狀
+  await sleep(4300);
+  check('無內容：逾時未按第二段就回到原狀（未送出）', await run(`const tr = [...document.querySelectorAll('#users-tbl tbody tr')].find((r) => r.querySelector('td.name')?.textContent === ${JSON.stringify(delUname)});
+    return !!tr && [...tr.querySelectorAll('.ops button')].some((b) => b.textContent === '刪除') && !tr.querySelector('.ops button.armed');`));
+  await clickUserBtn(delUname, '刪除');
+  await waitFor(`document.querySelector('#users-tbl .ops button.armed')`);
+  await clickUserBtn(delUname, '刪除');
+  check('無內容：第二次按才刪除，帳號從列表消失', await waitFor(`![...document.querySelectorAll('#users-tbl tbody tr')].some((r) => r.querySelector('td.name')?.textContent === ${JSON.stringify(delUname)})`));
+  check('/admin 刪除帳號沒有跳出原生對話框', dialogs() === before3, `${dialogs() - before3} 次`);
+
+  // 有內容帳號：三段確認（顯示數量 → 隱藏並 30 天後永久刪除？ → 送出）
+  check('有內容帳號已在列表', await waitFor(`[...document.querySelectorAll('#users-tbl tbody tr')].some((r) => r.querySelector('td.name')?.textContent === ${JSON.stringify(contUname)})`));
+  await clickUserBtn(contUname, '刪除');
+  check('有內容：第一次按顯示數量並要求再按一次', await waitFor(`(() => {
+    const tr = [...document.querySelectorAll('#users-tbl tbody tr')].find((r) => r.querySelector('td.name')?.textContent === ${JSON.stringify(contUname)});
+    const b = tr && [...tr.querySelectorAll('.ops button')].find((x) => x.classList.contains('armed'));
+    return !!b && b.textContent.includes('有內容') && b.textContent.includes('繪馬 1') && b.textContent.includes('再按一次');
+  })()`));
+  check('有內容：第一段後帳號還在（還沒送出）', (await statusOf(contUname)).includes('啟用'));
+  await clickUserBtn(contUname, '刪除');
+  check('有內容：第二段變「隱藏內容並在 30 天後永久刪除？」', await waitFor(`(() => {
+    const tr = [...document.querySelectorAll('#users-tbl tbody tr')].find((r) => r.querySelector('td.name')?.textContent === ${JSON.stringify(contUname)});
+    const b = tr && [...tr.querySelectorAll('.ops button')].find((x) => x.classList.contains('armed'));
+    return !!b && b.textContent.includes('隱藏內容') && b.textContent.includes('30 天');
+  })()`));
+  check('有內容：第二段後帳號還在（還沒送出）', (await statusOf(contUname)).includes('啟用'));
+  await clickUserBtn(contUname, '刪除');
+  check('有內容：第三段送出後狀態變「待刪除（… 永久刪除）」', await waitFor(`(() => {
+    const tr = [...document.querySelectorAll('#users-tbl tbody tr')].find((r) => r.querySelector('td.name')?.textContent === ${JSON.stringify(contUname)});
+    const s = tr && tr.querySelector('td[data-label="狀態"]');
+    return !!s && s.textContent.includes('待刪除') && s.textContent.includes('永久刪除');
+  })()`));
+  const softLabels = await btnLabels(contUname);
+  check('待刪除列只剩恢復鈕（沒有停用／重設密碼／刪除）', softLabels.length === 1 && softLabels[0] === '恢復', JSON.stringify(softLabels));
+  check('/admin 刪除帳號全程沒有跳出原生對話框', dialogs() === before3, `${dialogs() - before3} 次`);
+
+  // 恢復：一段式，回到正常列
+  await clickUserBtn(contUname, '恢復');
+  check('按恢復後回到正常列（狀態啟用、有刪除鈕）', await waitFor(`(() => {
+    const tr = [...document.querySelectorAll('#users-tbl tbody tr')].find((r) => r.querySelector('td.name')?.textContent === ${JSON.stringify(contUname)});
+    return !!tr && tr.querySelector('td[data-label="狀態"]')?.textContent.includes('啟用')
+      && [...tr.querySelectorAll('.ops button')].some((b) => b.textContent === '刪除');
+  })()`));
   // 審核刪除投稿
   await run(`document.querySelector('.tab[data-tab=posts]').click();`);
   await shot('admin-moderation');
@@ -357,6 +457,9 @@ try {
   if (modPhoto) await api('DELETE', `/api/photos/${modPhoto}`);
   if (pp) await api('DELETE', `/api/photos/${pp}`);
   if (pp2) await api('DELETE', `/api/photos/${pp2}`);
+  // 有內容帳號：先刪掉它的繪馬（內容歸零）再刪帳號 → 立即硬刪，不留本機殘留
+  if (contEmaId) await api('DELETE', `/api/posts/${contEmaId}`);
+  await api('DELETE', `/api/users/${contUname}`);
 
   /* ---------- 深色模式截圖（目視檢查用） ---------- */
   await goto('/edit');

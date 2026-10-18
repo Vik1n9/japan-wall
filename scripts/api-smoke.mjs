@@ -693,6 +693,212 @@ async function checkAssetRange(base, label) {
 }
 await checkAssetRange(BASE, '後台');
 
+// ---------- 刪除帳號（兩種模式）：無內容立即刪、有內容軟刪除 30 天後排程清除、可恢復 ----------
+const delUser = `del-${tag}`;        // 帳號 A：有內容
+const pureUser = `pure-${tag}`;      // 帳號 B：沒有內容
+const delPw = `Del-${tag}-pw-2026`;
+const delClient = client();          // A 的 client（B 用既有的 user client）
+let delCmtId = null, delEmaId = null, delPhoto = null, delVideo = null;
+let keepReplyId = null, photoCmtId2 = null;
+{
+  /* 無內容帳號：DELETE 立刻硬刪 */
+  r = await admin('POST', '/api/users', { body: { username: pureUser, displayName: '無內容帳號' } });
+  check('建立無內容帳號 → 201', r.status === 201, String(r.status));
+  const purePw = r.data.password;
+  r = await admin('GET', `/api/users/${pureUser}/content`);
+  check('無內容帳號的預覽數量都是 0', r.status === 200 && r.data.photos === 0 && r.data.videos === 0 && r.data.comments === 0 && r.data.emas === 0, JSON.stringify(r.data));
+  r = await admin('DELETE', `/api/users/${pureUser}`);
+  check('無內容 DELETE → mode: deleted（不用 confirm）', r.status === 200 && r.data.mode === 'deleted', `${r.status} ${JSON.stringify(r.data)}`);
+  r = await admin('GET', '/api/users');
+  check('無內容帳號刪除後不在帳號清單', !r.data.users.some((u) => u.username === pureUser));
+  r = await client()('POST', '/api/login', { body: { username: pureUser, password: purePw } });
+  check('無內容帳號刪除後無法登入 → 401', r.status === 401, String(r.status));
+
+  /* 帳號 A：建立、改密碼、放內容（照片、影片、留言、繪馬） */
+  r = await admin('POST', '/api/users', { body: { username: delUser, displayName: '刪除測試A' } });
+  check('建立有內容帳號 A → 201', r.status === 201, String(r.status));
+  const firstPw = r.data.password;
+  r = await delClient('POST', '/api/login', { body: { username: delUser, password: firstPw } });
+  check('A 登入 → 需先改密碼', r.status === 200 && r.data.me?.mustChangePw === true, JSON.stringify(r.data));
+  r = await delClient('POST', '/api/change-password', { body: { currentPassword: firstPw, newPassword: delPw } });
+  check('A 改密碼 → 200', r.status === 200, JSON.stringify(r.data));
+
+  r = await delClient('POST', '/api/posts', { body: { kind: 'comment', target: 'JP-01-01', body: 'A 的留言', by: 'A' } });
+  check('A 在展品留言 → 201', r.status === 201, JSON.stringify(r.data));
+  delCmtId = r.data.post?.id;
+  r = await delClient('POST', '/api/posts', { body: { kind: 'ema', target: '2026-10-07', body: 'A 的繪馬', by: 'A' } });
+  check('A 掛繪馬 → 201', r.status === 201, JSON.stringify(r.data));
+  delEmaId = r.data.post?.id;
+
+  const photoForm = new FormData();
+  photoForm.append('file', new Blob([jpeg], { type: 'image/jpeg' }), 'a.jpg');
+  photoForm.append('day', '2026-10-06');
+  photoForm.append('caption', 'A 的照片');
+  r = await delClient('POST', '/api/photos', { form: photoForm });
+  check('A 上傳照片 → 201', r.status === 201, JSON.stringify(r.data));
+  delPhoto = r.data.photo ?? null;
+
+  const vdir = mkdtempSync(join(tmpdir(), 'kura-delvid-'));
+  const vfile = join(vdir, 'a.mp4');
+  execFileSync('ffmpeg', ['-v', 'error', '-y',
+    '-f', 'lavfi', '-i', 'testsrc=size=320x240:rate=30',
+    '-f', 'lavfi', '-i', 'sine=frequency=330:sample_rate=48000',
+    '-t', '1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', vfile]);
+  const poster = await sharp({ create: { width: 32, height: 24, channels: 3, background: '#553377' } }).jpeg().toBuffer();
+  const videoForm = new FormData();
+  videoForm.append('kind', 'video');
+  videoForm.append('file', new Blob([readFileSync(vfile)], { type: 'video/mp4' }), 'a.mp4');
+  videoForm.append('poster', new Blob([poster], { type: 'image/jpeg' }), 'a-poster.jpg');
+  videoForm.append('day', '2026-10-07');
+  videoForm.append('caption', 'A 的影片');
+  r = await delClient('POST', '/api/photos', { form: videoForm });
+  check('A 上傳影片 → 201', r.status === 201, JSON.stringify(r.data));
+  delVideo = r.data.photo ?? null;
+
+  /* 帳號 B（user client）：回覆 A 的留言（target 是展品 → 之後仍要公開）
+     並在 A 的照片上留言（目標被隱藏 → 之後不公開） */
+  r = await user('POST', '/api/posts', { body: { kind: 'comment', target: 'JP-01-01', replyTo: delCmtId, body: 'B 回覆 A 的留言', by: 'B' } });
+  check('B 回覆 A 的留言 → 201', r.status === 201, JSON.stringify(r.data));
+  keepReplyId = r.data.post?.id;
+  r = await user('POST', '/api/posts', { body: { kind: 'comment', target: delPhoto?.id, body: 'B 在 A 的照片上留言', by: 'B' } });
+  check('B 在 A 的照片上留言 → 201', r.status === 201, JSON.stringify(r.data));
+  photoCmtId2 = r.data.post?.id;
+
+  /* 預覽：只算 live 內容 */
+  r = await admin('GET', `/api/users/${delUser}/content`);
+  check('A 的預覽數量正確（照片 1、影片 1、留言 1、繪馬 1）',
+    r.status === 200 && r.data.photos === 1 && r.data.videos === 1 && r.data.comments === 1 && r.data.emas === 1,
+    JSON.stringify(r.data));
+
+  /* DELETE 不帶 confirm → 409 且什麼都沒做 */
+  r = await admin('DELETE', `/api/users/${delUser}`);
+  check('有內容 DELETE 不帶 confirm → 409 並附數量',
+    r.status === 409 && r.data.mode === undefined && r.data.content?.photos === 1 && r.data.content?.videos === 1
+    && r.data.content?.comments === 1 && r.data.content?.emas === 1, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await client()('POST', '/api/login', { body: { username: delUser, password: delPw } });
+  check('409 之後 A 仍能登入（沒有動任何東西）', r.status === 200, JSON.stringify(r.data));
+  r = await admin('GET', `/api/users/${delUser}/content`);
+  check('409 之後內容數量不變', r.data.photos === 1 && r.data.videos === 1, JSON.stringify(r.data));
+
+  /* DELETE 帶 confirm → 軟刪除 */
+  r = await admin('DELETE', `/api/users/${delUser}`, { body: { confirm: 'content' } });
+  const purgeAt = r.data.purgeAt;
+  const wantDay = new Date(Date.now() + 30 * 86400_000 + 8 * 3600_000).toISOString().slice(0, 10);
+  check('有內容 DELETE 帶 confirm → 200 mode: scheduled', r.status === 200 && r.data.mode === 'scheduled', `${r.status} ${JSON.stringify(r.data)}`);
+  check('purgeAt 約為 30 天後', typeof purgeAt === 'string' && purgeAt.slice(0, 10) === wantDay, `${purgeAt} vs ${wantDay}`);
+
+  /* 軟刪除期間：不能登入、session 失效、media 404、內容完全不公開 */
+  r = await delClient('GET', '/api/me');
+  check('軟刪除後 A 的舊 session → 401', r.status === 401, String(r.status));
+  r = await client()('POST', '/api/login', { body: { username: delUser, password: delPw } });
+  check('軟刪除後 A 登入 → 401（與密碼錯誤相同）', r.status === 401 && r.data.error === '帳號或密碼錯誤', `${r.status} ${JSON.stringify(r.data)}`);
+  check('軟刪除後 A 的照片 media → 404', !!delPhoto && (await fetch(`${BASE}/api/media/${delPhoto.key}`)).status === 404);
+  check('軟刪除後 A 的影片 media → 404', !!delVideo && (await fetch(`${BASE}/api/media/${delVideo.key}`)).status === 404);
+  check('軟刪除後 A 的影片封面 media → 404', !!delVideo?.posterKey && (await fetch(`${BASE}/api/media/${delVideo.posterKey}`)).status === 404);
+
+  r = await client()('GET', '/api/public/wall', { origin: null });
+  let wall = r.data;
+  check('軟刪除後 A 的照片與影片不在公開牆', ![delPhoto?.id, delVideo?.id].some((id) => wall.photos.some((p) => p.id === id)));
+  check('軟刪除後 A 的留言與繪馬不在公開牆', ![delCmtId, delEmaId].some((id) => wall.posts.some((p) => p.id === id)));
+  check('軟刪除後 B 在 A 照片上的留言也不公開', !wall.posts.some((p) => p.id === photoCmtId2));
+  check('B 對 A 留言的回覆仍在公開牆', wall.posts.some((p) => p.id === keepReplyId), JSON.stringify(wall.posts.filter((p) => p.id === keepReplyId)));
+
+  r = await admin('GET', '/api/photos');
+  check('軟刪除後 A 的照片不在編輯清單 /api/photos', ![delPhoto?.id, delVideo?.id].some((id) => r.data.photos.some((p) => p.id === id)));
+  r = await admin('GET', '/api/posts');
+  check('軟刪除後 A 的投稿不在編輯清單 /api/posts', ![delCmtId, delEmaId].some((id) => r.data.posts.some((p) => p.id === id)));
+
+  r = await user('POST', '/api/posts', { body: { kind: 'comment', target: 'JP-01-01', replyTo: delCmtId, body: 'B 再回覆', by: 'B' } });
+  check('B 不能再回覆 A 的留言 → 400', r.status === 400, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await user('POST', '/api/posts', { body: { kind: 'comment', target: delPhoto?.id, body: 'B 再對 A 照片留言', by: 'B' } });
+  check('B 不能再對 A 的照片留言 → 400', r.status === 400, `${r.status} ${JSON.stringify(r.data)}`);
+
+  r = await admin('DELETE', `/api/users/${delUser}`);
+  check('已軟刪除再 DELETE → 409', r.status === 409, `${r.status} ${JSON.stringify(r.data)}`);
+
+  r = await admin('GET', '/api/users');
+  const listRow = r.data.users.find((u) => u.username === delUser);
+  check('/api/users 帶待刪除狀態（deletedAt、purgeAt）', !!listRow?.deletedAt && /^\d{4}-\d{2}-\d{2}/.test(listRow?.purgeAt || ''), JSON.stringify(listRow));
+
+  /* restore → 一切回到原樣 */
+  r = await admin('POST', `/api/users/${delUser}/restore`);
+  check('restore → 200', r.status === 200, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await admin('POST', `/api/users/${delUser}/restore`);
+  check('非待刪除狀態 restore → 409', r.status === 409, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await client()('POST', '/api/login', { body: { username: delUser, password: delPw } });
+  check('restore 後 A 能登入', r.status === 200, JSON.stringify(r.data));
+  check('restore 後 A 的 media → 200', !!delPhoto && (await fetch(`${BASE}/api/media/${delPhoto.key}`)).status === 200);
+  r = await client()('GET', '/api/public/wall', { origin: null });
+  wall = r.data;
+  check('restore 後 A 的照片回到公開牆', wall.photos.some((p) => p.id === delPhoto?.id));
+  check('restore 後 A 的留言與繪馬回到公開牆', wall.posts.some((p) => p.id === delCmtId) && wall.posts.some((p) => p.id === delEmaId));
+  check('restore 後 B 在 A 照片上的留言也回到公開牆', wall.posts.some((p) => p.id === photoCmtId2));
+
+  /* 權限與邊界 */
+  r = await admin('DELETE', `/api/users/${ADMIN}`);
+  check('admin 刪自己 → 400', r.status === 400, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await user('DELETE', `/api/users/${delUser}`);
+  check('非 admin 呼叫 DELETE → 403', r.status === 403, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await user('POST', `/api/users/${delUser}/restore`);
+  check('非 admin 呼叫 restore → 403', r.status === 403, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await admin('DELETE', `/api/users/nobody-${tag}`);
+  check('刪不存在的帳號 → 404', r.status === 404, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await admin('POST', `/api/users/nobody-${tag}/restore`);
+  check('restore 不存在的帳號 → 404', r.status === 404, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await admin('GET', `/api/users/nobody-${tag}/content`);
+  check('預覽不存在的帳號 → 404', r.status === 404, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await admin('DELETE', `/api/users/${delUser}`, { origin: null });
+  check('刪除帳號沒有 Origin → 403', r.status === 403, String(r.status));
+
+  /* 另一位 active 管理員可刪（自己是另一位，還有自己）：最後管理員保護不誤擋 */
+  const adm2 = `adm2-${tag}`;
+  r = await admin('POST', '/api/users', { body: { username: adm2, displayName: '第二位管理員', role: 'admin' } });
+  check('建立第二位管理員 → 201', r.status === 201, String(r.status));
+  r = await admin('DELETE', `/api/users/${adm2}`);
+  check('刪除另一位管理員（還有自己）→ 200 mode: deleted', r.status === 200 && r.data.mode === 'deleted', `${r.status} ${JSON.stringify(r.data)}`);
+}
+
+// ---------- 30 天排程清除（需 KURA_TEST_SCHEDULED=1；後台要以 --test-scheduled 啟動） ----------
+if (process.env.KURA_TEST_SCHEDULED === '1') {
+  // 再軟刪 A，並把 deleted_at 改成 31 天前，觸發排程
+  r = await admin('DELETE', `/api/users/${delUser}`, { body: { confirm: 'content' } });
+  check('排程測試：再次軟刪 A → scheduled', r.status === 200 && r.data.mode === 'scheduled', `${r.status} ${JSON.stringify(r.data)}`);
+
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+  const oldIso = new Date(Date.now() - 31 * 86400_000 + 8 * 3600_000).toISOString().replace('Z', '+08:00');
+  const sql = `UPDATE users SET deleted_at = '${oldIso}' WHERE username = '${delUser}'`;
+  const runD1 = (dbName) => execFileSync('npx', ['--yes', 'wrangler@4', 'd1', 'execute', dbName, '-c', 'wrangler.back.jsonc', '--local', '--command', sql], { cwd: root, stdio: 'pipe' });
+  try { runD1('DB'); } catch { runD1('osaka2026'); } // binding 名稱優先，不行就用資料庫名稱
+  check('排程測試：已把 A 的 deleted_at 改成 31 天前', true, '');
+
+  const sres = await fetch(`${BASE}/__scheduled?cron=${encodeURIComponent('17 19 * * *')}`);
+  await sres.arrayBuffer();
+  check('排程端點 /__scheduled → 200', sres.status === 200, String(sres.status));
+
+  r = await admin('GET', `/api/users/${delUser}/content`);
+  check('排程後 A 的帳號不存在 → 404', r.status === 404, String(r.status));
+  r = await admin('GET', '/api/photos');
+  check('排程後 A 的照片與影片列已刪', ![delPhoto?.id, delVideo?.id].some((id) => r.data.photos.some((p) => p.id === id)));
+  r = await admin('GET', '/api/posts');
+  check('排程後 A 的投稿列已刪', ![delCmtId, delEmaId].some((id) => r.data.posts.some((p) => p.id === id)));
+  check('排程後 A 的 R2 物件已刪（media → 404）', !!delPhoto && (await fetch(`${BASE}/api/media/${delPhoto.key}`)).status === 404
+    && !!delVideo && (await fetch(`${BASE}/api/media/${delVideo.key}`)).status === 404);
+  r = await client()('GET', '/api/public/wall', { origin: null });
+  check('排程後 B 對 A 留言的回覆仍在公開牆', r.data.posts.some((p) => p.id === keepReplyId));
+} else {
+  console.log('略過 30 天排程清除測試（設 KURA_TEST_SCHEDULED=1 且後台以 --test-scheduled 啟動才會跑）');
+}
+
+// ---------- 刪除測試收尾 ----------
+for (const id of [keepReplyId, photoCmtId2].filter(Boolean)) await admin('DELETE', `/api/posts/${id}`);
+if (process.env.KURA_TEST_SCHEDULED !== '1') {
+  // 本機殘留清理：先把 A 的內容從牆上移除，再硬刪（沒 live 內容 → mode deleted）
+  for (const id of [delPhoto?.id, delVideo?.id].filter(Boolean)) await admin('DELETE', `/api/photos/${id}`);
+  for (const id of [delCmtId, delEmaId].filter(Boolean)) await admin('DELETE', `/api/posts/${id}`);
+  r = await admin('DELETE', `/api/users/${delUser}`);
+  check('清理：內容移除後硬刪 A → mode: deleted', r.status === 200 && r.data.mode === 'deleted', `${r.status} ${JSON.stringify(r.data)}`);
+}
+
 // ---------- 收尾 ----------
 if (photo) {
   r = await admin('DELETE', `/api/photos/${photo.id}`);

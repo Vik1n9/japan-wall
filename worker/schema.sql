@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS users (
   status         TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'disabled')),
   must_change_pw INTEGER NOT NULL DEFAULT 0,
   created_at     TEXT NOT NULL,            -- ISO 8601（+08:00）
-  last_login_at  TEXT                      -- 最近一次登入成功；null＝還沒登入過
+  last_login_at  TEXT,                     -- 最近一次登入成功；null＝還沒登入過
+  deleted_at     TEXT                      -- 軟刪除時刻（ISO 8601 +08:00）；null＝正常。滿 30 天由排程永久刪除，清掉即恢復
 );
 
 CREATE TABLE IF NOT EXISTS sessions (

@@ -1,6 +1,8 @@
-// 帳號管理（僅 admin）：GET/POST /api/users、PATCH /api/users/:username。
+// 帳號管理（僅 admin）：GET/POST /api/users、GET /api/users/:username/content、
+// PATCH（改狀態／角色／名稱／密碼）、DELETE（無內容立即刪／有內容軟刪除）與 POST .../restore。
 import { json, nowTaipeiIso, randomPassword, safeDecode } from '../lib/util';
 import { destroyAllSessions, hashPassword, type UserRow } from '../lib/auth';
+import { hardDeleteUser, purgeAtFor } from '../lib/user-purge';
 import { MIN_PASSWORD, readJsonBody, type AuthedCtx } from '../lib/http';
 
 const USERNAME_RE = /^[a-z0-9_.-]{2,32}$/; // 與 scripts/admin-create.mjs 相同
@@ -15,11 +17,11 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
   /* GET /api/users — 帳號列表 */
   if (method === 'GET' && url.pathname === '/api/users') {
     const { results } = await env.DB.prepare(
-      `SELECT username, display_name, role, status, must_change_pw, created_at, last_login_at
+      `SELECT username, display_name, role, status, must_change_pw, created_at, last_login_at, deleted_at
        FROM users ORDER BY created_at ASC`,
     ).all<{
       username: string; display_name: string; role: string; status: string;
-      must_change_pw: number; created_at: string; last_login_at: string | null;
+      must_change_pw: number; created_at: string; last_login_at: string | null; deleted_at: string | null;
     }>();
     return json({
       users: (results || []).map((u) => ({
@@ -30,6 +32,8 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
         mustChangePw: u.must_change_pw === 1,
         createdAt: u.created_at,
         lastLoginAt: u.last_login_at,
+        deletedAt: u.deleted_at,
+        purgeAt: u.deleted_at ? purgeAtFor(u.deleted_at) : null, // 軟刪除期滿、排程會永久刪除的時刻
       })),
     });
   }
@@ -68,6 +72,33 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
       .bind(username, displayName, hash, role, iso)
       .run();
     return json({ ok: true, username, ...(generated ? { password } : {}) }, 201);
+  }
+
+  /* GET /api/users/:username/content — 刪除前預覽：該帳號目前有多少「公開中」的內容。
+   *  只算 status='live'（已從牆上移除的列不會被公開，刪除模式由 live 數決定）。 */
+  const contentMatch = url.pathname.match(/^\/api\/users\/([^/]+)\/content$/);
+  if (method === 'GET' && contentMatch) {
+    const target = (safeDecode(contentMatch[1]) ?? '').toLowerCase();
+    const exists = await env.DB.prepare(`SELECT username FROM users WHERE username = ?1`).bind(target).first();
+    if (!exists) return json({ error: '帳號不存在' }, 404);
+    const [media, posts] = await Promise.all([
+      env.DB.prepare(
+        `SELECT SUM(CASE WHEN kind = 'video' THEN 1 ELSE 0 END) AS videos,
+                SUM(CASE WHEN kind = 'video' THEN 0 ELSE 1 END) AS photos
+         FROM photos WHERE author = ?1 AND status = 'live'`,
+      ).bind(target).first<{ videos: number | null; photos: number | null }>(),
+      env.DB.prepare(
+        `SELECT SUM(CASE WHEN kind = 'ema' THEN 1 ELSE 0 END) AS emas,
+                SUM(CASE WHEN kind = 'ema' THEN 0 ELSE 1 END) AS comments
+         FROM posts WHERE author = ?1 AND status = 'live'`,
+      ).bind(target).first<{ emas: number | null; comments: number | null }>(),
+    ]);
+    return json({
+      photos: media?.photos ?? 0,
+      videos: media?.videos ?? 0,
+      comments: posts?.comments ?? 0,
+      emas: posts?.emas ?? 0,
+    });
   }
 
   /* PATCH /api/users/:username — 重設密碼、停用/啟用、改角色、改顯示名稱 */
@@ -144,6 +175,85 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
       await env.DB.prepare(`DELETE FROM login_attempts WHERE key LIKE ?1 ESCAPE '\\'`).bind(`${escaped}|%`).run();
     }
     return json({ ok: true, ...(newPassword !== null ? { password: newPassword } : {}) });
+  }
+
+  /* POST /api/users/:username/restore — 取消軟刪除：清掉 deleted_at，帳號回到刪除前的狀態
+   *  （軟刪除不動 status，所以清掉即恢復），內容也重新公開。 */
+  const restoreMatch = url.pathname.match(/^\/api\/users\/([^/]+)\/restore$/);
+  if (method === 'POST' && restoreMatch) {
+    const target = (safeDecode(restoreMatch[1]) ?? '').toLowerCase();
+    const row = await env.DB.prepare(`SELECT username, deleted_at FROM users WHERE username = ?1`)
+      .bind(target)
+      .first<{ username: string; deleted_at: string | null }>();
+    if (!row) return json({ error: '帳號不存在' }, 404);
+    if (row.deleted_at === null) return json({ error: '帳號不在待刪除狀態' }, 409);
+    await env.DB.prepare(`UPDATE users SET deleted_at = NULL WHERE username = ?1`).bind(target).run();
+    return json({ ok: true });
+  }
+
+  /* DELETE /api/users/:username — 刪除帳號，依「實際內容數」決定兩種做法（不信任前端）：
+   *   沒有內容（四項 live 都是 0）→ 立刻硬刪。
+   *   有內容 → 沒有帶 { confirm: 'content' } 就 409 並附上數量；有帶才軟刪除（30 天後排程清除）。
+   *  軟刪除中的帳號再呼叫則 409（要先 restore 或等排程）。 */
+  const delMatch = url.pathname.match(/^\/api\/users\/([^/]+)$/);
+  if (method === 'DELETE' && delMatch) {
+    const target = (safeDecode(delMatch[1]) ?? '').toLowerCase();
+    if (target === session.user.username) return json({ error: '不可刪除自己的帳號' }, 400);
+    const row = await env.DB.prepare(`SELECT username, role, status, deleted_at FROM users WHERE username = ?1`)
+      .bind(target)
+      .first<{ username: string; role: string; status: string; deleted_at: string | null }>();
+    if (!row) return json({ error: '帳號不存在' }, 404);
+    if (row.deleted_at !== null) return json({ error: '帳號已在待刪除狀態，請先恢復或等排程清除' }, 409);
+
+    // 沿用 PATCH 的防鎖死：不可刪掉最後一位可用（active 且未刪除）管理員。
+    // 刪自己已在上方擋掉，所以呼叫者本身一定是 active admin，這裡實質上是保險。
+    if (row.role === 'admin' && row.status === 'active') {
+      const others = await env.DB.prepare(
+        `SELECT COUNT(*) AS n FROM users WHERE role = 'admin' AND status = 'active' AND deleted_at IS NULL AND username != ?1`,
+      ).bind(target).first<{ n: number }>();
+      if (!others || others.n < 1) return json({ error: '不可刪除最後一位管理員' }, 400);
+    }
+
+    // 實際內容數（live）由伺服器算；介面顯示的數字只是提示，不能拿來決定模式
+    const [media, posts] = await Promise.all([
+      env.DB.prepare(
+        `SELECT SUM(CASE WHEN kind = 'video' THEN 1 ELSE 0 END) AS videos,
+                SUM(CASE WHEN kind = 'video' THEN 0 ELSE 1 END) AS photos
+         FROM photos WHERE author = ?1 AND status = 'live'`,
+      ).bind(target).first<{ videos: number | null; photos: number | null }>(),
+      env.DB.prepare(
+        `SELECT SUM(CASE WHEN kind = 'ema' THEN 1 ELSE 0 END) AS emas,
+                SUM(CASE WHEN kind = 'ema' THEN 0 ELSE 1 END) AS comments
+         FROM posts WHERE author = ?1 AND status = 'live'`,
+      ).bind(target).first<{ emas: number | null; comments: number | null }>(),
+    ]);
+    const content = {
+      photos: media?.photos ?? 0,
+      videos: media?.videos ?? 0,
+      comments: posts?.comments ?? 0,
+      emas: posts?.emas ?? 0,
+    };
+    const hasContent = content.photos + content.videos + content.comments + content.emas > 0;
+
+    if (!hasContent) {
+      // 沒有內容：立刻硬刪（沒有 live 內容，剩下的列都是先前已移除的，R2 檔案也已刪過）
+      await hardDeleteUser(env, target);
+      return json({ ok: true, mode: 'deleted' });
+    }
+
+    const body = await readJsonBody(request);
+    if (body?.confirm !== 'content') {
+      return json({ error: '帳號仍有內容，需確認連同內容一起刪除', content }, 409);
+    }
+
+    // 有內容且已確認：軟刪除。deleted_at 設現在時刻、立刻刪掉所有 session 讓它登出，
+    // 內容與 R2 物件都保留，30 天後由排程永久刪除；清掉 deleted_at 即可完全恢復。
+    const { iso } = nowTaipeiIso();
+    await env.DB.batch([
+      env.DB.prepare(`UPDATE users SET deleted_at = ?1 WHERE username = ?2`).bind(iso, target),
+      env.DB.prepare(`DELETE FROM sessions WHERE username = ?1`).bind(target),
+    ]);
+    return json({ ok: true, mode: 'scheduled', purgeAt: purgeAtFor(iso) });
   }
 
   return json({ error: '找不到此 API 路徑' }, 404);

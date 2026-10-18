@@ -11,18 +11,19 @@ export function json(data: unknown, status = 200, headers: Record<string, string
   });
 }
 
+/** 任意時刻（epoch ms）轉成台北時區（+08:00）的 ISO 字串，格式與 nowTaipeiIso 相同。
+ *  ISO 字串一律帶同一個位移，才能直接拿來做字串大小比較（排程清除的 cutoff）。 */
+export function isoFromMs(ms: number): string {
+  const d = new Date(ms + 8 * 3600_000);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}T${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}+08:00`;
+}
+
 /** 台北時區（+08:00）的 ISO 時間與日期前綴，沿用舊系統慣例 */
 export function nowTaipeiIso(): { iso: string; ymd: string; datePrefix: string } {
-  const ms = Date.now() + 8 * 3600_000;
-  const d = new Date(ms);
-  const yyyy = d.getUTCFullYear();
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(d.getUTCDate()).padStart(2, '0');
-  const hh = String(d.getUTCHours()).padStart(2, '0');
-  const mi = String(d.getUTCMinutes()).padStart(2, '0');
-  const ss = String(d.getUTCSeconds()).padStart(2, '0');
-  const datePrefix = `${yyyy}-${mm}-${dd}`;
-  return { iso: `${datePrefix}T${hh}:${mi}:${ss}+08:00`, ymd: `${yyyy}${mm}${dd}`, datePrefix };
+  const iso = isoFromMs(Date.now());
+  const datePrefix = iso.slice(0, 10);
+  return { iso, ymd: datePrefix.replaceAll('-', ''), datePrefix };
 }
 
 const BASE36 = '0123456789abcdefghijklmnopqrstuvwxyz';

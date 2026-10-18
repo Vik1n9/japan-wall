@@ -223,6 +223,15 @@ japan-wall/
 
 - **雙網域**：前台 `osaka2026.voriens.dev`（Worker `osaka2026`，零登入痕跡，`/api/*`、`/edit*`、`/admin*` 一律 404，只開 `/api/public/wall` 與 `/api/media/*`）；後台 `kura.osaka2026.voriens.dev`（Worker `osaka2026-kura`，完整 API＋`/edit`＋`/admin`）。兩者共用同一個 D1（`osaka2026`）與 R2（`osaka2026-uploads`）。
 - **帳號**：由管理員在 `/admin` 發放（不開放註冊）；新帳號或被重設密碼都必須先改密碼，API 層也會擋。密碼 PBKDF2-SHA256 10 萬次（Cloudflare 正式環境的上限，2026-10-18 從 15 萬次調降）；session 是隨機 token、D1 只存雜湊；同帳號＋IP 失敗 5 次鎖 15 分鐘；所有變更請求檢查 Origin。
+- **刪除帳號（兩種）**（2026-10-19）：打錯字或不要的帳號，管理員可在 `/admin` 刪除。`GET /api/users/:username/content` 回傳該帳號公開中的照片／影片／留言／繪馬數量（供介面提示）。`DELETE /api/users/:username` **由伺服器依實際內容數決定做法，不信任前端**：
+  - **沒有內容**（四項都是 0）：立刻硬刪，回 `{ ok: true, mode: 'deleted' }`。
+  - **有內容**：request body 沒有 `{ "confirm": "content" }` 就回 409 並附上數量、什麼都不做；有帶才**軟刪除**（`users.deleted_at` 設成現在、刪掉它的 sessions 立刻登出），回 `{ ok: true, mode: 'scheduled', purgeAt }`。內容與 R2 物件都保留。
+  - `POST /api/users/:username/restore`（僅 admin）清掉 `deleted_at`，帳號回到刪除前的 `status`、內容重新公開。不是待刪除狀態回 409。
+  - 硬刪範圍：R2 物件（照片／影片本體、影片封面，失敗非致命並記 log）、`photos`／`posts` 列、sessions、`login_attempts`（用 `LIKE … ESCAPE '\'` 只刪 `<username>|…`，不碰 IP 層的 `#ip|…`）、最後 `users` 列；D1 用一次 `batch`（原子性）。
+  - 不可刪自己（400），也不可刪最後一位 active 且未刪除的管理員（400），帳號不存在 404；已是待刪除狀態再呼叫 409。
+  - `/admin` 介面：刪除鈕兩段或三段確認（沒有內容＝兩段；有內容＝按一次顯示數量、再按顯示「隱藏內容並在 30 天後永久刪除？」、第三次才送出），任何一段 4 秒內沒按就回原狀；待刪除的列只剩**恢復**鈕。
+- **軟刪除期間（待刪除）**：帳號**不能登入**（回應與密碼錯誤相同，`getSessionUser` 也擋）、內容完全不公開。隱藏條件集中在 `worker/lib/visibility.ts`：`authorVisible`／`photoVisible`／`postVisible`／`mediaOwnerVisible`，公開牆（`worker/lib/public.ts`）、`/api/media/*`、編輯清單（`worker/routes/photos.ts`、`posts.ts`）、投稿與回覆的目標檢查（`posts.ts`）、`/admin` 內容審核都引用同一份，不各寫一套。別人回覆在被隱藏帳號留言底下的回覆，因 target 仍是原展品／繪馬而照舊公開（牆把父留言不見的回覆當頂層顯示）；別人留在被隱藏照片／繪馬上的留言則因目標不公開而不公開，也不能再對它留言或回覆。資料表與 R2 物件在軟刪除期間都不動，恢復後完全原樣。
+- **30 天後永久刪除**：`worker/lib/user-purge.ts` 的 `purgeDeletedUsers`（`USER_PURGE_DAYS = 30`）由 `worker/back.ts` 的每日排程（UTC 19:17）呼叫，找 `deleted_at` 早於 30 天前的帳號逐一硬刪。排程的兩個清理（登入紀錄、待刪除帳號）各自 try/catch，一個失敗不擋另一個。
 - **照片上傳**：`/edit` 抽屜上傳，瀏覽器先讀出 EXIF 的拍攝時刻（DateTimeOriginal，只讀這一欄），再縮圖（長邊 ≤2048）抹 EXIF，伺服器再剝一次 metadata；每人每天 20 張（含已刪除）。選檔時依拍攝時刻（30 小時制）自動選好掛哪一天。上傳即公開。
 - **所有人同等級**（2026-10-18，Viking 決定）：不再分「親友照片」。上傳的照片依拍攝時刻插進當天的展品之間（插在第一個最早時刻晚於它的展品欄前面），外觀與展品相同（畫框＋圖說），圖說標上傳者；66 件展品來自團體相簿、拍攝者不明，所以不標拍攝者。讀不到拍攝時刻的照片排在當天最後（依上傳時間）。說明卡顯示拍攝時刻（30 小時制），沒有就寫「時刻待補」，與展品相同。展品欄是人工策展，照片另開欄插入，不拆開展品欄。
 - **版面規則**：照片與繪馬每欄最多兩個（跟展品欄一致），多的往右加欄。照片欄高度不得超過全牆最高的策展展品欄（以 scale 1 量內容高度），超過就依照片比例把該欄從 240px 縮窄、最窄 120px，所以牆高與 `--wall-scale` 只由展品決定。

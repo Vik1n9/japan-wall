@@ -46,8 +46,10 @@ export async function login({ request, env }: Ctx): Promise<Response> {
     .bind(username)
     .first<UserRow>();
 
-  // 帳號不存在也走一次雜湊（verifyPassword 收到空值會比對假雜湊），避免用回應時間分辨帳號是否存在
-  if (!(await verifyPassword(password, user?.password_hash)) || !user) {
+  // 帳號不存在也走一次雜湊（verifyPassword 收到空值會比對假雜湊），避免用回應時間分辨帳號是否存在。
+  // 軟刪除中的帳號與「密碼錯誤」回應完全相同，不透露帳號是否還存在。
+  const passwordOk = await verifyPassword(password, user?.password_hash);
+  if (!user || user.deleted_at !== null || !passwordOk) {
     await recordLoginFailure(env.DB, lockKey);
     await recordIpLoginFailure(env.DB, ip);
     return json({ error: '帳號或密碼錯誤' }, 401);

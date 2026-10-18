@@ -19,6 +19,7 @@ export interface UserRow {
   status: 'active' | 'disabled';
   must_change_pw: number;
   created_at: string;
+  deleted_at: string | null; // 軟刪除時刻（ISO +08:00）；null＝正常
 }
 
 export interface SessionUser {
@@ -109,13 +110,14 @@ export async function getSessionUser(db: D1Database, request: Request): Promise<
   const { iso } = nowTaipeiIso();
   const row = await db
     .prepare(
-      `SELECT u.username, u.display_name, u.role, u.status, u.must_change_pw
+      `SELECT u.username, u.display_name, u.role, u.status, u.must_change_pw, u.deleted_at
        FROM sessions s JOIN users u ON u.username = s.username
        WHERE s.token_hash = ?1 AND s.expires_at > ?2`,
     )
     .bind(tokenHash, iso)
-    .first<{ username: string; display_name: string; role: 'admin' | 'user'; status: string; must_change_pw: number }>();
-  if (!row || row.status !== 'active') return null;
+    .first<{ username: string; display_name: string; role: 'admin' | 'user'; status: string; must_change_pw: number; deleted_at: string | null }>();
+  // 軟刪除中的帳號一律視為沒有 session（登入時也擋，這裡是雙保險）
+  if (!row || row.status !== 'active' || row.deleted_at !== null) return null;
   return {
     user: { username: row.username, displayName: row.display_name, role: row.role, mustChangePw: row.must_change_pw === 1 },
     tokenHash,
