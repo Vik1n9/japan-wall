@@ -15,10 +15,7 @@
 
 2026-10-18 已完成 Cloudflare 設定與部署；Viking 已登入、建好親友帳號，試傳照片與繪馬都正常。之後的例行部署照 README「部署」一節，部署前先問 Viking。
 
-- [ ] **部署「所有人同等級」改版**（本機 test:api 46/46、test:ui 49/49 通過，尚未上線）。順序不能換：
-  1. 正式資料庫加欄位：`npx --yes wrangler@4 d1 execute osaka2026 -c wrangler.back.jsonc --remote --file=worker/migrations/001-photos-taken-at.sql`
-  2. `npm run deploy:back`，再 `npm run deploy`
-  3. 上線檢查：桌機與手機看一次有照片的那天、開一張照片說明卡、試留言。
+- [x] **「所有人同等級」改版已上線**（2026-10-18）：遠端 migration `001-photos-taken-at` 已跑，兩個 Worker 已部署。上線檢查：桌機 10-07 的 4 張照片分兩欄、欄高低於展品欄，說明卡正常；手機牆面與閱讀模式無橫向溢出；前台仍無後台路徑。
 - [ ] 改版前上傳的照片沒有拍攝時刻，上線後會排在當天最後。要插到正確時間點得刪掉重傳（重傳時會讀 EXIF）。
 - [ ] 確認 `~/Documents/kura-admin-viking.txt` 已刪除（密碼改過之後就用不到）。
 - 忘記密碼：`npm run admin:create -- viking Viking` 重設。新密碼只印一次，**不要貼在對話裡**，寫進檔案再告訴 Viking 路徑。
