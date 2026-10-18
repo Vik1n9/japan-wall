@@ -68,8 +68,16 @@ export function me({ session }: AuthedCtx): Response {
   return json({ me: mePayload(session.user) });
 }
 
-/** POST /api/change-password：改完把其他裝置全部登出 */
+/** POST /api/change-password：改完把其他裝置全部登出。
+ *  目前密碼錯誤也計入限速（與登入同一套：同帳號＋IP 5 次鎖 15 分鐘，key 多一段 |pw| 分開計），
+ *  否則拿到 session cookie 的人可以無限次試目前密碼，改成功後就把真正的使用者整個鎖在門外。 */
 export async function changePassword({ request, env, session }: AuthedCtx): Promise<Response> {
+  const lockKey = `${session.user.username}|pw|${clientIp(request)}`;
+  const locked = await loginLockSeconds(env.DB, lockKey);
+  if (locked > 0) {
+    return json({ error: `失敗次數過多，請 ${Math.ceil(locked / 60)} 分鐘後再試` }, 429);
+  }
+
   const body = await readJsonBody(request);
   if (!body) return json({ error: '無效的 JSON' }, 400);
   const current = typeof body.currentPassword === 'string' ? body.currentPassword : '';
@@ -84,8 +92,10 @@ export async function changePassword({ request, env, session }: AuthedCtx): Prom
     .bind(session.user.username)
     .first<{ password_hash: string }>();
   if (!row || !(await verifyPassword(current, row.password_hash))) {
+    await recordLoginFailure(env.DB, lockKey);
     return json({ error: '目前密碼不正確' }, 403);
   }
+  await resetLoginFailures(env.DB, lockKey);
 
   const hash = await hashPassword(next);
   await env.DB

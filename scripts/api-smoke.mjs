@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const BASE = process.argv[2] || 'http://localhost:8787';
-const ORIGIN = 'http://localhost:8787';
+const ORIGIN = new URL(BASE).origin; // 跟 BASE 同埠：wrangler dev 的 Origin 白名單才不會擋
 const ADMIN = process.env.KURA_ADMIN;
 const ADMIN_PW = process.env.KURA_ADMIN_PW;
 if (!ADMIN || !ADMIN_PW) {
@@ -103,6 +103,17 @@ check('未改密碼投稿 → 403', r.status === 403 && r.data.mustChangePw === 
 const newPw = `Smoke-${tag}-Pw-2026`;
 r = await user('POST', '/api/change-password', { body: { currentPassword: tempPw, newPassword: newPw } });
 check('改密碼 → 200', r.status === 200, JSON.stringify(r.data));
+
+// 改密碼的「目前密碼」也有限速：連錯 5 次鎖 15 分鐘（防 session 被偷後被暴力改密碼鎖掉真使用者）
+{
+  let st = 0;
+  for (let i = 0; i < 5; i++) {
+    st = (await user('POST', '/api/change-password', { body: { currentPassword: `wrong-pw-${i}`, newPassword: 'Hijack-Pass-123' } })).status;
+  }
+  check('目前密碼連錯 5 次 → 403', st === 403, String(st));
+  r = await user('POST', '/api/change-password', { body: { currentPassword: newPw, newPassword: 'Hijack-Pass-123' } });
+  check('鎖定後即使密碼正確 → 429', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
+}
 
 // ---------- 投稿 ----------
 r = await user('POST', '/api/posts', { body: { kind: 'ema', target: '2026-10-05', body: '煙霧測試繪馬', by: '測試' } });
@@ -291,6 +302,49 @@ r = await user('DELETE', `/api/posts/${emaId}`);
 check('本人刪自己的繪馬 → 200', r.status === 200, JSON.stringify(r.data));
 r = await client()('GET', '/api/public/wall', { origin: null });
 check('繪馬刪除後，掛在上面的留言不再公開', !r.data.posts.some((p) => p.id === cmtId));
+
+// ---------- 帳號管理的保護與邊界 ----------
+r = await admin('PATCH', `/api/users/${ADMIN}`, { body: { status: 'disabled' } });
+check('admin 停用自己 → 400', r.status === 400, `${r.status} ${JSON.stringify(r.data)}`);
+r = await admin('PATCH', `/api/users/${ADMIN}`, { body: { role: 'user' } });
+check('admin 降級自己 → 400', r.status === 400, `${r.status} ${JSON.stringify(r.data)}`);
+r = await admin('GET', '/api/me');
+check('自我保護擋下後 admin session 仍有效', r.status === 200 && r.data.me?.role === 'admin', String(r.status));
+r = await admin('PATCH', `/api/users/nobody-${tag}`, { body: { status: 'disabled' } });
+check('PATCH 不存在的帳號 → 404', r.status === 404, String(r.status));
+r = await admin('PATCH', `/api/users/${uname}`, { body: {} });
+check('PATCH 沒有欄位 → 400', r.status === 400, String(r.status));
+{
+  const roleUser = `role-${tag}`;
+  r = await admin('POST', '/api/users', { body: { username: roleUser, displayName: '角色測試' } });
+  check('建立角色測試帳號 → 201', r.status === 201, String(r.status));
+  r = await admin('PATCH', `/api/users/${roleUser}`, { body: { role: 'admin' } });
+  check('升為管理員 → 200', r.status === 200, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await admin('PATCH', `/api/users/${roleUser}`, { body: { role: 'user' } });
+  check('降回用戶（還有其他管理員）→ 200', r.status === 200, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await admin('PATCH', `/api/users/${roleUser}`, { body: { status: 'disabled' } });
+  check('停用角色測試帳號 → 200', r.status === 200, String(r.status));
+}
+
+// ---------- 登入限速：同帳號＋IP 連錯 5 次 → 429 鎖 15 分鐘 ----------
+const lockName = `lock-${tag}`;
+r = await admin('POST', '/api/users', { body: { username: lockName, displayName: '限速測試' } });
+check('建立限速測試帳號 → 201', r.status === 201, String(r.status));
+{
+  const lockPw = r.data.password;
+  const lc = client();
+  let st = 0;
+  for (let i = 0; i < 5; i++) {
+    st = (await lc('POST', '/api/login', { body: { username: lockName, password: `bad-${i}` } })).status;
+  }
+  check('登入連錯 5 次密碼 → 401', st === 401, String(st));
+  r = await lc('POST', '/api/login', { body: { username: lockName, password: lockPw } });
+  check('第 6 次即使密碼正確 → 429 鎖定', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW } });
+  check('鎖定只針對該帳號＋IP，不影響其他帳號', r.status === 200, String(r.status));
+  r = await admin('PATCH', `/api/users/${lockName}`, { body: { status: 'disabled' } });
+  check('停用限速測試帳號 → 200', r.status === 200, String(r.status));
+}
 
 // ---------- 收尾 ----------
 if (photo) {

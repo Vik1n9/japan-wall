@@ -153,15 +153,21 @@ export async function loginLockSeconds(db: D1Database, key: string): Promise<num
 }
 
 export async function recordLoginFailure(db: D1Database, key: string): Promise<void> {
-  const row = await db.prepare(`SELECT fails FROM login_attempts WHERE key = ?1`).bind(key).first<{ fails: number }>();
-  const fails = (row?.fails ?? 0) + 1;
+  const row = await db
+    .prepare(`SELECT fails, locked_until FROM login_attempts WHERE key = ?1`)
+    .bind(key)
+    .first<{ fails: number; locked_until: string | null }>();
+  // 鎖定期已過就重新起算：規格是「失敗 5 次鎖 15 分鐘」，不是「累積滿 5 次後每次失敗都再鎖」。
+  // 不重設的話舊紀錄會永久累積，解鎖後再打錯一次密碼又立刻鎖 15 分鐘。
+  const expired = !!row?.locked_until && Date.parse(row.locked_until) <= Date.now();
+  const fails = row && !expired ? row.fails + 1 : 1;
   const lockedUntil = fails >= MAX_FAILS
     ? new Date(Date.now() + LOCK_MINUTES * 60_000 + 8 * 3600_000).toISOString().replace('Z', '+08:00')
     : null;
   await db
     .prepare(
       `INSERT INTO login_attempts (key, fails, locked_until) VALUES (?1, ?2, ?3)
-       ON CONFLICT(key) DO UPDATE SET fails = ?2, locked_until = COALESCE(?3, locked_until)`,
+       ON CONFLICT(key) DO UPDATE SET fails = ?2, locked_until = ?3`,
     )
     .bind(key, fails, lockedUntil)
     .run();
