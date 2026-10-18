@@ -125,7 +125,7 @@ posted: "2026-10-16T21:03:00+08:00"   # 投稿時間（伺服器時間），加�
 | `replyTo` | string \| null | 只有 `comment` 可以有；必須是同一個 `target` 底下的另一則留言 |
 | `by` | string | 0～20 字 |
 | `body` | string | 1～300 字 |
-| `posted` | string | ISO 8601 含時區，加引號（YAML 日期陷阱，見 README 6 節） |
+| `posted` | string | ISO 8601 含時區，加引號（YAML 日期陷阱，見 docs/decisions.md 第 6 節） |
 
 **編號**：`n-<YYYYMMDD>-<4 碼小寫英數>`，例如 `n-20261016-7k2q`。投稿當下由 Worker 產生，D1 與 YAML 用同一個編號，從頭到尾不變［預設］。
 

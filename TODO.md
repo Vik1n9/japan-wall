@@ -1,6 +1,6 @@
 # TODO — 工作階段交接
 
-> 給接手的 Claude Code 工作階段看的待辦與現況。README 是給人讀的設計與決策紀錄，進度與交接寫在這裡。
+> 給接手的 Claude Code 工作階段看的待辦與現況。README 是給人讀的網站介紹，設計與決策在 `docs/decisions.md`，進度、交接與待辦只寫在這裡。
 > 完成一項就勾選並更新日期；整段做完就刪掉，不留歷史（歷史在 git log）。
 > 最後更新：2026-10-18 晚
 
@@ -11,9 +11,9 @@
 - 後台本機測試：`test:api` 45/45、`test:ui` 45/45 通過（後台第十輪，`07e8ed0`）。
 - Git：`main` 領先 `origin/main`，從 `4ce95d5`（後台第一輪）之後的 commit 都還沒 push。
 
-## 部署後台 2.0（照 README §9 的步驟）
+## 第一次部署後台 2.0
 
-每一步都是對外操作，**先問 Viking 再做**。
+這是 Cloudflare 帳號的一次性設定，做完之後的例行部署照 README「部署」一節。每一步都是對外操作，**先問 Viking 再做**。
 
 - [x] **1. `wrangler login`**：2026-10-18 在 Mac mini 完成，帳號是 Viking.lu@gmail.com's Account。
   - 憑證存在本機 `~/.wrangler`。換機器或 token 過期要重登：請 Viking 在提示列打 `! npx --yes wrangler@4 login`，或由工作階段在背景跑同一指令，讓瀏覽器跳出授權頁。
@@ -27,8 +27,11 @@
 - [ ] **5. 建第一個管理員**：`npm run admin:create -- <帳號> <顯示名稱>`。
   - 帳號名稱問 Viking。
   - 初始密碼只會印一次，**不要貼在對話裡**，寫進工作階段 scratchpad 的檔案，再告訴 Viking 檔案路徑。
-- [ ] **6. 部署**：先 `npm run deploy:back`（後台），再 `npm run deploy`（前台）。
-- [ ] **7. 上線檢查**：照 README §9 第 7 點，桌機、手機、說明卡、短片、後台上傳與繪馬都試一次，最後刪掉測試內容。
+- [ ] **6. 部署**：先 `npm run deploy:back`（後台 kura.osaka2026.voriens.dev），再 `npm run deploy`（前台 osaka2026.voriens.dev）。
+- [ ] **7. 上線檢查**：
+  - 前台：桌機與手機寬度各看一次，開一張說明卡、播一支短片。
+  - 後台：登入 `/admin` 建好親友帳號；用 `/edit` 試傳一張照片、掛一塊繪馬，回前台確認看得到。
+  - 最後到 `/admin` 的內容審核刪掉測試內容。
 
 ## 等 Viking 決定
 
@@ -43,4 +46,8 @@
 
 ## 長期待辦
 
-見 README §7：向友人索取原始照片、Mac mini 後製 33 張背景拼貼與屋簷、心得欄位由 Viking 自己填。
+- [ ] **心得欄位**：每天的 `slot` 由 Viking 自己填。填好改成 `text` 文字卡；`slot` 只在 `npm run dev` 顯示，公開版不出現。
+- [ ] **向同行友人索取原始照片**（HEIC／JPEG 原檔，保留 EXIF 拍攝時間）。LINE 相簿的 23 件拿到原檔後可以補上時刻。
+- [ ] **屋簷改成浮世繪**：`public/art/eave.svg` 還是手繪 SVG 暫用版，跟其他浮世繪素材風格不一。（33 張每日背景已在 `08c1199` 風格化完成。）
+- [ ] **日期不明的 LINE 相簿照片**：梅田藍天大廈夜景、寶可夢中心、JUMP SHOP、螃蟹宴、燒肉、龍貓、刀具店櫥窗等，留在 `raw/` 根目錄，之後再處理。
+- [ ] **第一次匯入 HEIC 時確認 `sips` 流程**：目前的原始檔都是 JPEG，HEIC 轉檔還沒實測過。
