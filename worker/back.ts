@@ -4,7 +4,7 @@
 // 公開唯讀端點（/api/public/wall、/api/media/*）與前台共用 worker/lib/public.ts。
 
 import { json, safeDecode } from './lib/util';
-import { getSessionUser } from './lib/auth';
+import { cleanupStaleAuthRows, getSessionUser } from './lib/auth';
 import { mediaResponse, publicWallResponse } from './lib/public';
 import { originAllowed, type AuthedCtx, type Ctx, type Env } from './lib/http';
 import * as auth from './routes/auth';
@@ -59,5 +59,12 @@ export default {
       if (res) return res;
     }
     return json({ error: '找不到此 API 路徑' }, 404);
+  },
+
+  /** 每日排程（cron 見 wrangler.back.jsonc 的 triggers；UTC 19:17＝台灣凌晨 3:17）：
+   *  清掉已過期的 session，以及不在鎖定中、最後失敗超過 1 天的登入失敗紀錄。
+   *  登入時也會順手清一部分（lib/auth.ts createSession），這裡是保底，避免長期沒人登入時殘留。 */
+  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
+    await cleanupStaleAuthRows(env.DB);
   },
 };

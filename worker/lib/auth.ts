@@ -152,27 +152,75 @@ export async function loginLockSeconds(db: D1Database, key: string): Promise<num
   return remain > 0 ? remain : 0;
 }
 
-export async function recordLoginFailure(db: D1Database, key: string): Promise<void> {
+export async function recordLoginFailure(
+  db: D1Database,
+  key: string,
+  opts: { maxFails?: number; staleMinutes?: number } = {},
+): Promise<void> {
+  const maxFails = opts.maxFails ?? MAX_FAILS;
   const row = await db
-    .prepare(`SELECT fails, locked_until FROM login_attempts WHERE key = ?1`)
+    .prepare(`SELECT fails, locked_until, updated_at FROM login_attempts WHERE key = ?1`)
     .bind(key)
-    .first<{ fails: number; locked_until: string | null }>();
+    .first<{ fails: number; locked_until: string | null; updated_at: string | null }>();
   // 鎖定期已過就重新起算：規格是「失敗 5 次鎖 15 分鐘」，不是「累積滿 5 次後每次失敗都再鎖」。
   // 不重設的話舊紀錄會永久累積，解鎖後再打錯一次密碼又立刻鎖 15 分鐘。
-  const expired = !!row?.locked_until && Date.parse(row.locked_until) <= Date.now();
-  const fails = row && !expired ? row.fails + 1 : 1;
-  const lockedUntil = fails >= MAX_FAILS
+  const lockExpired = !!row?.locked_until && Date.parse(row.locked_until) <= Date.now();
+  // staleMinutes：距離上次失敗（updated_at）超過這個分鐘數也重新起算（IP 層限速用）
+  const stale =
+    opts.staleMinutes !== undefined && !!row?.updated_at &&
+    Date.now() - Date.parse(row.updated_at) > opts.staleMinutes * 60_000;
+  const fails = row && !lockExpired && !stale ? row.fails + 1 : 1;
+  const lockedUntil = fails >= maxFails
     ? new Date(Date.now() + LOCK_MINUTES * 60_000 + 8 * 3600_000).toISOString().replace('Z', '+08:00')
     : null;
+  const { iso } = nowTaipeiIso();
   await db
     .prepare(
-      `INSERT INTO login_attempts (key, fails, locked_until) VALUES (?1, ?2, ?3)
-       ON CONFLICT(key) DO UPDATE SET fails = ?2, locked_until = ?3`,
+      `INSERT INTO login_attempts (key, fails, locked_until, updated_at) VALUES (?1, ?2, ?3, ?4)
+       ON CONFLICT(key) DO UPDATE SET fails = ?2, locked_until = ?3, updated_at = ?4`,
     )
-    .bind(key, fails, lockedUntil)
+    .bind(key, fails, lockedUntil, iso)
     .run();
 }
 
 export async function resetLoginFailures(db: D1Database, key: string): Promise<void> {
   await db.prepare(`DELETE FROM login_attempts WHERE key = ?1`).bind(key).run();
+}
+
+/* ---------- IP 層級限速 ----------
+ * 在「帳號＋IP 5 次鎖 15 分鐘」之外另一層：同一個 IP 不論嘗試哪個帳號，
+ * 失敗累計 20 次就鎖這個 IP 15 分鐘（擋分散帳號的密碼噴灑）。
+ * 成功登入「不」歸零 IP 計數，否則攻擊者可以穿插自己的正確帳號來重置；
+ * 計數改在鎖定到期後、或距離上次失敗超過 15 分鐘時重新起算（靠 updated_at）。 */
+
+export const IP_MAX_FAILS = 20;
+
+/** IP 層 key 前綴用 '#'：帳號名稱允許字元（a-z、0-9、_ . -）不可能出現 '#'，
+ *  所以叫「ip」的帳號（帳號 key 'ip|<ip>'）不會跟 IP 層 key 撞名，
+ *  停用帳號時的 `DELETE … WHERE key LIKE '<username>|%'` 也不會誤刪 IP 層紀錄。 */
+export function ipLockKey(ip: string): string {
+  return `#ip|${ip}`;
+}
+
+export async function recordIpLoginFailure(db: D1Database, ip: string): Promise<void> {
+  await recordLoginFailure(db, ipLockKey(ip), { maxFails: IP_MAX_FAILS, staleMinutes: LOCK_MINUTES });
+}
+
+/* ---------- 每日排程清理 ---------- */
+
+/** 刪掉不在鎖定中、且最後失敗超過 1 天（或 updated_at 為 NULL 的舊資料）的登入失敗紀錄，
+ *  以及已過期的 session。由 back.ts 的 scheduled handler 每天呼叫（cron 見 wrangler.back.jsonc）。
+ *  兩張表各自獨立清理，不需要跨表原子性，所以用兩次 run 而非 batch。 */
+export async function cleanupStaleAuthRows(db: D1Database): Promise<void> {
+  const { iso } = nowTaipeiIso();
+  const dayAgo = new Date(Date.now() - 86400_000 + 8 * 3600_000).toISOString().replace('Z', '+08:00');
+  await db.prepare(`DELETE FROM sessions WHERE expires_at <= ?1`).bind(iso).run();
+  await db
+    .prepare(
+      `DELETE FROM login_attempts
+       WHERE (locked_until IS NULL OR locked_until <= ?1)
+         AND (updated_at IS NULL OR updated_at <= ?2)`,
+    )
+    .bind(iso, dayAgo)
+    .run();
 }
