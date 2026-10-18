@@ -7,18 +7,9 @@
 ## 現況
 
 - 五天 66 件展品、短片、視覺素材、屋簷趣事帶、後台 2.0 都已完成。
-- 2026-10-18 前台 https://osaka2026.voriens.dev 與後台 https://kura.osaka2026.voriens.dev 都已部署最新版。
-- 後台本機測試：`test:api` 45/45、`test:ui` 45/45 通過（後台第十輪，`07e8ed0`）。
-- Git：2026-10-18 已全部 push 到 GitHub。之後的 commit 要 push 前先問 Viking。
-
-## 後台 2.0 上線後
-
-2026-10-18 已完成 Cloudflare 設定與部署；Viking 已登入、建好親友帳號，試傳照片與繪馬都正常。之後的例行部署照 README「部署」一節，部署前先問 Viking。
-
-- [x] **「所有人同等級」改版已上線**（2026-10-18）：遠端 migration `001-photos-taken-at` 已跑，兩個 Worker 已部署。上線檢查：桌機 10-07 的 4 張照片分兩欄、欄高低於展品欄，說明卡正常；手機牆面與閱讀模式無橫向溢出；前台仍無後台路徑。
-- [ ] 改版前上傳的照片沒有拍攝時刻，上線後會排在當天最後。要插到正確時間點得刪掉重傳（重傳時會讀 EXIF）。
-- [ ] 確認 `~/Documents/kura-admin-viking.txt` 已刪除（密碼改過之後就用不到）。
-- 忘記密碼：`npm run admin:create -- viking Viking` 重設。新密碼只印一次，**不要貼在對話裡**，寫進檔案再告訴 Viking 路徑。
+- 2026-10-18 前台 https://osaka2026.voriens.dev 與後台 https://kura.osaka2026.voriens.dev 都已部署最新版（含照片改版），Viking 已實測登入、上傳、繪馬、照片留言。改版前上傳的 6 張照片沒有拍攝時刻、排在當天最後，Viking 決定不重傳。之後部署前先問 Viking。
+- 後台本機測試：`test:api` 46/46、`test:ui` 49/49 通過（照片改版，`51c1a57`）。
+- Git：GitHub 上到 `88bc103`，之後的 commit 要 push 前先問 Viking。
 
 ## 等 Viking 決定
 
