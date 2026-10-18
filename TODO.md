@@ -8,17 +8,18 @@
 
 - 五天 66 件展品、短片、視覺素材、屋簷趣事帶、後台 2.0 都已完成。
 - 2026-10-19 前台 https://osaka2026.voriens.dev 與後台 https://kura.osaka2026.voriens.dev 都已部署最新版（含照片改版、影片上傳、短片聲音），Viking 已實測登入、上傳、繪馬、照片留言。改版前上傳的 6 張照片沒有拍攝時刻、排在當天最後，Viking 決定不重傳。之後部署前先問 Viking。
-- 後台本機測試：`test:api` 90/90、`test:ui` 58/58 通過（後台強化，`e31cdf3`）。
+- 後台本機測試：`test:api` 142/142（前台加 `KURA_FRONT`）、`test:ui` 60/60 通過（上線後檢查與優化，`3b72318`）。
 - Git：2026-10-18 已全部 push 到 GitHub。之後的 commit 要 push 前先問 Viking。
 
 ## 2026-10-19 上線的改動
 
-影片上傳、展品短片聲音、後台兩批優化（opencode）、後台強化（防點擊劫持、IP 限速、每日排程清理）都已上線；正式資料庫已跑 migration 002、003。
+影片上傳、展品短片聲音、後台兩批優化（opencode）、後台強化（防點擊劫持、IP 限速、每日排程清理）、上線後檢查與優化（短片 Range、IPv6 /64 限速、body 上限）都已上線；正式資料庫已跑 migration 002、003。
 
 - [ ] Viking 用手機實際傳一支 iPhone 直拍影片：確認自動選對日期、牆上位置正確、說明卡有聲音，再到 `/admin` 刪掉。
 - [ ] Viking 聽幾支展品短片，確認音量與放慢段落的聲音可以接受。
 - [ ] 部署後第一次排程（台灣凌晨 3:17）：到 Cloudflare Dashboard → Workers → osaka2026-kura → Logs 確認執行成功（本機模擬環境用 batch 會出錯，已改成兩次獨立查詢，正式環境要觀察一次）。
-- [ ] **展品短片不支援 Range（206）**：靜態檔對 Range 一律回 200 完整檔，iPhone Safari 可能播不出來。已派給 opencode（分支 `opencode/recheck`）處理，審查後合併。
+- [ ] Viking 用 iPhone 的 Safari 實際播幾支展品短片（2026-10-19 已讓短片支援分段請求，線上回 206 正常，但沒在真的 iPhone 上試過）。
+- [ ] Go 的 API key 已過期：到 OpenCode Console 建新 key，用 `opencode auth login` 換上（之後 opencode 才能用 Go 方案的模型）。
 
 ## 可選（Viking 尚未要求，提出即可，不要自行動手）
 
