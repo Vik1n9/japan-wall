@@ -154,25 +154,45 @@ export async function loginLockSeconds(db: D1Database, key: string): Promise<num
 
 export async function recordLoginFailure(db: D1Database, key: string): Promise<void> {
   const row = await db
-    .prepare(`SELECT fails, locked_until FROM login_attempts WHERE key = ?1`)
+    .prepare(`SELECT fails, locked_until, updated_at FROM login_attempts WHERE key = ?1`)
     .bind(key)
-    .first<{ fails: number; locked_until: string | null }>();
+    .first<{ fails: number; locked_until: string | null; updated_at: string | null }>();
   // 鎖定期已過就重新起算：規格是「失敗 5 次鎖 15 分鐘」，不是「累積滿 5 次後每次失敗都再鎖」。
   // 不重設的話舊紀錄會永久累積，解鎖後再打錯一次密碼又立刻鎖 15 分鐘。
-  const expired = !!row?.locked_until && Date.parse(row.locked_until) <= Date.now();
-  const fails = row && !expired ? row.fails + 1 : 1;
+  const lockExpired = !!row?.locked_until && Date.parse(row.locked_until) <= Date.now();
+  const fails = row && !lockExpired ? row.fails + 1 : 1;
   const lockedUntil = fails >= MAX_FAILS
     ? new Date(Date.now() + LOCK_MINUTES * 60_000 + 8 * 3600_000).toISOString().replace('Z', '+08:00')
     : null;
+  const { iso } = nowTaipeiIso();
   await db
     .prepare(
-      `INSERT INTO login_attempts (key, fails, locked_until) VALUES (?1, ?2, ?3)
-       ON CONFLICT(key) DO UPDATE SET fails = ?2, locked_until = ?3`,
+      `INSERT INTO login_attempts (key, fails, locked_until, updated_at) VALUES (?1, ?2, ?3, ?4)
+       ON CONFLICT(key) DO UPDATE SET fails = ?2, locked_until = ?3, updated_at = ?4`,
     )
-    .bind(key, fails, lockedUntil)
+    .bind(key, fails, lockedUntil, iso)
     .run();
 }
 
 export async function resetLoginFailures(db: D1Database, key: string): Promise<void> {
   await db.prepare(`DELETE FROM login_attempts WHERE key = ?1`).bind(key).run();
+}
+
+/* ---------- 每日排程清理 ---------- */
+
+/** 刪掉不在鎖定中、且最後失敗超過 1 天（或 updated_at 為 NULL 的舊資料）的登入失敗紀錄，
+ *  以及已過期的 session。由 back.ts 的 scheduled handler 每天呼叫（cron 見 wrangler.back.jsonc）。
+ *  兩張表各自獨立清理，不需要跨表原子性，所以用兩次 run 而非 batch。 */
+export async function cleanupStaleAuthRows(db: D1Database): Promise<void> {
+  const { iso } = nowTaipeiIso();
+  const dayAgo = new Date(Date.now() - 86400_000 + 8 * 3600_000).toISOString().replace('Z', '+08:00');
+  await db.prepare(`DELETE FROM sessions WHERE expires_at <= ?1`).bind(iso).run();
+  await db
+    .prepare(
+      `DELETE FROM login_attempts
+       WHERE (locked_until IS NULL OR locked_until <= ?1)
+         AND (updated_at IS NULL OR updated_at <= ?2)`,
+    )
+    .bind(iso, dayAgo)
+    .run();
 }

@@ -34,6 +34,8 @@
     // 牆上的展覽日（上傳照片要指定掛在哪一天）
     "DAYS": "2026-10-05,2026-10-06,2026-10-07,2026-10-08,2026-10-09"
   },
+  // 每日排程清理：過期 session 與老的登入失敗紀錄（UTC 19:17＝台灣凌晨 3:17）
+  "triggers": { "crons": ["17 19 * * *"] },
   // 只有這個網址開得到後台；不掛 workers.dev
   "routes": [{ "pattern": "kura.osaka2026.voriens.dev", "custom_domain": true }],
   "workers_dev": false
