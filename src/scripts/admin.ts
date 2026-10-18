@@ -69,9 +69,13 @@ function patchUser(username: string, body: Record<string, unknown>) {
 function revealPassword(title: string, password: string): void {
   $('pw-reveal-title').textContent = title;
   $('pw-reveal-value').textContent = password;
+  $('pw-reveal-copy').textContent = '複製'; // 上一次的「已複製」不能留著
   $('pw-reveal').hidden = false;
 }
-$('pw-reveal-close').addEventListener('click', () => { $('pw-reveal').hidden = true; });
+$('pw-reveal-close').addEventListener('click', () => {
+  $('pw-reveal').hidden = true;
+  $('pw-reveal-value').textContent = ''; // 「只顯示這一次」：關閉後不能留在 DOM 裡
+});
 $('pw-reveal-copy').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText($('pw-reveal-value').textContent || '');

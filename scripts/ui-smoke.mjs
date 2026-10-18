@@ -202,6 +202,7 @@ try {
   await run(`document.querySelector('#users-tbl button.armed').click();`);
   check('第二次按才重設並顯示一次性密碼', await waitFor(`!document.getElementById('pw-reveal').hidden && document.getElementById('pw-reveal-value').textContent.length >= 8`));
   await run(`document.getElementById('pw-reveal-close').click();`);
+  check('一次性密碼視窗關閉後不殘留密碼', await run(`return document.getElementById('pw-reveal').hidden && document.getElementById('pw-reveal-value').textContent === '';`));
   // 審核刪除投稿
   await run(`document.querySelector('.tab[data-tab=posts]').click();`);
   await shot('admin-moderation');
