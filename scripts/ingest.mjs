@@ -10,7 +10,7 @@
 //   - 拍攝時刻只從檔案 metadata 讀取；讀不到就是 null，不猜。
 //   - 日期用日本式 30 小時制：凌晨 0:00–5:59 歸前一天，時刻寫成 24:00–29:59；深夜素材要放進前一天的 raw 資料夾。
 //   - 已存在的展品檔不覆寫（保護人工寫的標題與說明）；--redo 只更新媒體相關欄位。
-//   - 輸出檔一律移除 metadata（含 GPS）；短片去除音軌與 Apple 附帶的資料軌。
+//   - 輸出檔一律移除 metadata（含 GPS）；短片保留聲音（AAC），去除 Apple 附帶的資料軌與字幕軌。
 //   - 新展品放在當天最後一欄（unsorted: true），排版由人決定。
 //
 // 需要：ffmpeg / ffprobe（brew install ffmpeg）；macOS 內建 sips 用來讀 HEIC。
@@ -147,6 +147,10 @@ async function convertPhoto(src, out, crop, blur) {
 /** 有 ffmpeg-full（brew install ffmpeg-full，含 libvidstab）就優先用它；可用環境變數 FFMPEG 指定 */
 const FFMPEG = process.env.FFMPEG ?? (existsSync('/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg') ? '/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg' : 'ffmpeg');
 
+function hasAudio(file) {
+  return run('ffprobe', ['-v', 'error', '-select_streams', 'a', '-show_entries', 'stream=index', '-of', 'csv=p=0', file]).trim() !== '';
+}
+
 function sourceFps(file) {
   const j = JSON.parse(run('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=avg_frame_rate', '-of', 'json', file]));
   const [n, d] = (j.streams[0].avg_frame_rate ?? '30/1').split('/').map(Number);
@@ -158,12 +162,13 @@ function sourceFps(file) {
  *   clip：{ start, duration }（舊格式，等同一段、速度 1）
  *   edit：{ stabilize, segments: [{ start, end, speed }], poster }
  *     stabilize  雙階段 vidstab 防手震（需要 ffmpeg-full）；smoothing 平滑強度（預設 24，越大越穩但反應越慢）
- *     segments   依序取原片的這些段落再接起來，沒列到的部分捨棄；speed < 1 是放慢
+ *     segments   依序取原片的這些段落再接起來，沒列到的部分捨棄；speed < 1 是放慢（聲音用 atempo 同步放慢，音高不變）
  *     poster     封面取剪輯後第幾秒（預設 1 秒）
  */
 async function convertVideo(src, out, poster, clip, edit) {
   await mkdir(P('.tmp'), { recursive: true });
   const fps = sourceFps(src);
+  const audio = hasAudio(src);
   const segments = edit?.segments?.length
     ? edit.segments
     : clip ? [{ start: clip.start, end: clip.start + clip.duration }] : null;
@@ -183,6 +188,7 @@ async function convertVideo(src, out, poster, clip, edit) {
   let graph;
   if (!segments) {
     graph = `[0:v]${[...head, 'fps=30', scale, 'format=yuv420p'].join(',')}[out]`;
+    if (audio) graph += ';[0:a]aresample=48000[aout]';
   } else {
     const n = segments.length;
     const pre = n > 1 ? [...head, `split=${n}`] : head;
@@ -196,15 +202,32 @@ async function convertVideo(src, out, poster, clip, edit) {
     });
     const first = pre.length ? `[0:v]${pre.join(',')}${labels}` : '';
     const src0 = pre.length ? '' : null;
+    // 聲音跟著影像剪：每段 atrim 對齊同一段，放慢的段落用 atempo（0.5～1）同步放慢
+    const aparts = audio
+      ? [
+          n > 1 ? `[0:a]asplit=${n}${segments.map((_, i) => `[as${i}]`).join('')}` : null,
+          ...segments.map((g, i) => {
+            const speed = g.speed ?? 1;
+            const chain = [`atrim=start=${g.start}:end=${g.end}`, 'asetpts=PTS-STARTPTS'];
+            if (speed !== 1) chain.push(`atempo=${speed}`);
+            return `${n > 1 ? `[as${i}]` : '[0:a]'}${chain.join(',')}[a${i}]`;
+          }),
+        ].filter(Boolean)
+      : [];
+    const joined = segments.map((_, i) => (audio ? `[v${i}][a${i}]` : `[v${i}]`)).join('');
     graph = [
       ...(first ? [first] : []),
       ...parts.map((p) => (src0 === null && n === 1 ? p.replace('[s0]', '[0:v]') : p)),
-      `${segments.map((_, i) => `[v${i}]`).join('')}concat=n=${n}:v=1:a=0,${scale},format=yuv420p[out]`,
+      ...aparts,
+      audio
+        ? `${joined}concat=n=${n}:v=1:a=1[vc][ac];[vc]${scale},format=yuv420p[out];[ac]aresample=48000[aout]`
+        : `${joined}concat=n=${n}:v=1:a=0,${scale},format=yuv420p[out]`,
     ].join(';');
   }
   run(FFMPEG, [
     '-v', 'error', '-y', '-i', src, '-filter_complex', graph, '-map', '[out]',
-    '-an', '-sn', '-dn', '-map_metadata', '-1', '-map_chapters', '-1',
+    ...(audio ? ['-map', '[aout]', '-c:a', 'aac', '-b:a', '128k', '-ac', '2'] : ['-an']),
+    '-sn', '-dn', '-map_metadata', '-1', '-map_chapters', '-1',
     '-c:v', 'libx264', '-preset', 'slow', '-crf', String(CRF), '-r', '30',
     '-movflags', '+faststart', out,
   ]);
