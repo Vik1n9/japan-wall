@@ -6,7 +6,7 @@ import sharp from 'sharp';
 import zlib from 'node:zlib';
 
 const BASE = process.argv[2] || 'http://localhost:8787';
-const ORIGIN = 'http://localhost:8787';
+const ORIGIN = new URL(BASE).origin; // 跟 BASE 同埠：wrangler dev 的 Origin 白名單才不會擋
 const ADMIN = process.env.KURA_ADMIN;
 const ADMIN_PW = process.env.KURA_ADMIN_PW;
 if (!ADMIN || !ADMIN_PW) {
