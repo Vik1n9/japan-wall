@@ -500,6 +500,49 @@ check('建立限速測試帳號 → 201', r.status === 201, String(r.status));
   check('成功登入沒有歸零 IP 計數：第 21 次正確密碼也 429', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
 }
 
+// ---------- IPv6 的 IP 層限速：以 /64 網段計數（隱私位址每個連線都換尾碼，完整位址擋不住噴灑） ----------
+{
+  // 純函式單元檢查：api-smoke 直接用 node import worker 的 TS（node ≥23.6 內建 type stripping，
+  // ip-subnet.ts 刻意零依賴、只用可擦除語法）。整合測試在下面用假的 CF-Connecting-IP 驗。
+  const { ipRateKey } = await import(new URL('../worker/lib/ip-subnet.ts', import.meta.url).href);
+  check('ipRateKey：IPv4 維持完整位址', ipRateKey('203.0.113.7') === '203.0.113.7', ipRateKey('203.0.113.7'));
+  check('ipRateKey：各種縮寫／大小寫／zone id 得到同一個 /64',
+    ipRateKey('2001:db8:1:2:3:4:5:6') === '2001:db8:1:2::/64'
+    && ipRateKey('2001:0db8:0001:0002:aaaa:bbbb:cccc:dddd') === '2001:db8:1:2::/64'
+    && ipRateKey('2001:DB8:1:2::') === '2001:db8:1:2::/64'
+    && ipRateKey('2001:db8:1:2::1%en0') === '2001:db8:1:2::/64',
+    [ipRateKey('2001:db8:1:2:3:4:5:6'), ipRateKey('2001:DB8:1:2::'), ipRateKey('2001:db8:1:2::1%en0')].join(' '));
+  check('ipRateKey：不同 /64 得到不同 key', ipRateKey('2001:db8:1:3::1') === '2001:db8:1:3::/64', ipRateKey('2001:db8:1:3::1'));
+  check('ipRateKey：::ffff:x.x.x.x 視為對應的 IPv4', ipRateKey('::ffff:203.0.113.9') === '203.0.113.9', ipRateKey('::ffff:203.0.113.9'));
+  check('ipRateKey：全零與 NAT64 內嵌 IPv4 的 /64', ipRateKey('::') === '::/64' && ipRateKey('::1') === '::/64' && ipRateKey('64:ff9b::1.2.3.4') === '64:ff9b:0:0::/64',
+    `${ipRateKey('::')} ${ipRateKey('64:ff9b::1.2.3.4')}`);
+  check('ipRateKey：解析不了的原樣返回（寧可少併不可誤併）', ipRateKey('1:2:3') === '1:2:3' && ipRateKey('1:2:3:4:5:6:7::8') === '1:2:3:4:5:6:7::8',
+    `${ipRateKey('1:2:3')} ${ipRateKey('1:2:3:4:5:6:7::8')}`);
+
+  // 整合：同一個 /64（2001:db8:beef:1::/64）底下用不同位址累計失敗——混大小寫、
+  // 不同縮寫、zone id 都要算進同一個桶；每次換不存在的帳號，避免先觸發「帳號＋IP」那層
+  const v6Addrs = ['2001:db8:beef:1::11', '2001:DB8:BEEF:1::22', '2001:db8:beef:1:0:abcd:0:33', '2001:db8:beef:1::44%en0'];
+  let st = 0;
+  for (let i = 0; i < 20; i++) {
+    st = (await client()('POST', '/api/login', { body: { username: `v6lock-${tag}-${i}`, password: 'bad' }, cfIp: v6Addrs[i % v6Addrs.length] })).status;
+  }
+  check('同一 /64 內 4 種寫法的位址累計失敗 20 次 → 401', st === 401, String(st));
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: '2001:db8:beef:1:ffff::99' });
+  check('第 21 次換同 /64 的另一個位址，正確密碼也 429（整個 /64 被鎖）', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: '2001:db8:beef:2::1' });
+  check('另一個 /64 不受影響 → 200', r.status === 200, String(r.status));
+
+  // ::ffff:<IPv4> 與對應的 IPv4 是同一個桶：19 次純 IPv4 ＋ 第 20 次用 mapped 寫法 → 鎖
+  const v4m = fakeIp(15);
+  for (let i = 0; i < 19; i++) {
+    await client()('POST', '/api/login', { body: { username: `v4map-${tag}-${i}`, password: 'bad' }, cfIp: v4m });
+  }
+  st = (await client()('POST', '/api/login', { body: { username: `v4map-${tag}-x`, password: 'bad' }, cfIp: `::ffff:${v4m}` })).status;
+  check('::ffff:<IPv4> 的失敗併入同一個 IPv4 桶：第 20 次 → 401 且觸發鎖', st === 401, String(st));
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: v4m });
+  check('鎖定後用純 IPv4 位址也 429（mapped 與 IPv4 算同一個）', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
+}
+
 // ---------- 帳號名稱「ip」不會跟 IP 層 key 撞名（#ip| 前綴） ----------
 {
   const ipD = fakeIp(13);
