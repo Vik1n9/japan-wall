@@ -1,6 +1,7 @@
 // 公開唯讀端點（雙域共用模組）：/api/public/wall 與 /api/media/:key。
 // 前台 Worker（純展示）與後台 Worker（/edit 預覽同一面牆）import 同一份程式。
 import { json } from './util';
+import { mediaOwnerVisible, photoVisible, postVisible } from './visibility';
 
 export type R2RangeLike = { offset: number; length?: number } | { suffix: number };
 export interface R2BucketLike {
@@ -10,7 +11,7 @@ export interface R2BucketLike {
   delete(key: string): Promise<void>;
 }
 
-export const MEDIA_KEY_RE = /^photos\/p-\d{8}-[a-z0-9]{4}(-poster)?\.(jpg|png|webp|mp4)$/;
+export const MEDIA_KEY_RE = /^photos\/(p-\d{8}-[a-z0-9]{4})(-poster)?\.(jpg|png|webp|mp4)$/;
 
 /** 牆上所有 live 的照片與投稿（留言/繪馬），給前台動態注入用。
  *  一律不讓瀏覽器快取（no-cache）：剛投稿的人回到牆上要馬上看得到；前台另在 Worker 邊緣快取 60 秒擋流量。
@@ -21,7 +22,7 @@ export async function publicWallResponse(db: D1Database): Promise<Response> {
       `SELECT p.id, u.display_name AS author_name, p.day, p.caption, p.r2_key, p.mime, p.width, p.height, p.taken_at, p.created_at,
               p.kind, p.duration, p.poster_key
        FROM photos p JOIN users u ON u.username = p.author
-       WHERE p.status = 'live'
+       WHERE ${photoVisible('p')}
        ORDER BY p.created_at ASC, p.id ASC`,
     ).all<{
       author_name: string; id: string; day: string; caption: string;
@@ -29,13 +30,11 @@ export async function publicWallResponse(db: D1Database): Promise<Response> {
       kind: string; duration: number | null; poster_key: string | null;
     }>(),
     db.prepare(
-      // 掛在繪馬或照片上的留言：繪馬／照片被刪了就跟著不公開
+      // 留言：本身、作者與目標都要看得見——繪馬／照片被刪或被軟刪除就跟著不公開；
+      // 別人的回覆若掛在被軟刪除帳號的留言底下（target 是展品等）仍會公開
       `SELECT p.id, p.kind, p.target, p.reply_to, p.by, p.body, p.posted_at
        FROM posts p
-       WHERE p.status = 'live'
-         AND (p.kind = 'ema' OR (p.target NOT LIKE 'n-%' AND p.target NOT LIKE 'p-%')
-              OR EXISTS (SELECT 1 FROM posts e WHERE e.id = p.target AND e.kind = 'ema' AND e.status = 'live')
-              OR EXISTS (SELECT 1 FROM photos ph WHERE ph.id = p.target AND ph.status = 'live'))
+       WHERE ${postVisible('p')}
        ORDER BY p.posted_at ASC, p.id ASC`,
     ).all<{
       id: string; kind: string; target: string; reply_to: string | null; by: string;
@@ -65,9 +64,12 @@ export function parseRange(h: string | null): R2RangeLike | null {
   return m[2] ? { offset: start, length: Number(m[2]) - start + 1 } : { offset: start };
 }
 
-/** R2 物件串流：immutable 快取（key 含隨機碼、內容不可變）。支援 Range：影片在 Safari 一定要 206 才能播 */
-export async function mediaResponse(uploads: R2BucketLike, key: string, request?: Request): Promise<Response> {
-  if (!MEDIA_KEY_RE.test(key)) return json({ error: '找不到此 API 路徑' }, 404);
+/** R2 物件串流：immutable 快取（key 含隨機碼、內容不可變）。支援 Range：影片在 Safari 一定要 206 才能播。
+ *  軟刪除期間 R2 物件仍在，所以要先查資料庫、作者被軟刪除就跟其他內容一樣回 404。 */
+export async function mediaResponse(db: D1Database, uploads: R2BucketLike, key: string, request?: Request): Promise<Response> {
+  const match = key.match(MEDIA_KEY_RE);
+  if (!match) return json({ error: '找不到此 API 路徑' }, 404);
+  if (!(await mediaOwnerVisible(db, match[1]))) return json({ error: '找不到檔案' }, 404);
   const headers = (type?: string) => ({
     'Content-Type': type || 'application/octet-stream',
     'Cache-Control': 'public, max-age=31536000, immutable',

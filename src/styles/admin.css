@@ -122,6 +122,8 @@ td .ops { display: flex; gap: 6px; flex-wrap: wrap; }
 .badge.admin { color: var(--red); border-color: var(--red); }
 .badge.disabled { color: var(--muted); background: var(--hair); }
 .badge.must { color: var(--red); border-style: dashed; }
+/* 待刪除（軟刪除中）的帳號列整列變淡，只有恢復鈕可用 */
+#users-tbl tr.deleted td { opacity: .62; }
 
 /* 一次性密碼 modal */
 .pw-reveal {
@@ -141,6 +143,8 @@ td .ops { display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* 兩段式確認：第一次按變紅「確定？」，4 秒內再按才執行 */
 button.ghost.armed { color: #fff; background: var(--red); border-color: var(--red); }
+/* 刪除帳號的確認文字較長（帶數量）：允許換行，不要撐開表格 */
+td .ops button.armed { white-space: normal; text-align: left; max-width: 24em; }
 td .rename { display: flex; gap: 6px; align-items: center; }
 td .rename input { margin: 0; padding: 4px 8px; width: 9em; font-size: 13px; }
 

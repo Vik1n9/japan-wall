@@ -7,6 +7,7 @@ import { json, safeDecode } from './lib/util';
 import { cleanupStaleAuthRows, getSessionUser } from './lib/auth';
 import { isMediaVideo, mediaAssetResponse } from './lib/media-assets';
 import { mediaResponse, publicWallResponse } from './lib/public';
+import { purgeDeletedUsers } from './lib/user-purge';
 import { originAllowed, type AuthedCtx, type Ctx, type Env } from './lib/http';
 import * as auth from './routes/auth';
 import * as photos from './routes/photos';
@@ -39,7 +40,7 @@ export default {
 
     /* 公開唯讀（與前台共用模組） */
     if (method === 'GET' && url.pathname.startsWith('/api/media/')) {
-      return mediaResponse(env.UPLOADS, safeDecode(url.pathname.slice('/api/media/'.length)) ?? '', request);
+      return mediaResponse(env.DB, env.UPLOADS, safeDecode(url.pathname.slice('/api/media/'.length)) ?? '', request);
     }
     if (method === 'GET' && url.pathname === '/api/public/wall') {
       return publicWallResponse(env.DB);
@@ -67,9 +68,19 @@ export default {
   },
 
   /** 每日排程（cron 見 wrangler.back.jsonc 的 triggers；UTC 19:17＝台灣凌晨 3:17）：
-   *  清掉已過期的 session，以及不在鎖定中、最後失敗超過 1 天的登入失敗紀錄。
-   *  登入時也會順手清一部分（lib/auth.ts createSession），這裡是保底，避免長期沒人登入時殘留。 */
+   *  清掉已過期的 session 與舊登入失敗紀錄（cleanupStaleAuthRows），並永久刪除
+   *  軟刪除期滿（deleted_at 早於 30 天前）的帳號（purgeDeletedUsers）。
+   *  兩個清理各自 try/catch，一個失敗不影響另一個。 */
   async scheduled(_event: ScheduledController, env: Env): Promise<void> {
-    await cleanupStaleAuthRows(env.DB);
+    try {
+      await cleanupStaleAuthRows(env.DB);
+    } catch (err) {
+      console.error('清理登入紀錄失敗', err);
+    }
+    try {
+      await purgeDeletedUsers(env);
+    } catch (err) {
+      console.error('清除待刪除帳號失敗', err);
+    }
   },
 };

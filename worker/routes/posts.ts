@@ -1,5 +1,6 @@
 // 投稿（留言／繪馬）：GET/POST /api/posts、PUT/DELETE /api/posts/:id。
 import { json, nowTaipeiIso } from '../lib/util';
+import { photoVisible, postVisible } from '../lib/visibility';
 import { cleanPostBody, cleanSingleLine, freshId, readJsonBody, type AuthedCtx, type Env } from '../lib/http';
 
 const POST_BODY_MAX = 300;
@@ -38,9 +39,9 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
 
   if (method === 'GET' && url.pathname === '/api/posts') {
     const { results } = await env.DB.prepare(
-      `SELECT id, kind, target, reply_to, by, body, author, posted_at
-       FROM posts WHERE status = 'live'
-       ORDER BY posted_at ASC, id ASC`,
+      `SELECT p.id, p.kind, p.target, p.reply_to, p.by, p.body, p.author, p.posted_at
+       FROM posts p WHERE ${postVisible('p')}
+       ORDER BY p.posted_at ASC, p.id ASC`,
     ).all<PostRow>();
     return json({ posts: (results || []).map((r) => postDto(r, r.author === session.user.username)) });
   }
@@ -62,13 +63,14 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
     if (kind === 'ema') {
       if (!targets.days.has(target)) return json({ error: '指定的展覽日不存在' }, 400);
     } else {
-      // 留言對象：展品、繪馬、上傳的照片（照片與展品同等，都能留言）
+      // 留言對象：展品、繪馬、上傳的照片（照片與展品同等，都能留言）。
+      // 軟刪除中的帳號，其繪馬／照片視為不存在，不能對隱藏中的內容留言。
       let ok = targets.exhibits.has(target);
       if (!ok && /^n-\d{8}-[a-z0-9]{4}$/.test(target)) {
-        ok = !!(await env.DB.prepare(`SELECT id FROM posts WHERE id = ?1 AND kind = 'ema' AND status = 'live'`)
+        ok = !!(await env.DB.prepare(`SELECT id FROM posts WHERE id = ?1 AND kind = 'ema' AND ${postVisible('posts')}`)
           .bind(target).first());
       } else if (!ok && /^p-\d{8}-[a-z0-9]{4}$/.test(target)) {
-        ok = !!(await env.DB.prepare(`SELECT id FROM photos WHERE id = ?1 AND status = 'live'`)
+        ok = !!(await env.DB.prepare(`SELECT id FROM photos WHERE id = ?1 AND ${photoVisible('photos')}`)
           .bind(target).first());
       }
       if (!ok) return json({ error: '留言的目標不存在' }, 400);
@@ -77,7 +79,8 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
     const replyTo = typeof body.replyTo === 'string' && body.replyTo ? body.replyTo.trim() : null;
     if (replyTo !== null) {
       if (kind !== 'comment') return json({ error: '只有留言可以回覆留言' }, 400);
-      const parent = await env.DB.prepare(`SELECT id, kind, target FROM posts WHERE id = ?1 AND status = 'live'`)
+      // 被回覆的留言也要看得見（作者或目標被軟刪除的留言不能回覆）
+      const parent = await env.DB.prepare(`SELECT id, kind, target FROM posts WHERE id = ?1 AND ${postVisible('posts')}`)
         .bind(replyTo).first<{ id: string; kind: string; target: string }>();
       if (!parent || parent.kind !== 'comment' || parent.target !== target) {
         return json({ error: '回覆目標須是同一 target 下的另一則留言' }, 400);

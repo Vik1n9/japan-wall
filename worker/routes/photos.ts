@@ -3,6 +3,7 @@ import { json, nowTaipeiIso } from '../lib/util';
 import { parseAndClean } from '../lib/images';
 import { cleanMp4 } from '../lib/video';
 import { captureMetaFromFile } from '../lib/capture-meta';
+import { photoVisible } from '../lib/visibility';
 import { cleanSingleLine, freshId, readJsonBody, type AuthedCtx } from '../lib/http';
 
 const MAX_UPLOAD = 8 * 1024 * 1024;
@@ -62,7 +63,7 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
       `SELECT p.id, p.author, u.display_name AS author_name, p.day, p.caption, p.r2_key, p.mime, p.width, p.height, p.taken_at, p.created_at,
               p.kind, p.duration, p.poster_key
        FROM photos p JOIN users u ON u.username = p.author
-       WHERE p.status = 'live'
+       WHERE ${photoVisible('p')}
        ORDER BY p.created_at DESC, p.id DESC`,
     ).all<PhotoRow>();
     return json({

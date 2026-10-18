@@ -34,7 +34,7 @@ export default {
       return res;
     }
     if (request.method === 'GET' && url.pathname.startsWith('/api/media/')) {
-      return mediaResponse(env.UPLOADS, safeDecode(url.pathname.slice('/api/media/'.length)) ?? '', request);
+      return mediaResponse(env.DB, env.UPLOADS, safeDecode(url.pathname.slice('/api/media/'.length)) ?? '', request);
     }
     // 展品短片：靜態資源不支援 Range，Safari 要 206 才播得到
     if ((request.method === 'GET' || request.method === 'HEAD') && isMediaVideo(url.pathname)) {

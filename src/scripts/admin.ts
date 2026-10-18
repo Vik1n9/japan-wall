@@ -1,11 +1,12 @@
-// /admin 管理台 client 邏輯：登入檢查 → 帳號列表/建號/重設密碼/停用/角色/改名 → 內容審核 → 自助變更密碼。
-// 不用 confirm/prompt/alert：危險操作兩段式確認、改名行內編輯、錯誤顯示在卡片裡。
+// /admin 管理台 client 邏輯：登入檢查 → 帳號列表/建號/重設密碼/停用/角色/改名 → 刪除帳號（無內容立即刪、有內容軟刪除 30 天）與恢復 → 內容審核 → 自助變更密碼。
+// 不用 confirm/prompt/alert：危險操作在按鈕上多段確認（刪帳號有內容時三段）、改名行內編輯、錯誤顯示在卡片裡。
 // 靜態殼在 src/pages/admin/index.astro；API 在 worker/back.ts（僅 kura 網域可達）。
 
 type Me = { username: string; displayName: string; role: string; mustChangePw: boolean };
 type UserRow = {
   username: string; displayName: string; role: string; status: string;
   mustChangePw: boolean; createdAt: string; lastLoginAt: string | null;
+  deletedAt: string | null; purgeAt: string | null;
 };
 type Photo = {
   id: string; author: string; authorName: string; day: string; caption: string;
@@ -57,6 +58,63 @@ function armed(btn: HTMLButtonElement, confirmLabel: string, run: () => Promise<
     btn.disabled = false;
     btn.classList.remove('armed');
     btn.textContent = label;
+  });
+}
+
+/** 刪除帳號的確認：依「內容數量」決定兩段或三段，全部在按鈕上（不用原生 confirm）。
+ *  無內容：確定刪除？ → 送出（硬刪）。
+ *  有內容：有內容（照片 N、影片 N、留言 N、繪馬 N），再按一次
+ *         → 隱藏內容並在 30 天後永久刪除？ → 送出（帶 confirm:'content'，軟刪除）。
+ *  任何一段 4 秒內沒按下一段就回到原狀。數量由預覽 API 取得，模式仍由伺服器依實際內容決定。 */
+function armedUserDelete(
+  btn: HTMLButtonElement,
+  username: string,
+  err: (msg: string) => void,
+  done: () => Promise<void>,
+): void {
+  const label = btn.textContent || '';
+  let timer = 0;
+  let step = 0;        // 0 未確認／1 已按第一次／2 有內容且已按第二次
+  let hasContent = false;
+  const revert = () => { step = 0; hasContent = false; btn.classList.remove('armed'); btn.textContent = label; };
+  const arm = (text: string) => {
+    btn.classList.add('armed');
+    btn.textContent = text;
+    clearTimeout(timer);
+    timer = window.setTimeout(revert, 4000);
+  };
+  btn.addEventListener('click', async () => {
+    if (step === 0) {
+      btn.disabled = true;
+      const { status, data } = await api(`/api/users/${encodeURIComponent(username)}/content`);
+      btn.disabled = false;
+      if (status !== 200) { err((data.error as string) || '無法取得內容數量'); return; }
+      const n = data as { photos?: number; videos?: number; comments?: number; emas?: number };
+      const counts = { photos: n.photos ?? 0, videos: n.videos ?? 0, comments: n.comments ?? 0, emas: n.emas ?? 0 };
+      hasContent = counts.photos + counts.videos + counts.comments + counts.emas > 0;
+      step = 1;
+      arm(hasContent
+        ? `有內容（照片 ${counts.photos}、影片 ${counts.videos}、留言 ${counts.comments}、繪馬 ${counts.emas}），再按一次`
+        : '確定刪除？');
+      return;
+    }
+    if (step === 1 && hasContent) {
+      step = 2;
+      arm('隱藏內容並在 30 天後永久刪除？');
+      return;
+    }
+    // 最後一步：送出
+    clearTimeout(timer);
+    btn.disabled = true;
+    const { status, data } = await api(`/api/users/${encodeURIComponent(username)}`, {
+      method: 'DELETE',
+      body: JSON.stringify(hasContent ? { confirm: 'content' } : {}),
+    });
+    btn.disabled = false;
+    if (status !== 200) { err((data.error as string) || '刪除失敗'); revert(); return; }
+    err('');
+    revert();
+    await done();
   });
 }
 
@@ -199,6 +257,7 @@ function cell(label: string): HTMLTableCellElement {
 
 function userRow(u: UserRow): HTMLTableRowElement {
   const tr = document.createElement('tr');
+  if (u.deletedAt) tr.className = 'deleted'; // 待刪除的列整列變淡
   const isSelf = me?.username === u.username;
   const err = (msg: string) => { $('users-err').textContent = msg; };
 
@@ -217,7 +276,12 @@ function userRow(u: UserRow): HTMLTableRowElement {
   tr.append(tdRole);
 
   const tdStatus = cell('狀態');
-  tdStatus.append(badge(u.status === 'active' ? '啟用' : '停用', u.status === 'active' ? '' : 'disabled'));
+  if (u.deletedAt) {
+    // 軟刪除中：顯示永久刪除日期（deleted_at + 30 天，伺服器算好）
+    tdStatus.append(badge(`待刪除（${(u.purgeAt ?? u.deletedAt).slice(0, 10)} 永久刪除）`, 'disabled'));
+  } else {
+    tdStatus.append(badge(u.status === 'active' ? '啟用' : '停用', u.status === 'active' ? '' : 'disabled'));
+  }
   tr.append(tdStatus);
 
   const tdCreated = cell('建立');
@@ -231,6 +295,22 @@ function userRow(u: UserRow): HTMLTableRowElement {
   const tdOps = cell('操作');
   const ops = document.createElement('div');
   ops.className = 'ops';
+
+  // 軟刪除中（待刪除）：列上只有恢復鈕（一段式），沒有停用／重設密碼／角色／改名／刪除
+  if (u.deletedAt) {
+    const restore = opButton('恢復');
+    restore.title = '取消刪除，內容重新公開';
+    restore.addEventListener('click', async () => {
+      const { status, data } = await api(`/api/users/${encodeURIComponent(u.username)}/restore`, { method: 'POST', body: '{}' });
+      if (status !== 200) { err((data.error as string) || '恢復失敗'); return; }
+      err('');
+      await Promise.all([loadUsers(), loadContent()]);
+    });
+    ops.append(restore);
+    tdOps.append(ops);
+    tr.append(tdOps);
+    return tr;
+  }
 
   const reset = opButton('重設密碼');
   armed(reset, '確定重設？', async () => {
@@ -285,6 +365,14 @@ function userRow(u: UserRow): HTMLTableRowElement {
     });
   });
   ops.append(rename);
+
+  // 刪除帳號：自己那一列不顯示。第一次按先打預覽 API，內容數量決定兩段或三段確認。
+  if (!isSelf) {
+    const del = opButton('刪除');
+    del.title = '刪除帳號：沒有內容時立即刪除，有內容時先隱藏、30 天後永久刪除';
+    armedUserDelete(del, u.username, err, async () => { await Promise.all([loadUsers(), loadContent()]); });
+    ops.append(del);
+  }
 
   tdOps.append(ops);
   tr.append(tdOps);
