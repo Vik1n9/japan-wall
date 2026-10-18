@@ -167,6 +167,28 @@ try {
     }
   }
 
+  /* ---------- 極端直窄影片：瀏覽器轉檔要等比壓進伺服器 1920 長邊上限（不然轉完才被退件） ---------- */
+  {
+    const tdir = mkdtempSync(join(tmpdir(), 'kura-tall-'));
+    const tall = join(tdir, 'tall.mp4');
+    execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=600x2000:rate=30', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000',
+      '-t', '1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', tall]);
+    const b64 = readFileSync(tall).toString('base64');
+    await run(`const bin = Uint8Array.from(atob(${JSON.stringify(b64)}), (c) => c.charCodeAt(0));
+      const dt = new DataTransfer(); dt.items.add(new File([bin], 'tall.mp4', { type: 'video/mp4' }));
+      const f = document.getElementById('up-form'); f.day.value = '2026-10-06'; f.file.files = dt.files; f.file.dispatchEvent(new Event('change'));`);
+    await run(`const f = document.getElementById('up-form'); f.caption.value = 'UI 直窄影片 ${tag}'; f.requestSubmit();`);
+    const okTall = await waitFor(`document.getElementById('up-ok').textContent.includes('已上傳') || document.getElementById('up-err').textContent.length > 0`, 90000);
+    check('直窄影片（600×2000）：瀏覽器壓進 1920 並上傳成功', okTall && (await run(`return document.getElementById('up-ok').textContent.includes('已上傳');`)),
+      await run(`return document.getElementById('up-err').textContent;`));
+    const tinfo = await run(`const r = await fetch('/api/photos', { credentials: 'same-origin' }); const p = (await r.json()).photos.find((x) => x.caption === 'UI 直窄影片 ${tag}');
+      return p ? { id: p.id, w: p.width, h: p.height } : null;`);
+    check('直窄影片：存下的長邊 ≤1920、比例維持', !!tinfo && Math.max(tinfo.w, tinfo.h) <= 1920 && Math.abs(tinfo.h / tinfo.w - 2000 / 600) < 0.1, JSON.stringify(tinfo));
+    if (tinfo) {
+      await run(`await fetch('/api/photos/${tinfo.id}', { method: 'DELETE', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' });`);
+    }
+  }
+
   /* ---------- 兩段式刪除（不能跳原生對話框） ---------- */
   const before = dialogs();
   await run(`const item = [...document.querySelectorAll('.ep-item')].find((el) => el.textContent.includes('UI 測試照片 ${tag}'));

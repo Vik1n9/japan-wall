@@ -71,8 +71,13 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
   }
 
   if (method === 'POST' && url.pathname === '/api/photos') {
+    // 沒有 Content-Length（chunked 串流上傳）→ 411：formData() 會把整個 body 緩衝進記憶體，
+    // 下面的宣告長度檢查攔不到，最壞能塞到平台 100MB 上限把 isolate 記憶體（128MB）撞爆。
+    // 瀏覽器的 FormData 上傳一律會帶 Content-Length，正常流程不受影響。
+    const declared = request.headers.get('Content-Length');
+    if (declared === null) return json({ error: '缺少 Content-Length' }, 411);
     // 先看宣告的長度，超過影片上限的請求不必整包讀進記憶體
-    if (Number(request.headers.get('Content-Length') || 0) > MAX_VIDEO + MAX_POSTER + 64 * 1024) {
+    if (Number(declared) > MAX_VIDEO + MAX_POSTER + 64 * 1024) {
       return json({ error: '檔案太大：影片上限 50MB（上傳前會先在瀏覽器轉檔）' }, 413);
     }
     let form: FormData;

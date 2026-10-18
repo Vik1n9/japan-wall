@@ -53,6 +53,12 @@ export function clientIp(request: Request): string {
   return request.headers.get('CF-Connecting-IP') || 'local';
 }
 
+/** 所有 JSON API 的 body 上限：投稿 300 字、密碼 128 字，64KB 已極寬裕。
+ *  必要防護：request.json() 會把整個 body 緩衝進記憶體，而 /api/login 不用登入——
+ *  100MB 的 JSON 在 V8 裡（UTF-16 再翻倍）會超過 isolate 的 128MB 記憶體上限，
+ *  把同一 isolate 裡其他使用者的請求一起帶 down。 */
+const JSON_BODY_MAX = 64 * 1024;
+
 export function originAllowed(request: Request, env: Env): boolean {
   const origin = request.headers.get('Origin');
   if (!origin) return false;
@@ -67,7 +73,31 @@ export function originAllowed(request: Request, env: Env): boolean {
 
 export async function readJsonBody(request: Request): Promise<Record<string, unknown> | null> {
   try {
-    const parsed = await request.json();
+    const cl = request.headers.get('Content-Length');
+    if (cl !== null && Number(cl) > JSON_BODY_MAX) return null;
+    let text: string;
+    if (cl === null && request.body) {
+      // chunked（沒有 Content-Length）：串流讀，超過上限立刻取消，不讓整包進記憶體
+      const reader = request.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          total += value.byteLength;
+          if (total > JSON_BODY_MAX) { await reader.cancel(); return null; }
+          chunks.push(value);
+        }
+      }
+      const buf = new Uint8Array(total);
+      let o = 0;
+      for (const c of chunks) { buf.set(c, o); o += c.length; }
+      text = new TextDecoder().decode(buf);
+    } else {
+      text = await request.text();
+    }
+    const parsed = JSON.parse(text);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
     return parsed as Record<string, unknown>;
   } catch {

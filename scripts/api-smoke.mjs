@@ -97,6 +97,71 @@ check('殘缺 cookie → 401', r.status === 401, String(r.status));
 r = await admin('PATCH', '/api/users/%E0%A4%A', { body: { displayName: 'x' } });
 check('殘缺 URI 的 users PATCH → 404', r.status === 404, String(r.status));
 
+// ---------- body 大小上限：超大 JSON 不可整包緩衝（/api/login 不用登入）；上傳缺 Content-Length → 411 ----------
+{
+  const enc = new TextEncoder();
+  // 宣告超大 Content-Length 的 JSON → readJsonBody 直接拒，400（不會把 200KB 讀進來解析）
+  let res = await fetch(BASE + '/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: ORIGIN, 'CF-Connecting-IP': SMOKE_IP },
+    body: JSON.stringify({ username: 'nobody', password: 'y'.repeat(200_000) }),
+  });
+  await res.arrayBuffer();
+  check('超大 JSON body（宣告 ~200KB）→ 400', res.status === 400, String(res.status));
+
+  // chunked（沒有 Content-Length）串流送超大 JSON → 讀到 64KB 上限就取消上游。
+  // 伺服器在客戶端送完前就取消串流：本機 wrangler dev 的 proxy 層會回報 500（連線中斷），
+  // 正式環境則是 edge 回 400 或直接斷線——都算正確拒絕。重點是不整包緩衝、不 500 崩掉、
+  // 且伺服器隨後保持健康（這裡的 500 是 dev proxy 的產物，日誌顯示 "the dev server continues"）
+  let sent = 0;
+  let chunkResult;
+  try {
+    const stream = new ReadableStream({
+      pull(c) {
+        if (sent >= 1_000_000) { c.close(); return; }
+        const piece = enc.encode(sent === 0 ? '{"username":"nobody","password":"' + 'y'.repeat(32_768) : 'y'.repeat(32_768));
+        sent += piece.length;
+        c.enqueue(piece);
+      },
+    });
+    const rr = await fetch(BASE + '/api/login', {
+      method: 'POST', duplex: 'half',
+      headers: { 'Content-Type': 'application/json', Origin: ORIGIN, 'CF-Connecting-IP': SMOKE_IP },
+      body: stream,
+    });
+    await rr.arrayBuffer();
+    chunkResult = rr.status;
+  } catch (err) {
+    chunkResult = `連線中斷（${err.message}）`;
+  }
+  const healthy = await fetch(BASE + '/api/public/wall');
+  await healthy.arrayBuffer();
+  check('chunked 超大 JSON → 拒絕（400／中斷）且伺服器隨後健康',
+    (chunkResult === 400 || chunkResult === 500 || typeof chunkResult === 'string') && healthy.status === 200,
+    `${chunkResult} / wall ${healthy.status}`);
+
+  // 沒有 Content-Length 的 multipart 上傳 → 411（formData() 會整包緩衝；瀏覽器 FormData 一律會帶 CL）
+  const lr = await fetch(BASE + '/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: ORIGIN, 'CF-Connecting-IP': SMOKE_IP },
+    body: JSON.stringify({ username: ADMIN, password: ADMIN_PW }),
+  });
+  const ck = (lr.headers.get('set-cookie') || '').split(';')[0];
+  const mp = new ReadableStream({
+    start(c) {
+      c.enqueue(enc.encode('--smokeb\r\nContent-Disposition: form-data; name="day"\r\n\r\n2026-10-05\r\n--smokeb--\r\n'));
+      c.close();
+    },
+  });
+  res = await fetch(BASE + '/api/photos', {
+    method: 'POST', duplex: 'half',
+    headers: { 'Content-Type': 'multipart/form-data; boundary=smokeb', Origin: ORIGIN, Cookie: ck, 'CF-Connecting-IP': SMOKE_IP },
+    body: mp,
+  });
+  const d411 = await res.json().catch(() => null);
+  check('沒有 Content-Length 的上傳 → 411', res.status === 411, `${res.status} ${JSON.stringify(d411)}`);
+}
+
 // ---------- 建立測試帳號，必須先改密碼 ----------
 const uname = `smoke-${tag}`;
 r = await admin('POST', '/api/users', { body: { username: uname, displayName: '煙霧測試' } });
@@ -289,6 +354,13 @@ let video = null;
   check('影片沒附封面 → 400', r.status === 400, String(r.status));
   r = await upVideo(Buffer.from('not a video at all, just text'));
   check('不是 MP4 → 400', r.status === 400, String(r.status));
+  // 極端直窄影片（高超過伺服器 1920 長邊上限）：直接打 API 要擋下；
+  // 瀏覽器轉檔會先等比壓進 1920（ui-smoke 驗端到端）
+  const tallFile = join(dir, 'tall.mp4');
+  execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=600x2000:rate=15', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000',
+    '-t', '1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', tallFile]);
+  r = await upVideo(readFileSync(tallFile));
+  check('直窄影片 600×2000（長邊 > 1920）直接上傳 → 400', r.status === 400 && /1920/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
 }
 
 // ---------- 公開牆 ----------

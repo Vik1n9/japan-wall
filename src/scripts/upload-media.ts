@@ -115,7 +115,11 @@ export async function transcodeVideo(file: File, onProgress: (p: number) => void
   if (!vt) throw new Error('這個檔案裡沒有影像。');
   const [dw, dh] = await Promise.all([vt.getDisplayWidth(), vt.getDisplayHeight()]);
   const maxW = dw >= dh ? 1280 : 720;
-  const width = Math.min(dw, maxW) & ~1; // H.264 要偶數
+  // 伺服器另有長邊 1920 上限（worker/routes/photos.ts 的 VIDEO_MAX_SIDE）：極端直窄比例
+  // （例如 600×2000）寬度不會觸發縮放、等比高度卻會超標，轉完檔才被退件。先按比例壓進 1920。
+  let width = Math.min(dw, maxW);
+  if ((width * dh) / dw > 1920) width = Math.floor((1920 * dw) / dh);
+  width &= ~1; // H.264 要偶數
 
   const aac = await mb.canEncodeAudio('aac');
   const output = new mb.Output({ format: new mb.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new mb.BufferTarget() });
