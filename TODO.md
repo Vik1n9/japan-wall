@@ -2,7 +2,7 @@
 
 > 給接手的 Claude Code 工作階段看的待辦與現況。README 是給人讀的網站介紹，設計與決策在 `docs/decisions.md`，進度、交接與待辦只寫在這裡。
 > 完成一項就勾選並更新日期；整段做完就刪掉，不留歷史（歷史在 git log）。
-> 最後更新：2026-10-18 晚
+> 最後更新：2026-10-19
 
 ## 現況
 
@@ -10,6 +10,15 @@
 - 2026-10-19 前台 https://osaka2026.voriens.dev 與後台 https://kura.osaka2026.voriens.dev 都已部署最新版（含照片改版、影片上傳、短片聲音），Viking 已實測登入、上傳、繪馬、照片留言。改版前上傳的 6 張照片沒有拍攝時刻、排在當天最後，Viking 決定不重傳。之後部署前先問 Viking。
 - 後台本機測試：`test:api` 142/142（前台加 `KURA_FRONT`）、`test:ui` 60/60 通過（上線後檢查與優化，`3b72318`）。
 - Git：2026-10-18 已全部 push 到 GitHub。之後的 commit 要 push 前先問 Viking。
+
+## 待上線：刪除帳號（main `1353978`，尚未 push、尚未部署）
+
+本機測試 `test:api` 201/201（含 `KURA_TEST_SCHEDULED=1` 的 30 天排程清除）、`test:ui` 76/76。每一步都先問 Viking：
+
+- [ ] push 到 GitHub。
+- [ ] 正式資料庫跑 migration 004：`npx --yes wrangler@4 d1 execute osaka2026 -c wrangler.back.jsonc --remote --file worker/migrations/004-users-deleted-at.sql`（**必須在部署之前**，新版程式會查 `users.deleted_at`）。
+- [ ] `npm run deploy:back`，再 `npm run deploy`（前台的 `/api/media/*` 也改成先查作者是否已刪除）。
+- [ ] 上線檢查：到 `/admin` 刪掉 `shingang`（沒有內容的話應該兩段確認就直接消失）。
 
 ## 2026-10-19 上線的改動
 
