@@ -8,20 +8,17 @@
 
 - 五天 66 件展品、短片、視覺素材、屋簷趣事帶、後台 2.0 都已完成。
 - 2026-10-19 前台 https://osaka2026.voriens.dev 與後台 https://kura.osaka2026.voriens.dev 都已部署最新版（含照片改版、影片上傳、短片聲音），Viking 已實測登入、上傳、繪馬、照片留言。改版前上傳的 6 張照片沒有拍攝時刻、排在當天最後，Viking 決定不重傳。之後部署前先問 Viking。
-- 後台本機測試：`test:api` 58/58、`test:ui` 56/56 通過（影片上傳）。
+- 後台本機測試：`test:api` 90/90、`test:ui` 58/58 通過（後台強化，`e31cdf3`）。
 - Git：2026-10-18 已全部 push 到 GitHub。之後的 commit 要 push 前先問 Viking。
 
-## 影片上傳與恢復聲音（2026-10-19 已上線）
+## 2026-10-19 上線的改動
 
-正式資料庫已跑 migration 002，兩個 Worker 已部署。線上檢查：公開資料有影片欄位、沒有 GPS；`/api/media` 回 206；17 支展品短片都有聲音，說明卡有聲播放；前台沒有後台痕跡。
+影片上傳、展品短片聲音、後台兩批優化（opencode）、後台強化（防點擊劫持、IP 限速、每日排程清理）都已上線；正式資料庫已跑 migration 002、003。
 
 - [ ] Viking 用手機實際傳一支 iPhone 直拍影片：確認自動選對日期、牆上位置正確、說明卡有聲音，再到 `/admin` 刪掉。
 - [ ] Viking 聽幾支展品短片，確認音量與放慢段落的聲音可以接受。
-- [ ] 後台優化交給 opencode（qwen3.8-max，worktree `../japan-wall-opencode`、分支 `opencode/backend-opt`），審查通過後再合併進 main。
-
-## 等 Viking 決定
-
-- [ ] 後台要不要再做幾輪優化。做法：測試 → 修 → commit 循環，只有設計決策才停下來問。
+- [ ] 部署後第一次排程（台灣凌晨 3:17）：到 Cloudflare Dashboard → Workers → osaka2026-kura → Logs 確認執行成功（本機模擬環境用 batch 會出錯，已改成兩次獨立查詢，正式環境要觀察一次）。
+- [ ] **展品短片不支援 Range（206）**：靜態檔對 Range 一律回 200 完整檔，iPhone Safari 可能播不出來。已派給 opencode（分支 `opencode/recheck`）處理，審查後合併。
 
 ## 可選（Viking 尚未要求，提出即可，不要自行動手）
 

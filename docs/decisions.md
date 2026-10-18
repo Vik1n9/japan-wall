@@ -229,6 +229,11 @@ japan-wall/
 - **留言／繪馬**：編輯模式可直接在說明卡裡留言、回覆（也可從抽屜送）；留言掛在展品、照片或繪馬下（說明卡裡的討論串，回覆縮排），繪馬掛在當天最後的「繪馬掛所」；每人每天 100 則。照片或繪馬刪除後，掛在上面的留言不再公開。
 - **審核**：`/admin` 的「內容審核」列出全部公開中的照片與投稿，管理員可刪除；刪除＝不再公開（照片檔一併刪除，資料列留作紀錄）。
 - **公開資料不含登入帳號名稱**：牆上只顯示顯示名稱與署名。
+- **後台強化**（2026-10-19，Viking 決定；opencode 實作、Claude 審查）：
+  - `/admin`、`/edit` 回應帶 `X-Frame-Options: DENY` 與 `Content-Security-Policy: frame-ancestors 'none'`（`public/_headers`），防點擊劫持；公開牆不加。
+  - 登入限速兩層：帳號＋IP 失敗 5 次鎖 15 分鐘（原有）；**同一 IP 跨帳號失敗 20 次鎖 15 分鐘**（key `#ip|<ip>`，`#` 不會出現在帳號名稱，避免撞名）。成功登入只歸零帳號＋IP，不歸零 IP 計數；距上次失敗 15 分鐘或鎖定到期後重新起算。不採「只依 IP、5 次就鎖」：同行六人常共用同一個網路，一人打錯會鎖住全部人。改密碼的目前密碼錯誤也計入帳號層限速。
+  - 每日排程（UTC 19:17＝台灣 3:17，`wrangler.back.jsonc` 的 triggers）清掉不在鎖定中、超過 1 天的登入失敗紀錄與過期 session（`login_attempts.updated_at`，migration 003）。
+  - 維持現況：session 固定 30 天、不續期、不限裝置數。
 - **資料表變更**：`worker/schema.sql` 是全新資料庫用的；既有資料庫要跑 `worker/migrations/` 裡對應的檔案（例：`001-photos-taken-at.sql` 加 `photos.taken_at`）。
 - **上傳影片**（2026-10-18，Viking 決定）：與照片同一張表（`kind` 區分），一樣依拍攝時間與展品混排、可留言。上限：轉檔後 50MB、60 秒、每人每天 5 支。
   - 瀏覽器先從原檔讀拍攝時間與地點（`worker/lib/capture-meta.ts`：iPhone 的 `com.apple.quicktime.creationdate`／`location.ISO6709`、Android 的 `udta/©xyz`、3GPP `loci`；都沒有就用 `mvhd` 的 UTC 換算日本時間），再用 Mediabunny（WebCodecs）轉成 H.264＋AAC 的 MP4：橫式寬 ≤1280、直式寬 ≤720（與展品短片相同）、30fps、`tags: {}` 不帶 metadata、旋轉燒進畫面（`allowTransformationMetadata: false`，伺服器讀 `tkhd` 寬高才對）。封面取約 1 秒處的畫面。

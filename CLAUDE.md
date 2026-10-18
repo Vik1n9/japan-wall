@@ -29,7 +29,7 @@
 | `npm run dev:api` | 本機跑後台 Worker（http://localhost:8787，含 `/edit`、`/admin`；先 `npm run build`） |
 | `npm run db:setup:local` | 建立本機 D1 資料表（第一次跑 `dev:api` 前） |
 | `npm run admin:create -- <帳號> [名稱] [--local]` | 建立或重設管理員（不加 `--local` 是寫正式資料庫） |
-| `npm run test:api` ／ `npm run test:ui` | 後台煙霧測試（對本機 `dev:api`；需 `KURA_ADMIN`、`KURA_ADMIN_PW` 環境變數） |
+| `npm run test:api` ／ `npm run test:ui` | 後台煙霧測試（對本機 `dev:api`；需 `KURA_ADMIN`、`KURA_ADMIN_PW` 環境變數）。換埠跑：`node scripts/api-smoke.mjs http://localhost:<埠>`，該目錄的 `.dev.vars` 的 `ALLOWED_ORIGINS` 要含那個埠和 `http://kura.osaka2026.voriens.dev`（wrangler dev 會把 Origin 改寫成正式網域） |
 
 專案指令：`/add-day <日期>`（新增一天）、`/review`（分享前檢查）。
 
