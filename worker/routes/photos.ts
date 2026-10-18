@@ -71,17 +71,43 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
   }
 
   if (method === 'POST' && url.pathname === '/api/photos') {
-    // 沒有 Content-Length（chunked 串流上傳）→ 411：formData() 會把整個 body 緩衝進記憶體，
-    // 下面的宣告長度檢查攔不到，最壞能塞到平台 100MB 上限把 isolate 記憶體（128MB）撞爆。
-    // 瀏覽器的 FormData 上傳一律會帶 Content-Length，正常流程不受影響。
-    const declared = request.headers.get('Content-Length');
-    if (declared === null) return json({ error: '缺少 Content-Length' }, 411);
+    const BODY_LIMIT = MAX_VIDEO + MAX_POSTER + 64 * 1024;
     // 先看宣告的長度，超過影片上限的請求不必整包讀進記憶體
-    if (Number(declared) > MAX_VIDEO + MAX_POSTER + 64 * 1024) {
+    const declared = request.headers.get('Content-Length');
+    if (declared !== null && Number(declared) > BODY_LIMIT) {
       return json({ error: '檔案太大：影片上限 50MB（上傳前會先在瀏覽器轉檔）' }, 413);
     }
+    // 正式站經 Cloudflare 的 HTTP/2、HTTP/3 不保證請求帶 Content-Length（本機 dev 是
+    // HTTP/1.1 測不出來），不能因為缺 header 就擋掉正常上傳。缺 header 時改串流讀取並計數：
+    // 超過上限立刻取消上游回 413；沒超過就把讀到的 bytes 組回新的 Request（沿用含 boundary
+    // 的 Content-Type）再 formData()——跟 readJsonBody 相同模式，不管 header 在不在，
+    // formData() 都不會被拿來整包緩衝超過上限的 body（平台上限 100MB 會撞爆 isolate 的 128MB）
+    let formRequest = request;
+    if (declared === null && request.body) {
+      const reader = request.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      let over = false;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value) continue;
+        total += value.byteLength;
+        if (total > BODY_LIMIT) { over = true; await reader.cancel(); break; }
+        chunks.push(value);
+      }
+      if (over) return json({ error: '檔案太大：影片上限 50MB（上傳前會先在瀏覽器轉檔）' }, 413);
+      const whole = new Uint8Array(total);
+      let o = 0;
+      for (const c of chunks) { whole.set(c, o); o += c.length; }
+      formRequest = new Request(request.url, {
+        method: 'POST',
+        headers: { 'Content-Type': request.headers.get('Content-Type') ?? 'application/octet-stream' },
+        body: whole,
+      });
+    }
     let form: FormData;
-    try { form = await request.formData(); } catch { return json({ error: '請用 multipart/form-data 上傳' }, 400); }
+    try { form = await formRequest.formData(); } catch { return json({ error: '請用 multipart/form-data 上傳' }, 400); }
     const file = form.get('file');
     if (!(file instanceof File) || file.size === 0) return json({ error: '沒有檔案' }, 400);
     const isVideo = form.get('kind') === 'video';

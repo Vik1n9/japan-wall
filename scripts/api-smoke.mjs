@@ -97,7 +97,7 @@ check('殘缺 cookie → 401', r.status === 401, String(r.status));
 r = await admin('PATCH', '/api/users/%E0%A4%A', { body: { displayName: 'x' } });
 check('殘缺 URI 的 users PATCH → 404', r.status === 404, String(r.status));
 
-// ---------- body 大小上限：超大 JSON 不可整包緩衝（/api/login 不用登入）；上傳缺 Content-Length → 411 ----------
+// ---------- body 大小上限：超大 JSON 不可整包緩衝（/api/login 不用登入）；上傳缺 Content-Length 走串流讀取 ----------
 {
   const enc = new TextEncoder();
   // 宣告超大 Content-Length 的 JSON → readJsonBody 直接拒，400（不會把 200KB 讀進來解析）
@@ -140,26 +140,72 @@ check('殘缺 URI 的 users PATCH → 404', r.status === 404, String(r.status));
     (chunkResult === 400 || chunkResult === 500 || typeof chunkResult === 'string') && healthy.status === 200,
     `${chunkResult} / wall ${healthy.status}`);
 
-  // 沒有 Content-Length 的 multipart 上傳 → 411（formData() 會整包緩衝；瀏覽器 FormData 一律會帶 CL）
+  // 沒有 Content-Length 的上傳（正式站 HTTP/2、HTTP/3 不保證有這個 header，本機 dev 是
+  // HTTP/1.1 測不到）：伺服器要串流讀取並照常收下 → 201，不能擋掉正常上傳
   const lr = await fetch(BASE + '/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Origin: ORIGIN, 'CF-Connecting-IP': SMOKE_IP },
     body: JSON.stringify({ username: ADMIN, password: ADMIN_PW }),
   });
   const ck = (lr.headers.get('set-cookie') || '').split(';')[0];
+  const smallJpeg = await sharp({ create: { width: 32, height: 24, channels: 3, background: '#3366cc' } }).jpeg().toBuffer();
+  const mpWhole = Buffer.concat([
+    Buffer.from('--smokechunk\r\nContent-Disposition: form-data; name="day"\r\n\r\n2026-10-06\r\n'
+      + '--smokechunk\r\nContent-Disposition: form-data; name="caption"\r\n\r\nchunked 上傳測試\r\n'
+      + '--smokechunk\r\nContent-Disposition: form-data; name="file"; filename="c.jpg"\r\nContent-Type: image/jpeg\r\n\r\n', 'utf8'),
+    smallJpeg,
+    Buffer.from('\r\n--smokechunk--\r\n', 'utf8'),
+  ]);
+  // node fetch 對 ReadableStream body 用 Transfer-Encoding: chunked（沒有 Content-Length）
   const mp = new ReadableStream({
     start(c) {
-      c.enqueue(enc.encode('--smokeb\r\nContent-Disposition: form-data; name="day"\r\n\r\n2026-10-05\r\n--smokeb--\r\n'));
+      for (let i = 0; i < mpWhole.length; i += 4096) c.enqueue(new Uint8Array(mpWhole.subarray(i, i + 4096)));
       c.close();
     },
   });
   res = await fetch(BASE + '/api/photos', {
     method: 'POST', duplex: 'half',
-    headers: { 'Content-Type': 'multipart/form-data; boundary=smokeb', Origin: ORIGIN, Cookie: ck, 'CF-Connecting-IP': SMOKE_IP },
+    headers: { 'Content-Type': 'multipart/form-data; boundary=smokechunk', Origin: ORIGIN, Cookie: ck, 'CF-Connecting-IP': SMOKE_IP },
     body: mp,
   });
-  const d411 = await res.json().catch(() => null);
-  check('沒有 Content-Length 的上傳 → 411', res.status === 411, `${res.status} ${JSON.stringify(d411)}`);
+  const dUp = await res.json().catch(() => null);
+  check('chunked 照片（沒有 Content-Length）→ 201 照常收下', res.status === 201 && dUp?.ok === true,
+    `${res.status} ${JSON.stringify(dUp)}`);
+  if (dUp?.photo?.id) { // 刪掉，不佔配額
+    await fetch(`${BASE}/api/photos/${dUp.photo.id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Origin: ORIGIN, Cookie: ck, 'CF-Connecting-IP': SMOKE_IP },
+      body: '{}',
+    });
+  }
+
+  // chunked 超過上限（~54MB）→ 串流讀到上限就切斷回 413，且伺服器隨後仍健康
+  const LIMIT = 50 * 1024 * 1024 + 2 * 1024 * 1024 + 64 * 1024;
+  const junk = new Uint8Array(1024 * 1024).fill(65);
+  let sentBytes = 0;
+  let bigResult;
+  try {
+    const bigStream = new ReadableStream({
+      pull(c) {
+        if (sentBytes >= LIMIT + 2 * 1024 * 1024) { c.close(); return; }
+        sentBytes += junk.length;
+        c.enqueue(junk);
+      },
+    });
+    const rb = await fetch(BASE + '/api/photos', {
+      method: 'POST', duplex: 'half',
+      headers: { 'Content-Type': 'multipart/form-data; boundary=smokebig', Origin: ORIGIN, Cookie: ck, 'CF-Connecting-IP': SMOKE_IP },
+      body: bigStream,
+    });
+    await rb.arrayBuffer();
+    bigResult = rb.status;
+  } catch (err) {
+    bigResult = `連線中斷（${err.message}）`;
+  }
+  const healthy2 = await fetch(BASE + '/api/public/wall');
+  await healthy2.arrayBuffer();
+  check('chunked 超過上限 → 413 且伺服器之後仍正常', bigResult === 413 && healthy2.status === 200,
+    `${bigResult} / wall ${healthy2.status}`);
 }
 
 // ---------- 建立測試帳號，必須先改密碼 ----------
