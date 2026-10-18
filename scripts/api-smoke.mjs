@@ -241,6 +241,26 @@ check('本人刪自己的繪馬 → 200', r.status === 200, JSON.stringify(r.dat
 r = await client()('GET', '/api/public/wall', { origin: null });
 check('繪馬刪除後，掛在上面的留言不再公開', !r.data.posts.some((p) => p.id === cmtId));
 
+// ---------- 登入限速：同帳號＋IP 連錯 5 次 → 429 鎖 15 分鐘 ----------
+const lockName = `lock-${tag}`;
+r = await admin('POST', '/api/users', { body: { username: lockName, displayName: '限速測試' } });
+check('建立限速測試帳號 → 201', r.status === 201, String(r.status));
+{
+  const lockPw = r.data.password;
+  const lc = client();
+  let st = 0;
+  for (let i = 0; i < 5; i++) {
+    st = (await lc('POST', '/api/login', { body: { username: lockName, password: `bad-${i}` } })).status;
+  }
+  check('登入連錯 5 次密碼 → 401', st === 401, String(st));
+  r = await lc('POST', '/api/login', { body: { username: lockName, password: lockPw } });
+  check('第 6 次即使密碼正確 → 429 鎖定', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW } });
+  check('鎖定只針對該帳號＋IP，不影響其他帳號', r.status === 200, String(r.status));
+  r = await admin('PATCH', `/api/users/${lockName}`, { body: { status: 'disabled' } });
+  check('停用限速測試帳號 → 200', r.status === 200, String(r.status));
+}
+
 // ---------- 收尾 ----------
 if (photo) {
   r = await admin('DELETE', `/api/photos/${photo.id}`);
