@@ -3,7 +3,8 @@
 
 import { randomTokenBase64url, safeDecode, safeEqual, sha256Hex, nowTaipeiIso } from './util';
 
-const PBKDF2_ITERATIONS = 150_000;
+// Cloudflare 正式環境的 Web Crypto PBKDF2 上限是 100,000 次（本機 wrangler dev 不擋），超過會丟 NotSupportedError
+const PBKDF2_ITERATIONS = 100_000;
 const MAX_FAILS = 5;
 const LOCK_MINUTES = 15;
 export const SESSION_COOKIE = 'kura_session';

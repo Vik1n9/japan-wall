@@ -3,10 +3,10 @@
 // 用法：npm run admin:create -- <username> [display_name] [--local] [--password <pw>]
 //   --local    寫入 wrangler dev 的本機 D1（預設寫 remote）
 //   --password 指定密碼（預設隨機產生並印出，只顯示這一次）
-// 雜湊格式與 worker/lib/auth.ts 相同：pbkdf2$150000$<saltHex>$<hashHex>
+// 雜湊格式與 worker/lib/auth.ts 相同：pbkdf2$100000$<saltHex>$<hashHex>
 import { execFileSync } from 'node:child_process';
 
-const ITERATIONS = 150_000;
+const ITERATIONS = 100_000; // Cloudflare 正式環境上限，見 worker/lib/auth.ts
 
 function toHex(buf) {
   return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
