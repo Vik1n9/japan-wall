@@ -9,7 +9,7 @@
 - 五天 66 件展品、短片、視覺素材、屋簷趣事帶、後台 2.0 都已完成。
 - 2026-10-18 前台 https://osaka2026.voriens.dev 與後台 https://kura.osaka2026.voriens.dev 都已部署最新版。
 - 後台本機測試：`test:api` 45/45、`test:ui` 45/45 通過（後台第十輪，`07e8ed0`）。
-- Git：GitHub 上到 `41f2829`，之後的 commit 還沒 push。之後的 commit 要 push 前先問 Viking。
+- Git：2026-10-18 已全部 push 到 GitHub。之後的 commit 要 push 前先問 Viking。
 
 ## 後台 2.0 上線後，Viking 要做的
 
