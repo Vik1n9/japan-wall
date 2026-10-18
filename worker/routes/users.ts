@@ -138,7 +138,10 @@ export async function route(ctx: AuthedCtx): Promise<Response | null> {
     // 停用或重設密碼 → 該帳號所有 session 立即失效
     if (nextStatus === 'disabled' || newPassword !== null) {
       await destroyAllSessions(env.DB, target);
-      await env.DB.prepare(`DELETE FROM login_attempts WHERE key LIKE ?1`).bind(`${target}|%`).run();
+      // 帳號名稱允許 '_'（LIKE 的單字元萬用字元）：不跳脫的話，停用 a_b 會順帶刪掉 axb 的
+      // 登入失敗計數、把別人的鎖解掉。IP 層 key 是 '#ip|…'，前綴不同本來就不會被掃到。
+      const escaped = target.replace(/[\\%_]/g, (c) => `\\${c}`);
+      await env.DB.prepare(`DELETE FROM login_attempts WHERE key LIKE ?1 ESCAPE '\\'`).bind(`${escaped}|%`).run();
     }
     return json({ ok: true, ...(newPassword !== null ? { password: newPassword } : {}) });
   }

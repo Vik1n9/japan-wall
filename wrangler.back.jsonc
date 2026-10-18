@@ -11,7 +11,8 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    // /media/*.mp4 進 Worker 做 Range 切片（Safari 播放需要 206，見 worker/lib/media-assets.ts）
+    "run_worker_first": ["/api/*", "/media/*.mp4"]
   },
   "d1_databases": [
     {

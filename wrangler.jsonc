@@ -1,5 +1,6 @@
 // 前台 Worker（純展示）：npm run deploy
-// 只有 /api/*、/edit*、/admin* 進 Worker 回 404，其餘直接由靜態資源回應、不計費。
+// 只有 /api/*、/edit*、/admin* 進 Worker 回 404；/media/*.mp4 進 Worker 做 Range 切片（Safari 播放需要 206），
+// 其餘直接由靜態資源回應、不計費。
 // 這個部署裡沒有任何登入/後台程式碼——後台在 wrangler.back.jsonc（kura 網域）。
 {
   "name": "osaka2026",
@@ -8,7 +9,7 @@
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*", "/edit", "/edit/*", "/admin", "/admin/*"]
+    "run_worker_first": ["/api/*", "/edit", "/edit/*", "/admin", "/admin/*", "/media/*.mp4"]
   },
   // 階段 6：前台動態渲染需要的唯讀綁定（與後台同一個 D1/R2）
   "d1_databases": [

@@ -2,6 +2,7 @@
 // 不使用 SESSION_SECRET：token 本身是 256-bit 隨機值，D1 只存 SHA-256 雜湊，可隨時撤銷。
 
 import { randomTokenBase64url, safeDecode, safeEqual, sha256Hex, nowTaipeiIso } from './util';
+import { ipRateKey } from './ip-subnet';
 
 // Cloudflare 正式環境的 Web Crypto PBKDF2 上限是 100,000 次（本機 wrangler dev 不擋），超過會丟 NotSupportedError
 const PBKDF2_ITERATIONS = 100_000;
@@ -197,9 +198,12 @@ export const IP_MAX_FAILS = 20;
 
 /** IP 層 key 前綴用 '#'：帳號名稱允許字元（a-z、0-9、_ . -）不可能出現 '#'，
  *  所以叫「ip」的帳號（帳號 key 'ip|<ip>'）不會跟 IP 層 key 撞名，
- *  停用帳號時的 `DELETE … WHERE key LIKE '<username>|%'` 也不會誤刪 IP 層紀錄。 */
+ *  停用帳號時的 `DELETE … WHERE key LIKE '<username>|%'` 也不會誤刪 IP 層紀錄。
+ *  IP 經過 ipRateKey 正規化：IPv4 完整位址、IPv6 以 /64 網段計數
+ *  （IPv6 隱私位址會每個連線都換尾碼，完整位址擋不住噴灑；原因詳見 ip-subnet.ts）。
+ *  只影響 IP 層；「帳號＋IP」那層（'<username>|<ip>'）維持完整位址。 */
 export function ipLockKey(ip: string): string {
-  return `#ip|${ip}`;
+  return `#ip|${ipRateKey(ip)}`;
 }
 
 export async function recordIpLoginFailure(db: D1Database, ip: string): Promise<void> {

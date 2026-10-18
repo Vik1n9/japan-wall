@@ -5,9 +5,10 @@
 import sharp from 'sharp';
 import zlib from 'node:zlib';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const BASE = process.argv[2] || 'http://localhost:8787';
 const ORIGIN = new URL(BASE).origin; // 跟 BASE 同埠：wrangler dev 的 Origin 白名單才不會擋
@@ -60,6 +61,10 @@ const tag = Math.random().toString(36).slice(2, 6);
 // 整份測試的請求都掛同一個「這一次執行專用」的假 IP：除了貼近正式行為，
 // 也避免所有失敗登入都累積在 IP 'local' 上，觸發 IP 層限速（20 次）而污染下一次執行。
 const fakeIp = (n) => `198.18.${(parseInt(tag, 36) % 250) + 1}.${n}`;
+// IPv6 的 IP 層限速以 /64 計數，鎖定 15 分鐘：測試用的網段也必須每次執行都不同，
+// 否則同一台機器在鎖定期內重跑，前一次的殘留計數會讓測試提早 429。
+// 由 tag 算出第 3 組 16-bit（tag 是 4 碼 base36，數值上限 1679615，mod 0x10000 後補滿 4 碼）。
+const fakeV6Net = (n) => `2001:db8:${(parseInt(tag, 36) % 0x10000).toString(16).padStart(4, '0')}:${n}`;
 const SMOKE_IP = fakeIp(1);
 const admin = client();
 
@@ -95,6 +100,117 @@ r = await client()('GET', '/api/me', { rawCookie: 'kura_session=%E0%A4%A' });
 check('殘缺 cookie → 401', r.status === 401, String(r.status));
 r = await admin('PATCH', '/api/users/%E0%A4%A', { body: { displayName: 'x' } });
 check('殘缺 URI 的 users PATCH → 404', r.status === 404, String(r.status));
+
+// ---------- body 大小上限：超大 JSON 不可整包緩衝（/api/login 不用登入）；上傳缺 Content-Length 走串流讀取 ----------
+{
+  const enc = new TextEncoder();
+  // 宣告超大 Content-Length 的 JSON → readJsonBody 直接拒，400（不會把 200KB 讀進來解析）
+  let res = await fetch(BASE + '/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: ORIGIN, 'CF-Connecting-IP': SMOKE_IP },
+    body: JSON.stringify({ username: 'nobody', password: 'y'.repeat(200_000) }),
+  });
+  await res.arrayBuffer();
+  check('超大 JSON body（宣告 ~200KB）→ 400', res.status === 400, String(res.status));
+
+  // chunked（沒有 Content-Length）串流送超大 JSON → 讀到 64KB 上限就取消上游。
+  // 伺服器在客戶端送完前就取消串流：本機 wrangler dev 的 proxy 層會回報 500（連線中斷），
+  // 正式環境則是 edge 回 400 或直接斷線——都算正確拒絕。重點是不整包緩衝、不 500 崩掉、
+  // 且伺服器隨後保持健康（這裡的 500 是 dev proxy 的產物，日誌顯示 "the dev server continues"）
+  let sent = 0;
+  let chunkResult;
+  try {
+    const stream = new ReadableStream({
+      pull(c) {
+        if (sent >= 1_000_000) { c.close(); return; }
+        const piece = enc.encode(sent === 0 ? '{"username":"nobody","password":"' + 'y'.repeat(32_768) : 'y'.repeat(32_768));
+        sent += piece.length;
+        c.enqueue(piece);
+      },
+    });
+    const rr = await fetch(BASE + '/api/login', {
+      method: 'POST', duplex: 'half',
+      headers: { 'Content-Type': 'application/json', Origin: ORIGIN, 'CF-Connecting-IP': SMOKE_IP },
+      body: stream,
+    });
+    await rr.arrayBuffer();
+    chunkResult = rr.status;
+  } catch (err) {
+    chunkResult = `連線中斷（${err.message}）`;
+  }
+  const healthy = await fetch(BASE + '/api/public/wall');
+  await healthy.arrayBuffer();
+  check('chunked 超大 JSON → 拒絕（400／中斷）且伺服器隨後健康',
+    (chunkResult === 400 || chunkResult === 500 || typeof chunkResult === 'string') && healthy.status === 200,
+    `${chunkResult} / wall ${healthy.status}`);
+
+  // 沒有 Content-Length 的上傳（正式站 HTTP/2、HTTP/3 不保證有這個 header，本機 dev 是
+  // HTTP/1.1 測不到）：伺服器要串流讀取並照常收下 → 201，不能擋掉正常上傳
+  const lr = await fetch(BASE + '/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: ORIGIN, 'CF-Connecting-IP': SMOKE_IP },
+    body: JSON.stringify({ username: ADMIN, password: ADMIN_PW }),
+  });
+  const ck = (lr.headers.get('set-cookie') || '').split(';')[0];
+  const smallJpeg = await sharp({ create: { width: 32, height: 24, channels: 3, background: '#3366cc' } }).jpeg().toBuffer();
+  const mpWhole = Buffer.concat([
+    Buffer.from('--smokechunk\r\nContent-Disposition: form-data; name="day"\r\n\r\n2026-10-06\r\n'
+      + '--smokechunk\r\nContent-Disposition: form-data; name="caption"\r\n\r\nchunked 上傳測試\r\n'
+      + '--smokechunk\r\nContent-Disposition: form-data; name="file"; filename="c.jpg"\r\nContent-Type: image/jpeg\r\n\r\n', 'utf8'),
+    smallJpeg,
+    Buffer.from('\r\n--smokechunk--\r\n', 'utf8'),
+  ]);
+  // node fetch 對 ReadableStream body 用 Transfer-Encoding: chunked（沒有 Content-Length）
+  const mp = new ReadableStream({
+    start(c) {
+      for (let i = 0; i < mpWhole.length; i += 4096) c.enqueue(new Uint8Array(mpWhole.subarray(i, i + 4096)));
+      c.close();
+    },
+  });
+  res = await fetch(BASE + '/api/photos', {
+    method: 'POST', duplex: 'half',
+    headers: { 'Content-Type': 'multipart/form-data; boundary=smokechunk', Origin: ORIGIN, Cookie: ck, 'CF-Connecting-IP': SMOKE_IP },
+    body: mp,
+  });
+  const dUp = await res.json().catch(() => null);
+  check('chunked 照片（沒有 Content-Length）→ 201 照常收下', res.status === 201 && dUp?.ok === true,
+    `${res.status} ${JSON.stringify(dUp)}`);
+  if (dUp?.photo?.id) { // 刪掉，不佔配額
+    await fetch(`${BASE}/api/photos/${dUp.photo.id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Origin: ORIGIN, Cookie: ck, 'CF-Connecting-IP': SMOKE_IP },
+      body: '{}',
+    });
+  }
+
+  // chunked 超過上限（~54MB）→ 串流讀到上限就切斷回 413，且伺服器隨後仍健康
+  const LIMIT = 50 * 1024 * 1024 + 2 * 1024 * 1024 + 64 * 1024;
+  const junk = new Uint8Array(1024 * 1024).fill(65);
+  let sentBytes = 0;
+  let bigResult;
+  try {
+    const bigStream = new ReadableStream({
+      pull(c) {
+        if (sentBytes >= LIMIT + 2 * 1024 * 1024) { c.close(); return; }
+        sentBytes += junk.length;
+        c.enqueue(junk);
+      },
+    });
+    const rb = await fetch(BASE + '/api/photos', {
+      method: 'POST', duplex: 'half',
+      headers: { 'Content-Type': 'multipart/form-data; boundary=smokebig', Origin: ORIGIN, Cookie: ck, 'CF-Connecting-IP': SMOKE_IP },
+      body: bigStream,
+    });
+    await rb.arrayBuffer();
+    bigResult = rb.status;
+  } catch (err) {
+    bigResult = `連線中斷（${err.message}）`;
+  }
+  const healthy2 = await fetch(BASE + '/api/public/wall');
+  await healthy2.arrayBuffer();
+  check('chunked 超過上限 → 413 且伺服器之後仍正常', bigResult === 413 && healthy2.status === 200,
+    `${bigResult} / wall ${healthy2.status}`);
+}
 
 // ---------- 建立測試帳號，必須先改密碼 ----------
 const uname = `smoke-${tag}`;
@@ -288,6 +404,13 @@ let video = null;
   check('影片沒附封面 → 400', r.status === 400, String(r.status));
   r = await upVideo(Buffer.from('not a video at all, just text'));
   check('不是 MP4 → 400', r.status === 400, String(r.status));
+  // 極端直窄影片（高超過伺服器 1920 長邊上限）：直接打 API 要擋下；
+  // 瀏覽器轉檔會先等比壓進 1920（ui-smoke 驗端到端）
+  const tallFile = join(dir, 'tall.mp4');
+  execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=600x2000:rate=15', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000',
+    '-t', '1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', tallFile]);
+  r = await upVideo(readFileSync(tallFile));
+  check('直窄影片 600×2000（長邊 > 1920）直接上傳 → 400', r.status === 400 && /1920/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
 }
 
 // ---------- 公開牆 ----------
@@ -381,6 +504,52 @@ check('建立限速測試帳號 → 201', r.status === 201, String(r.status));
   check('成功登入沒有歸零 IP 計數：第 21 次正確密碼也 429', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
 }
 
+// ---------- IPv6 的 IP 層限速：以 /64 網段計數（隱私位址每個連線都換尾碼，完整位址擋不住噴灑） ----------
+{
+  // 純函式單元檢查：api-smoke 直接用 node import worker 的 TS（node ≥23.6 內建 type stripping，
+  // ip-subnet.ts 刻意零依賴、只用可擦除語法）。整合測試在下面用假的 CF-Connecting-IP 驗。
+  const { ipRateKey } = await import(new URL('../worker/lib/ip-subnet.ts', import.meta.url).href);
+  check('ipRateKey：IPv4 維持完整位址', ipRateKey('203.0.113.7') === '203.0.113.7', ipRateKey('203.0.113.7'));
+  check('ipRateKey：各種縮寫／大小寫／zone id 得到同一個 /64',
+    ipRateKey('2001:db8:1:2:3:4:5:6') === '2001:db8:1:2::/64'
+    && ipRateKey('2001:0db8:0001:0002:aaaa:bbbb:cccc:dddd') === '2001:db8:1:2::/64'
+    && ipRateKey('2001:DB8:1:2::') === '2001:db8:1:2::/64'
+    && ipRateKey('2001:db8:1:2::1%en0') === '2001:db8:1:2::/64',
+    [ipRateKey('2001:db8:1:2:3:4:5:6'), ipRateKey('2001:DB8:1:2::'), ipRateKey('2001:db8:1:2::1%en0')].join(' '));
+  check('ipRateKey：不同 /64 得到不同 key', ipRateKey('2001:db8:1:3::1') === '2001:db8:1:3::/64', ipRateKey('2001:db8:1:3::1'));
+  check('ipRateKey：::ffff:x.x.x.x 視為對應的 IPv4', ipRateKey('::ffff:203.0.113.9') === '203.0.113.9', ipRateKey('::ffff:203.0.113.9'));
+  check('ipRateKey：全零與 NAT64 內嵌 IPv4 的 /64', ipRateKey('::') === '::/64' && ipRateKey('::1') === '::/64' && ipRateKey('64:ff9b::1.2.3.4') === '64:ff9b:0:0::/64',
+    `${ipRateKey('::')} ${ipRateKey('64:ff9b::1.2.3.4')}`);
+  check('ipRateKey：解析不了的原樣返回（寧可少併不可誤併）', ipRateKey('1:2:3') === '1:2:3' && ipRateKey('1:2:3:4:5:6:7::8') === '1:2:3:4:5:6:7::8',
+    `${ipRateKey('1:2:3')} ${ipRateKey('1:2:3:4:5:6:7::8')}`);
+
+  // 整合：同一個 /64 底下用不同位址累計失敗——混大小寫、不同縮寫、zone id 都要算進
+  // 同一個桶；每次換不存在的帳號，避免先觸發「帳號＋IP」那層。網段由 tag 產生，
+  // 每次執行都是新的 /64（見 fakeV6Net 註解）。
+  const v6net1 = fakeV6Net(1);
+  const v6net2 = fakeV6Net(2);
+  const v6Addrs = [`${v6net1}::11`, `${v6net1.toUpperCase()}::22`, `${v6net1}:0:abcd:0:33`, `${v6net1}::44%en0`];
+  let st = 0;
+  for (let i = 0; i < 20; i++) {
+    st = (await client()('POST', '/api/login', { body: { username: `v6lock-${tag}-${i}`, password: 'bad' }, cfIp: v6Addrs[i % v6Addrs.length] })).status;
+  }
+  check('同一 /64 內 4 種寫法的位址累計失敗 20 次 → 401', st === 401, String(st));
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: `${v6net1}:ffff::99` });
+  check('第 21 次換同 /64 的另一個位址，正確密碼也 429（整個 /64 被鎖）', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: `${v6net2}::1` });
+  check('另一個 /64 不受影響 → 200', r.status === 200, String(r.status));
+
+  // ::ffff:<IPv4> 與對應的 IPv4 是同一個桶：19 次純 IPv4 ＋ 第 20 次用 mapped 寫法 → 鎖
+  const v4m = fakeIp(15);
+  for (let i = 0; i < 19; i++) {
+    await client()('POST', '/api/login', { body: { username: `v4map-${tag}-${i}`, password: 'bad' }, cfIp: v4m });
+  }
+  st = (await client()('POST', '/api/login', { body: { username: `v4map-${tag}-x`, password: 'bad' }, cfIp: `::ffff:${v4m}` })).status;
+  check('::ffff:<IPv4> 的失敗併入同一個 IPv4 桶：第 20 次 → 401 且觸發鎖', st === 401, String(st));
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: v4m });
+  check('鎖定後用純 IPv4 位址也 429（mapped 與 IPv4 算同一個）', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
+}
+
 // ---------- 帳號名稱「ip」不會跟 IP 層 key 撞名（#ip| 前綴） ----------
 {
   const ipD = fakeIp(13);
@@ -405,6 +574,32 @@ check('建立限速測試帳號 → 201', r.status === 201, String(r.status));
   check('停用帳號 ip 沒有清掉 IP 層計數：湊滿 20 次後正確密碼也 429', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
 }
 
+// ---------- 帳號名稱含 '_'：停用時的 login_attempts 清理不可誤刪其他帳號（LIKE 萬用字元跳脫） ----------
+{
+  // '_ ' 是 LIKE 的單字元萬用字元：停用 esc_a-… 的清理 pattern 若不跳脫，會掃到 escxa-… 的失敗計數、把別人的鎖解掉
+  const victim = `escxa-${tag}`;
+  const under = `esc_a-${tag}`;
+  const ipE = fakeIp(14);
+  r = await admin('POST', '/api/users', { body: { username: victim, displayName: '跳脫受害者' } });
+  check(`建立帳號 ${victim} → 201`, r.status === 201, String(r.status));
+  const victimPw = r.data.password;
+  r = await admin('POST', '/api/users', { body: { username: under, displayName: '跳脫觸發者' } });
+  check(`建立帳號 ${under} → 201`, r.status === 201, String(r.status));
+  let st = 0;
+  for (let i = 0; i < 5; i++) {
+    st = (await client()('POST', '/api/login', { body: { username: victim, password: `bad-${i}` }, cfIp: ipE })).status;
+  }
+  check(`${victim} 連錯 5 次 → 401（帳號＋IP 已鎖）`, st === 401, String(st));
+  r = await client()('POST', '/api/login', { body: { username: victim, password: victimPw }, cfIp: ipE });
+  check('鎖定中即使密碼正確 → 429', r.status === 429, String(r.status));
+  r = await admin('PATCH', `/api/users/${under}`, { body: { status: 'disabled' } });
+  check(`停用 ${under} → 200`, r.status === 200, String(r.status));
+  r = await client()('POST', '/api/login', { body: { username: victim, password: victimPw }, cfIp: ipE });
+  check(`停用含 _ 帳號沒有誤刪 ${victim} 的鎖（LIKE 已跳脫）→ 仍 429`, r.status === 429, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await admin('PATCH', `/api/users/${victim}`, { body: { status: 'disabled' } });
+  check(`停用 ${victim} → 200`, r.status === 200, String(r.status));
+}
+
 // ---------- 防點擊劫持：/admin、/edit 不可被框架嵌入；公開牆（/）不加 ----------
 {
   const frameHeaders = async (path) => {
@@ -419,6 +614,84 @@ check('建立限速測試帳號 → 201', r.status === 201, String(r.status));
   const root = await frameHeaders('/');
   check('公開牆（/）沒有框架限制', root.status === 200 && root.xfo === null && root.csp === null, JSON.stringify(root));
 }
+
+// ---------- 展品短片 Range（靜態資源 /media/*.mp4：Safari 的 <video> 要 206 才播得到） ----------
+// 從 public/media 挑一支短片與一張照片（build 後 dist 內容相同；前台與後台 Worker 都要測）
+const mediaRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'media');
+const findMedia = (ext) => {
+  for (const day of readdirSync(mediaRoot).sort()) {
+    const dir = join(mediaRoot, day);
+    if (!statSync(dir).isDirectory()) continue;
+    const hit = readdirSync(dir).filter((f) => f.endsWith(ext)).sort()[0];
+    if (hit) return `/media/${day}/${hit}`;
+  }
+  return null;
+};
+const vidPath = findMedia('.mp4');
+const webpPath = findMedia('.webp');
+const vidBuf = vidPath ? readFileSync(join(mediaRoot, vidPath.slice('/media/'.length))) : null;
+
+async function checkAssetRange(base, label) {
+  if (!vidPath || !vidBuf) { check(`${label}：找到展品短片`, false, 'public/media 裡沒有 mp4'); return; }
+  const vidUrl = base + vidPath;
+  const size = vidBuf.length;
+  let res = await fetch(vidUrl, { headers: { Range: 'bytes=100-199' } });
+  let part = Buffer.from(await res.arrayBuffer());
+  check(`${label}：短片 Range bytes=100-199 → 206、bytes 正確`,
+    res.status === 206 && part.equals(vidBuf.subarray(100, 200))
+    && res.headers.get('content-range') === `bytes 100-199/${size}`
+    && Number(res.headers.get('content-length')) === 100
+    && res.headers.get('accept-ranges') === 'bytes',
+    `${res.status} ${res.headers.get('content-range')} len=${res.headers.get('content-length')} got=${part.length}`);
+  check(`${label}：短片 206 保留 Content-Type 與快取 header`,
+    res.headers.get('content-type') === 'video/mp4' && /max-age=86400/.test(res.headers.get('cache-control') || ''),
+    `${res.headers.get('content-type')} / ${res.headers.get('cache-control')}`);
+  res = await fetch(vidUrl);
+  const full = Buffer.from(await res.arrayBuffer());
+  check(`${label}：短片不帶 Range → 200 完整檔且 Accept-Ranges: bytes`,
+    res.status === 200 && res.headers.get('accept-ranges') === 'bytes' && full.equals(vidBuf), String(res.status));
+  const etag = res.headers.get('etag');
+  res = await fetch(vidUrl, { headers: { Range: 'bytes=0-0' } });
+  part = Buffer.from(await res.arrayBuffer());
+  check(`${label}：短片單 byte Range bytes=0-0 → 206`,
+    res.status === 206 && part.length === 1 && part[0] === vidBuf[0] && res.headers.get('content-range') === `bytes 0-0/${size}`,
+    `${res.status} ${res.headers.get('content-range')}`);
+  if (etag) {
+    res = await fetch(vidUrl, { headers: { Range: 'bytes=0-99', 'If-Range': etag } });
+    part = Buffer.from(await res.arrayBuffer());
+    check(`${label}：短片 If-Range 符合 ETag → 照 Range 回 206`,
+      res.status === 206 && part.equals(vidBuf.subarray(0, 100)), String(res.status));
+    res = await fetch(vidUrl, { headers: { Range: 'bytes=0-99', 'If-Range': '"stale-etag"' } });
+    part = Buffer.from(await res.arrayBuffer());
+    check(`${label}：短片 If-Range 不符（檔案換過）→ 忽略 Range 回 200 完整檔`,
+      res.status === 200 && part.length === size, `${res.status} got=${part.length}`);
+  }
+  res = await fetch(vidUrl, { method: 'HEAD' });
+  check(`${label}：短片 HEAD → 200 且 Accept-Ranges: bytes`,
+    res.status === 200 && res.headers.get('accept-ranges') === 'bytes', String(res.status));
+  res = await fetch(vidUrl, { headers: { Range: 'bytes=-50' } });
+  part = Buffer.from(await res.arrayBuffer());
+  check(`${label}：短片尾段 Range bytes=-50 → 206 最後 50 bytes`,
+    res.status === 206 && part.equals(vidBuf.subarray(size - 50))
+    && res.headers.get('content-range') === `bytes ${size - 50}-${size - 1}/${size}`,
+    `${res.status} ${res.headers.get('content-range')} got=${part.length}`);
+  res = await fetch(vidUrl, { headers: { Range: `bytes=${size}-${size + 100}` } });
+  await res.arrayBuffer();
+  check(`${label}：短片 Range 超出檔案 → 416 且 Content-Range: bytes */${size}`,
+    res.status === 416 && res.headers.get('content-range') === `bytes */${size}`,
+    `${res.status} ${res.headers.get('content-range')}`);
+  res = await fetch(vidUrl, { headers: { Range: 'bytes=abc' } });
+  part = Buffer.from(await res.arrayBuffer());
+  check(`${label}：短片格式不對的 Range → 200 完整檔`, res.status === 200 && part.length === size, String(res.status));
+  if (webpPath) {
+    res = await fetch(base + webpPath);
+    await res.arrayBuffer();
+    check(`${label}：照片（webp）等其他靜態檔行為不變 → 200、不走 Range 處理`,
+      res.status === 200 && res.headers.get('accept-ranges') === null,
+      `${res.status} accept-ranges=${res.headers.get('accept-ranges')}`);
+  }
+}
+await checkAssetRange(BASE, '後台');
 
 // ---------- 收尾 ----------
 if (photo) {
@@ -448,6 +721,7 @@ if (FRONT && /localhost|127\.0\.0\.1/.test(FRONT)) {
   const pub = await fetch(`${FRONT}/api/public/wall`);
   const body = await pub.text();
   check('前台公開牆 → 200 且不含帳號名稱', pub.status === 200 && !body.includes('"author"'), String(pub.status));
+  await checkAssetRange(FRONT, '前台');
 }
 
 console.log(`\n${pass} 通過、${fail} 失敗`);
