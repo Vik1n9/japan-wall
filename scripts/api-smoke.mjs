@@ -381,6 +381,30 @@ check('建立限速測試帳號 → 201', r.status === 201, String(r.status));
   check('成功登入沒有歸零 IP 計數：第 21 次正確密碼也 429', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
 }
 
+// ---------- 帳號名稱「ip」不會跟 IP 層 key 撞名（#ip| 前綴） ----------
+{
+  const ipD = fakeIp(13);
+  r = await admin('POST', '/api/users', { body: { username: 'ip', displayName: '撞名測試' } });
+  check('建立名為 ip 的帳號 → 201（或已存在 409）', r.status === 201 || r.status === 409, String(r.status));
+  // 前次執行可能已停用：先確保是 active，停用時的 login_attempts 清理（LIKE 'ip|%'）才真的會跑到
+  r = await admin('PATCH', '/api/users/ip', { body: { status: 'active' } });
+  check('啟用帳號 ip → 200', r.status === 200, String(r.status));
+  let st = 0;
+  for (let i = 0; i < 5; i++) {
+    st = (await client()('POST', '/api/login', { body: { username: 'ip', password: `bad-${i}` }, cfIp: ipD })).status;
+  }
+  check('對帳號 ip 連錯 5 次 → 401（IP 層同步累計 5 次）', st === 401, String(st));
+  r = await admin('PATCH', '/api/users/ip', { body: { status: 'disabled' } });
+  check('停用帳號 ip → 200', r.status === 200, String(r.status));
+  // 停用會 DELETE key LIKE 'ip|%'（帳號層紀錄）；IP 層 key 是 #ip|<ip>，不能被一起刪掉。
+  // 同一 IP 再用其他帳號錯 15 次：若 IP 計數還在（5+15=20）就會鎖，被誤刪則只有 15 次不會鎖
+  for (let i = 0; i < 15; i++) {
+    st = (await client()('POST', '/api/login', { body: { username: `ipmix-${tag}-${i}`, password: 'bad' }, cfIp: ipD })).status;
+  }
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: ipD });
+  check('停用帳號 ip 沒有清掉 IP 層計數：湊滿 20 次後正確密碼也 429', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
+}
+
 // ---------- 防點擊劫持：/admin、/edit 不可被框架嵌入；公開牆（/）不加 ----------
 {
   const frameHeaders = async (path) => {

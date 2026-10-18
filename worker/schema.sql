@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS sessions_username ON sessions (username);
 
 CREATE TABLE IF NOT EXISTS login_attempts (
-  key          TEXT PRIMARY KEY,           -- <username>|<ip>（username 小寫）；IP 層限速另有 ip|<ip>
+  key          TEXT PRIMARY KEY,           -- <username>|<ip>（username 小寫）；IP 層限速另有 #ip|<ip>（# 不會出現在帳號名稱裡）
   fails        INTEGER NOT NULL DEFAULT 0,
   locked_until TEXT,                       -- ISO 8601；null 表示未鎖定
   updated_at   TEXT                        -- 最後一次失敗時刻（ISO 8601 +08:00）；排程清理與 IP 計數重新起算用

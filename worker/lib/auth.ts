@@ -195,8 +195,11 @@ export async function resetLoginFailures(db: D1Database, key: string): Promise<v
 
 export const IP_MAX_FAILS = 20;
 
+/** IP 層 key 前綴用 '#'：帳號名稱允許字元（a-z、0-9、_ . -）不可能出現 '#'，
+ *  所以叫「ip」的帳號（帳號 key 'ip|<ip>'）不會跟 IP 層 key 撞名，
+ *  停用帳號時的 `DELETE … WHERE key LIKE '<username>|%'` 也不會誤刪 IP 層紀錄。 */
 export function ipLockKey(ip: string): string {
-  return `ip|${ip}`;
+  return `#ip|${ip}`;
 }
 
 export async function recordIpLoginFailure(db: D1Database, ip: string): Promise<void> {
