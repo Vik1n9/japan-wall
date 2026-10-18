@@ -7,27 +7,22 @@
 ## 現況
 
 - 五天 66 件展品、短片、視覺素材、屋簷趣事帶、後台 2.0 都已完成。
-- 線上 https://osaka2026.voriens.dev 還是 2026-10-15 的版本。D1、R2、遠端資料表、管理員都已建好，剩部署（見下方第 6 步）。
+- 2026-10-18 前台 https://osaka2026.voriens.dev 與後台 https://kura.osaka2026.voriens.dev 都已部署最新版。
 - 後台本機測試：`test:api` 45/45、`test:ui` 45/45 通過（後台第十輪，`07e8ed0`）。
-- Git：2026-10-18 已全部 push 到 GitHub（到 `41f2829`）。之後的 commit 要 push 前先問 Viking。
+- Git：GitHub 上到 `41f2829`，之後的 commit 還沒 push。之後的 commit 要 push 前先問 Viking。
 
-## 第一次部署後台 2.0
+## 後台 2.0 上線後，Viking 要做的
 
-這是 Cloudflare 帳號的一次性設定，做完之後的例行部署照 README「部署」一節。每一步都是對外操作，**先問 Viking 再做**。
+2026-10-18 已完成 Cloudflare 設定（D1 `osaka2026`、R2 `osaka2026-uploads`、遠端 5 張表、管理員 `viking`）並部署兩個 Worker。之後的例行部署照 README「部署」一節，部署前先問 Viking。
 
-- [x] **1. `wrangler login`**：2026-10-18 在 Mac mini 完成，帳號是 Viking.lu@gmail.com's Account。
-  - 憑證存在本機 `~/.wrangler`。換機器或 token 過期要重登：請 Viking 在提示列打 `! npx --yes wrangler@4 login`，或由工作階段在背景跑同一指令，讓瀏覽器跳出授權頁。
-- [x] **2. 建 D1 `osaka2026`**：2026-10-18 建立（APAC），`database_id` 已填進 `wrangler.jsonc` 和 `wrangler.back.jsonc`。
-  - 帳號裡另有 `osaka2026-notes` 是已廢棄的收稿後台留下的空資料庫（0 張表），**不要沿用**。要不要刪由 Viking 決定。
-- [x] **3. 建 R2 `osaka2026-uploads`**：2026-10-18 經 Viking 同意開通 R2 訂閱（免費額度內 $0，超額才向已存的卡計費），bucket 已建立。
-- [x] **4. 建遠端資料表**：2026-10-18 `npm run db:setup:remote` 完成，5 張表。
-- [x] **5. 建第一個管理員**：2026-10-18 建立 `viking`（顯示名稱 Viking），初始密碼已交給 Viking，第一次登入要改密碼。
-  - 要重設密碼：再跑一次 `npm run admin:create -- viking Viking`。新密碼只印一次，**不要貼在對話裡**，寫進 scratchpad 檔案再告訴 Viking 路徑。
-- [ ] **6. 部署**：先 `npm run deploy:back`（後台 kura.osaka2026.voriens.dev），再 `npm run deploy`（前台 osaka2026.voriens.dev）。
-- [ ] **7. 上線檢查**：
-  - 前台：桌機與手機寬度各看一次，開一張說明卡、播一支短片。
-  - 後台：登入 `/admin` 建好親友帳號；用 `/edit` 試傳一張照片、掛一塊繪馬，回前台確認看得到。
-  - 最後到 `/admin` 的內容審核刪掉測試內容。
+已驗證：前台桌機 1440px 與手機 400px 無橫向溢出，66 件展品、趣事帶都在，說明卡與短片正常；前台 `/edit`、`/admin`、`/api/auth/*` 都是 404，前台 JS 沒有後台痕跡；後台 `/admin` 登入頁正常。
+
+正式密碼工作階段不代為登入，以下由 Viking 自己做：
+
+- [ ] 用 `~/Documents/kura-admin-viking.txt` 的初始密碼登入 https://kura.osaka2026.voriens.dev/admin，改密碼，**改完刪掉這個檔**。
+- [ ] 在 `/admin` 建親友帳號。
+- [ ] 用 `/edit` 試傳一張照片、掛一塊繪馬，回前台確認看得到；再到 `/admin` 的內容審核刪掉測試內容。
+- 忘記密碼：`npm run admin:create -- viking Viking` 重設。新密碼只印一次，**不要貼在對話裡**，寫進檔案再告訴 Viking 路徑。
 
 ## 等 Viking 決定
 
