@@ -333,7 +333,19 @@ claude.ai 上已發佈的三個版本（私人連結，只有使用者能開）�
 
 ## 9. 交接：下一步（2026-10-18 更新）
 
-**目前狀態**：五天 66 件展品、短片、視覺素材、屋簷趣事帶與後台 2.0 都已完成並 push。線上 https://osaka2026.voriens.dev 還是 2026-10-15 的版本：**前台綁定了後台的 D1／R2，所以要先完成下面的 Cloudflare 設定，前台才部署得上去**。
+**目前狀態**：五天 66 件展品、短片、視覺素材、屋簷趣事帶與後台 2.0 都已完成。線上 https://osaka2026.voriens.dev 還是 2026-10-15 的版本：**前台綁定了後台的 D1／R2，所以要先完成下面的 Cloudflare 設定，前台才部署得上去**。
+
+**接手進度（2026-10-18 晚，接手的工作階段從這裡繼續）**：
+
+- Git：後台第 1～10 輪（`4ce95d5`～`07e8ed0`）與本交接 commit **尚未 push**，`main` 領先 `origin/main`。push 前先問 Viking。
+- 後台本機測試：`test:api` 45/45、`test:ui` 45/45 通過（第十輪）。
+- 部署清單（下方步驟）進度：
+  - [x] 1. `wrangler login`：已在 Mac mini 完成（帳號 Viking.lu@gmail.com's Account）。憑證存在本機 `~/.wrangler`，換機器要重登。
+  - [ ] 2. D1 `osaka2026` **還沒建**。帳號裡現有的 `osaka2026-notes` 是已廢棄收稿後台留下的空資料庫（0 張表），不要拿來用；要不要刪由 Viking 決定。
+  - [ ] 3. R2：**帳號尚未開通 R2**（`r2 bucket list` 回 `Please enable R2 through the Cloudflare Dashboard. [code: 10042]`）。要 Viking 自己到 Dashboard → R2 啟用（可能要填付款方式、接受條款），之後才能建 `osaka2026-uploads`。
+  - [ ] 4～7. 都還沒做。建 D1、建表、建管理員、部署都屬於對外操作，每一步先問 Viking。管理員初始密碼不要貼在對話裡，寫進工作階段的暫存檔。
+- 待 Viking 決定：是否 push、是否刪除 `osaka2026-notes`、後台要不要再做幾輪優化。
+- 趣事帶的可選小修（Viking 尚未要求）：DAY 3 右側兩隻貓比左側小一點；DAY 4 可愛少了圍兜。
 
 **第一次部署後台 2.0（Viking 在自己電腦做一次，約 10 分鐘）**：
 
