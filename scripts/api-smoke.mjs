@@ -241,6 +241,29 @@ check('本人刪自己的繪馬 → 200', r.status === 200, JSON.stringify(r.dat
 r = await client()('GET', '/api/public/wall', { origin: null });
 check('繪馬刪除後，掛在上面的留言不再公開', !r.data.posts.some((p) => p.id === cmtId));
 
+// ---------- 帳號管理的保護與邊界 ----------
+r = await admin('PATCH', `/api/users/${ADMIN}`, { body: { status: 'disabled' } });
+check('admin 停用自己 → 400', r.status === 400, `${r.status} ${JSON.stringify(r.data)}`);
+r = await admin('PATCH', `/api/users/${ADMIN}`, { body: { role: 'user' } });
+check('admin 降級自己 → 400', r.status === 400, `${r.status} ${JSON.stringify(r.data)}`);
+r = await admin('GET', '/api/me');
+check('自我保護擋下後 admin session 仍有效', r.status === 200 && r.data.me?.role === 'admin', String(r.status));
+r = await admin('PATCH', `/api/users/nobody-${tag}`, { body: { status: 'disabled' } });
+check('PATCH 不存在的帳號 → 404', r.status === 404, String(r.status));
+r = await admin('PATCH', `/api/users/${uname}`, { body: {} });
+check('PATCH 沒有欄位 → 400', r.status === 400, String(r.status));
+{
+  const roleUser = `role-${tag}`;
+  r = await admin('POST', '/api/users', { body: { username: roleUser, displayName: '角色測試' } });
+  check('建立角色測試帳號 → 201', r.status === 201, String(r.status));
+  r = await admin('PATCH', `/api/users/${roleUser}`, { body: { role: 'admin' } });
+  check('升為管理員 → 200', r.status === 200, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await admin('PATCH', `/api/users/${roleUser}`, { body: { role: 'user' } });
+  check('降回用戶（還有其他管理員）→ 200', r.status === 200, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await admin('PATCH', `/api/users/${roleUser}`, { body: { status: 'disabled' } });
+  check('停用角色測試帳號 → 200', r.status === 200, String(r.status));
+}
+
 // ---------- 登入限速：同帳號＋IP 連錯 5 次 → 429 鎖 15 分鐘 ----------
 const lockName = `lock-${tag}`;
 r = await admin('POST', '/api/users', { body: { username: lockName, displayName: '限速測試' } });
