@@ -346,6 +346,21 @@ check('建立限速測試帳號 → 201', r.status === 201, String(r.status));
   check('停用限速測試帳號 → 200', r.status === 200, String(r.status));
 }
 
+// ---------- 防點擊劫持：/admin、/edit 不可被框架嵌入；公開牆（/）不加 ----------
+{
+  const frameHeaders = async (path) => {
+    const res = await fetch(BASE + path, { redirect: 'manual' });
+    return { status: res.status, xfo: res.headers.get('x-frame-options'), csp: res.headers.get('content-security-policy') };
+  };
+  for (const path of ['/admin', '/admin/', '/edit', '/edit/']) {
+    const h = await frameHeaders(path);
+    check(`防點擊劫持 ${path}：X-Frame-Options DENY＋frame-ancestors 'none'`,
+      h.xfo === 'DENY' && /^frame-ancestors 'none'$/.test(h.csp || ''), JSON.stringify(h));
+  }
+  const root = await frameHeaders('/');
+  check('公開牆（/）沒有框架限制', root.status === 200 && root.xfo === null && root.csp === null, JSON.stringify(root));
+}
+
 // ---------- 收尾 ----------
 if (photo) {
   r = await admin('DELETE', `/api/photos/${photo.id}`);
