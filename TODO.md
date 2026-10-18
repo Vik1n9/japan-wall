@@ -19,7 +19,8 @@
 
 正式密碼工作階段不代為登入，以下由 Viking 自己做：
 
-- [ ] 用 `~/Documents/kura-admin-viking.txt` 的初始密碼登入 https://kura.osaka2026.voriens.dev/admin，改密碼，**改完刪掉這個檔**。
+- [ ] 用 `~/Documents/kura-admin-viking.txt` 的密碼登入 https://kura.osaka2026.voriens.dev/admin，自己改密碼（指令建立的管理員不會被強制改），**改完刪掉這個檔**。
+  - 2026-10-18 第一次部署時登入一律 500：正式環境 PBKDF2 上限 10 萬次，原本設 15 萬次（`1cd4e67` 修正）。viking 已用新雜湊重設，登入端點已確認不再 500（錯誤帳號回 401）；正確密碼的登入由 Viking 實測。
 - [ ] 在 `/admin` 建親友帳號。
 - [ ] 用 `/edit` 試傳一張照片、掛一塊繪馬，回前台確認看得到；再到 `/admin` 的內容審核刪掉測試內容。
 - 忘記密碼：`npm run admin:create -- viking Viking` 重設。新密碼只印一次，**不要貼在對話裡**，寫進檔案再告訴 Viking 路徑。
