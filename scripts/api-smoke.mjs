@@ -406,6 +406,32 @@ check('建立限速測試帳號 → 201', r.status === 201, String(r.status));
   check('停用帳號 ip 沒有清掉 IP 層計數：湊滿 20 次後正確密碼也 429', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
 }
 
+// ---------- 帳號名稱含 '_'：停用時的 login_attempts 清理不可誤刪其他帳號（LIKE 萬用字元跳脫） ----------
+{
+  // '_ ' 是 LIKE 的單字元萬用字元：停用 esc_a-… 的清理 pattern 若不跳脫，會掃到 escxa-… 的失敗計數、把別人的鎖解掉
+  const victim = `escxa-${tag}`;
+  const under = `esc_a-${tag}`;
+  const ipE = fakeIp(14);
+  r = await admin('POST', '/api/users', { body: { username: victim, displayName: '跳脫受害者' } });
+  check(`建立帳號 ${victim} → 201`, r.status === 201, String(r.status));
+  const victimPw = r.data.password;
+  r = await admin('POST', '/api/users', { body: { username: under, displayName: '跳脫觸發者' } });
+  check(`建立帳號 ${under} → 201`, r.status === 201, String(r.status));
+  let st = 0;
+  for (let i = 0; i < 5; i++) {
+    st = (await client()('POST', '/api/login', { body: { username: victim, password: `bad-${i}` }, cfIp: ipE })).status;
+  }
+  check(`${victim} 連錯 5 次 → 401（帳號＋IP 已鎖）`, st === 401, String(st));
+  r = await client()('POST', '/api/login', { body: { username: victim, password: victimPw }, cfIp: ipE });
+  check('鎖定中即使密碼正確 → 429', r.status === 429, String(r.status));
+  r = await admin('PATCH', `/api/users/${under}`, { body: { status: 'disabled' } });
+  check(`停用 ${under} → 200`, r.status === 200, String(r.status));
+  r = await client()('POST', '/api/login', { body: { username: victim, password: victimPw }, cfIp: ipE });
+  check(`停用含 _ 帳號沒有誤刪 ${victim} 的鎖（LIKE 已跳脫）→ 仍 429`, r.status === 429, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await admin('PATCH', `/api/users/${victim}`, { body: { status: 'disabled' } });
+  check(`停用 ${victim} → 200`, r.status === 200, String(r.status));
+}
+
 // ---------- 防點擊劫持：/admin、/edit 不可被框架嵌入；公開牆（/）不加 ----------
 {
   const frameHeaders = async (path) => {
@@ -456,6 +482,25 @@ async function checkAssetRange(base, label) {
   const full = Buffer.from(await res.arrayBuffer());
   check(`${label}：短片不帶 Range → 200 完整檔且 Accept-Ranges: bytes`,
     res.status === 200 && res.headers.get('accept-ranges') === 'bytes' && full.equals(vidBuf), String(res.status));
+  const etag = res.headers.get('etag');
+  res = await fetch(vidUrl, { headers: { Range: 'bytes=0-0' } });
+  part = Buffer.from(await res.arrayBuffer());
+  check(`${label}：短片單 byte Range bytes=0-0 → 206`,
+    res.status === 206 && part.length === 1 && part[0] === vidBuf[0] && res.headers.get('content-range') === `bytes 0-0/${size}`,
+    `${res.status} ${res.headers.get('content-range')}`);
+  if (etag) {
+    res = await fetch(vidUrl, { headers: { Range: 'bytes=0-99', 'If-Range': etag } });
+    part = Buffer.from(await res.arrayBuffer());
+    check(`${label}：短片 If-Range 符合 ETag → 照 Range 回 206`,
+      res.status === 206 && part.equals(vidBuf.subarray(0, 100)), String(res.status));
+    res = await fetch(vidUrl, { headers: { Range: 'bytes=0-99', 'If-Range': '"stale-etag"' } });
+    part = Buffer.from(await res.arrayBuffer());
+    check(`${label}：短片 If-Range 不符（檔案換過）→ 忽略 Range 回 200 完整檔`,
+      res.status === 200 && part.length === size, `${res.status} got=${part.length}`);
+  }
+  res = await fetch(vidUrl, { method: 'HEAD' });
+  check(`${label}：短片 HEAD → 200 且 Accept-Ranges: bytes`,
+    res.status === 200 && res.headers.get('accept-ranges') === 'bytes', String(res.status));
   res = await fetch(vidUrl, { headers: { Range: 'bytes=-50' } });
   part = Buffer.from(await res.arrayBuffer());
   check(`${label}：短片尾段 Range bytes=-50 → 206 最後 50 bytes`,

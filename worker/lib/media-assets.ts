@@ -63,6 +63,15 @@ export async function mediaAssetResponse(assets: Fetcher, request: Request): Pro
   const res = await assets.fetch(new Request(new URL(request.url), { method: 'GET', headers }));
   if (res.status !== 200 || !res.body) return res;
 
+  // If-Range 的驗證器（ETag 強比對）不符：檔案在快取期間換過內容（重新轉檔／部署時檔名不變），
+  // 照 RFC 7233 忽略 Range 回完整 200，否則瀏覽器會把新舊內容接在一起。
+  const ifRange = request.headers.get('If-Range');
+  if (ifRange && ifRange !== res.headers.get('ETag')) {
+    const full = new Response(res.body, res);
+    full.headers.set('Accept-Ranges', 'bytes');
+    return full;
+  }
+
   const out = new Headers(res.headers);
   out.set('Accept-Ranges', 'bytes');
   // 注意：不能用 Number(header ?? null)——Number(null) 是 0，会把「沒有 header」誤判成空檔。
