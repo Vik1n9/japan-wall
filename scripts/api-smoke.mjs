@@ -61,6 +61,10 @@ const tag = Math.random().toString(36).slice(2, 6);
 // 整份測試的請求都掛同一個「這一次執行專用」的假 IP：除了貼近正式行為，
 // 也避免所有失敗登入都累積在 IP 'local' 上，觸發 IP 層限速（20 次）而污染下一次執行。
 const fakeIp = (n) => `198.18.${(parseInt(tag, 36) % 250) + 1}.${n}`;
+// IPv6 的 IP 層限速以 /64 計數，鎖定 15 分鐘：測試用的網段也必須每次執行都不同，
+// 否則同一台機器在鎖定期內重跑，前一次的殘留計數會讓測試提早 429。
+// 由 tag 算出第 3 組 16-bit（tag 是 4 碼 base36，數值上限 1679615，mod 0x10000 後補滿 4 碼）。
+const fakeV6Net = (n) => `2001:db8:${(parseInt(tag, 36) % 0x10000).toString(16).padStart(4, '0')}:${n}`;
 const SMOKE_IP = fakeIp(1);
 const admin = client();
 
@@ -519,17 +523,20 @@ check('建立限速測試帳號 → 201', r.status === 201, String(r.status));
   check('ipRateKey：解析不了的原樣返回（寧可少併不可誤併）', ipRateKey('1:2:3') === '1:2:3' && ipRateKey('1:2:3:4:5:6:7::8') === '1:2:3:4:5:6:7::8',
     `${ipRateKey('1:2:3')} ${ipRateKey('1:2:3:4:5:6:7::8')}`);
 
-  // 整合：同一個 /64（2001:db8:beef:1::/64）底下用不同位址累計失敗——混大小寫、
-  // 不同縮寫、zone id 都要算進同一個桶；每次換不存在的帳號，避免先觸發「帳號＋IP」那層
-  const v6Addrs = ['2001:db8:beef:1::11', '2001:DB8:BEEF:1::22', '2001:db8:beef:1:0:abcd:0:33', '2001:db8:beef:1::44%en0'];
+  // 整合：同一個 /64 底下用不同位址累計失敗——混大小寫、不同縮寫、zone id 都要算進
+  // 同一個桶；每次換不存在的帳號，避免先觸發「帳號＋IP」那層。網段由 tag 產生，
+  // 每次執行都是新的 /64（見 fakeV6Net 註解）。
+  const v6net1 = fakeV6Net(1);
+  const v6net2 = fakeV6Net(2);
+  const v6Addrs = [`${v6net1}::11`, `${v6net1.toUpperCase()}::22`, `${v6net1}:0:abcd:0:33`, `${v6net1}::44%en0`];
   let st = 0;
   for (let i = 0; i < 20; i++) {
     st = (await client()('POST', '/api/login', { body: { username: `v6lock-${tag}-${i}`, password: 'bad' }, cfIp: v6Addrs[i % v6Addrs.length] })).status;
   }
   check('同一 /64 內 4 種寫法的位址累計失敗 20 次 → 401', st === 401, String(st));
-  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: '2001:db8:beef:1:ffff::99' });
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: `${v6net1}:ffff::99` });
   check('第 21 次換同 /64 的另一個位址，正確密碼也 429（整個 /64 被鎖）', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
-  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: '2001:db8:beef:2::1' });
+  r = await client()('POST', '/api/login', { body: { username: ADMIN, password: ADMIN_PW }, cfIp: `${v6net2}::1` });
   check('另一個 /64 不受影響 → 200', r.status === 200, String(r.status));
 
   // ::ffff:<IPv4> 與對應的 IPv4 是同一個桶：19 次純 IPv4 ＋ 第 20 次用 mapped 寫法 → 鎖
