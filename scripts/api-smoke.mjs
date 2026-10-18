@@ -100,6 +100,17 @@ const newPw = `Smoke-${tag}-Pw-2026`;
 r = await user('POST', '/api/change-password', { body: { currentPassword: tempPw, newPassword: newPw } });
 check('改密碼 → 200', r.status === 200, JSON.stringify(r.data));
 
+// 改密碼的「目前密碼」也有限速：連錯 5 次鎖 15 分鐘（防 session 被偷後被暴力改密碼鎖掉真使用者）
+{
+  let st = 0;
+  for (let i = 0; i < 5; i++) {
+    st = (await user('POST', '/api/change-password', { body: { currentPassword: `wrong-pw-${i}`, newPassword: 'Hijack-Pass-123' } })).status;
+  }
+  check('目前密碼連錯 5 次 → 403', st === 403, String(st));
+  r = await user('POST', '/api/change-password', { body: { currentPassword: newPw, newPassword: 'Hijack-Pass-123' } });
+  check('鎖定後即使密碼正確 → 429', r.status === 429 && /分鐘/.test(r.data.error || ''), `${r.status} ${JSON.stringify(r.data)}`);
+}
+
 // ---------- 投稿 ----------
 r = await user('POST', '/api/posts', { body: { kind: 'ema', target: '2026-10-05', body: '煙霧測試繪馬', by: '測試' } });
 check('掛繪馬 → 201', r.status === 201, JSON.stringify(r.data));
