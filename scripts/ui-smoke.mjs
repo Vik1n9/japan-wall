@@ -2,8 +2,8 @@
 // 後台介面煙霧測試：無頭 Chrome（DevTools Protocol）實際操作 /edit 與 /admin，每次改前端都跑一次。
 // 用法：KURA_ADMIN=<帳號> KURA_ADMIN_PW=<密碼> node scripts/ui-smoke.mjs [http://localhost:8787] [截圖資料夾]
 // 前置：npm run build && npm run dev:api。只對本機用；會建立 ui-* 測試帳號與內容，跑完刪除/停用。
-import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { spawn, execFileSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -125,6 +125,47 @@ try {
     const f = document.getElementById('up-form'); f.file.files = dt.files; f.day.value = '2026-10-08'; f.caption.value = 'UI 測試照片 ${tag}'; f.requestSubmit();`);
   check('上傳照片顯示成功', await waitFor(`document.getElementById('up-ok').textContent.includes('已上傳')`, 10000));
   check('牆上自動出現上傳的照片', await waitFor(`[...document.querySelectorAll('.col-photos')].some((el) => el.innerHTML.includes('UI 測試照片 ${tag}'))`, 8000));
+
+  /* ---------- 上傳影片：瀏覽器內讀拍攝資訊 → mediabunny 轉檔（WebCodecs）→ 上傳 ---------- */
+  {
+    const vdir = mkdtempSync(join(tmpdir(), 'kura-uivid-'));
+    const mov = join(vdir, 'IMG_TEST.MOV');
+    execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=640x360:rate=30', '-f', 'lavfi', '-i', 'sine=frequency=660:sample_rate=48000',
+      '-t', '3', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+use_metadata_tags',
+      '-metadata', 'com.apple.quicktime.creationdate=2026-10-07T15:20:30+0900',
+      '-metadata', 'com.apple.quicktime.location.ISO6709=+34.8572+135.4867+100.000/', mov + '.tmp.mov']);
+    // 直拍：橫向畫面＋旋轉 90 度標記（iPhone 直拍就是這樣存），顯示為 360×640
+    execFileSync('ffmpeg', ['-v', 'error', '-y', '-display_rotation', '90', '-i', mov + '.tmp.mov', '-c', 'copy', '-map_metadata', '0', '-movflags', '+use_metadata_tags', mov]);
+    const b64 = readFileSync(mov).toString('base64');
+    await run(`const bin = Uint8Array.from(atob(${JSON.stringify(b64)}), (c) => c.charCodeAt(0));
+      const dt = new DataTransfer(); dt.items.add(new File([bin], 'IMG_TEST.MOV', { type: 'video/quicktime' }));
+      const f = document.getElementById('up-form'); f.day.value = '2026-10-05'; f.file.files = dt.files; f.file.dispatchEvent(new Event('change'));`);
+    check('影片：轉檔前讀出拍攝時間、自動選好那一天', await waitFor(`document.getElementById('up-taken').textContent.includes('2026-10-07 15:20') && document.getElementById('up-form').day.value === '2026-10-07'`, 8000),
+      await run(`return document.getElementById('up-taken').textContent + ' / ' + document.getElementById('up-form').day.value;`));
+    await run(`const f = document.getElementById('up-form'); f.caption.value = 'UI 測試影片 ${tag}'; f.requestSubmit();`);
+    const ok = await waitFor(`document.getElementById('up-ok').textContent.includes('已上傳') || document.getElementById('up-err').textContent.length > 0`, 90000);
+    check('影片：瀏覽器轉檔並上傳成功', ok && (await run(`return document.getElementById('up-ok').textContent.includes('已上傳');`)),
+      await run(`return document.getElementById('up-err').textContent;`));
+    check('影片：牆上出現影片（靜音循環、有封面）', await waitFor(`[...document.querySelectorAll('.col-photos .it-photo')].some((el) => el.textContent.includes('UI 測試影片 ${tag}') && el.querySelector('video[data-auto]')?.muted && !!el.querySelector('video').poster)`, 10000));
+    const vinfo = await run(`const r = await fetch('/api/photos', { credentials: 'same-origin' }); const p = (await r.json()).photos.find((x) => x.caption === 'UI 測試影片 ${tag}');
+      if (!p) return null; const m = await fetch('/api/media/' + p.key); const buf = new Uint8Array(await m.arrayBuffer());
+      const txt = new TextDecoder('latin1').decode(buf);
+      return { id: p.id, kind: p.kind, takenAt: p.takenAt, w: p.width, h: p.height, d: p.duration, bytes: buf.length, gps: txt.includes('34.857') || txt.includes('ISO6709') || txt.includes('creationdate'), lat: 'lat' in p };`);
+    check('影片：直拍轉正成 360×640、3 秒、存了拍攝時間', !!vinfo && vinfo.kind === 'video' && vinfo.w === 360 && vinfo.h === 640 && Math.abs(vinfo.d - 3) < 0.3 && vinfo.takenAt === '2026-10-07T15:20:30', JSON.stringify(vinfo));
+    check('影片：公開檔案沒有 GPS 與拍攝資訊、API 不回傳地點', !!vinfo && !vinfo.gps && !vinfo.lat, JSON.stringify(vinfo));
+    if (vinfo) {
+      const out = join(vdir, 'served.mp4');
+      const bytes = await run(`const r = await fetch('/api/photos', { credentials: 'same-origin' }); const p = (await r.json()).photos.find((x) => x.id === ${JSON.stringify(vinfo.id)});
+        const buf = new Uint8Array(await (await fetch('/api/media/' + p.key)).arrayBuffer()); let s = ''; for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode(...buf.subarray(i, i + 0x8000)); return btoa(s);`);
+      writeFileSync(out, Buffer.from(bytes, 'base64'));
+      const streams = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type,codec_name', '-of', 'csv=p=0', out]).toString().trim().replace(/\n/g, ' ');
+      check('影片：H.264 影像＋聲音', /h264,video/.test(streams) && /audio/.test(streams), streams);
+      await run(`[...document.querySelectorAll('.it-photo')].find((el) => el.textContent.includes('UI 測試影片 ${tag}')).click();`);
+      check('影片說明卡：有聲播放（不靜音）、有控制列、顯示拍攝時刻', await waitFor(`!document.getElementById('lb').hidden && (() => { const v = document.querySelector('#lb-media video'); return !!v && !v.muted && v.controls; })() && document.getElementById('lb-place').textContent.includes('15:20')`, 8000));
+      await run(`document.getElementById('lb-x').click();`);
+      await run(`await fetch('/api/photos/${vinfo.id}', { method: 'DELETE', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' });`);
+    }
+  }
 
   /* ---------- 兩段式刪除（不能跳原生對話框） ---------- */
   const before = dialogs();

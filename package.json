@@ -23,7 +23,8 @@
     "deploy:back": "npm run build && npx --yes wrangler@4 deploy -c wrangler.back.jsonc"
   },
   "dependencies": {
-    "astro": "7.3.5"
+    "astro": "7.3.5",
+    "mediabunny": "1.61.1"
   },
   "devDependencies": {
     "exifr": "7.1.3",

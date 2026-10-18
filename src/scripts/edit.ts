@@ -3,10 +3,13 @@
 // server（worker/lib/images.ts）還會再剝一次 metadata 防繞過。
 // 重編碼前只讀出 EXIF 的拍攝時刻（DateTimeOriginal）一起送出，牆上依它排序；GPS 等其他欄位不讀不送。
 
+import { isVideoFile, readPhotoMeta, readVideoMeta, transcodeVideo, type CaptureMeta } from './upload-media';
+
 type Me = { username: string; displayName: string; role: string; mustChangePw: boolean };
 type Photo = {
   id: string; author: string; authorName: string; day: string; caption: string;
   key: string; mime: string; width: number; height: number; takenAt: string | null; createdAt: string; mine: boolean;
+  kind: 'photo' | 'video'; duration: number | null; posterKey: string | null;
 };
 type Post = {
   id: string; kind: string; target: string; replyTo: string | null; by: string;
@@ -182,46 +185,6 @@ $('em-uploads').addEventListener('click', () => {
 });
 $('ed-close').addEventListener('click', () => { $('edit-drawer').hidden = true; });
 
-/** 從 JPEG 的 EXIF 讀拍攝時刻（DateTimeOriginal，當地時間），回傳 YYYY-MM-DDTHH:MM:SS；讀不到回 null。
- *  只解析 APP1 → IFD0 → Exif IFD 的 0x9003 一個欄位；PNG／WebP／HEIC 一律當作沒有 */
-async function readTakenAt(file: File): Promise<string | null> {
-  try {
-    const v = new DataView(await file.slice(0, 256 * 1024).arrayBuffer());
-    if (v.getUint16(0) !== 0xffd8) return null;
-    let off = 2;
-    while (off + 4 <= v.byteLength) {
-      const marker = v.getUint16(off);
-      const len = v.getUint16(off + 2);
-      if ((marker & 0xff00) !== 0xff00 || marker === 0xffda) return null; // 掃到影像資料還沒找到
-      if (marker === 0xffe1 && v.getUint32(off + 4) === 0x45786966) { // "Exif"
-        const tiff = off + 10;
-        const le = v.getUint16(tiff) === 0x4949;
-        const u16 = (o: number) => v.getUint16(tiff + o, le);
-        const u32 = (o: number) => v.getUint32(tiff + o, le);
-        const findTag = (ifd: number, tag: number): number | null => {
-          const n = u16(ifd);
-          for (let i = 0; i < n; i++) {
-            const e = ifd + 2 + i * 12;
-            if (u16(e) === tag) return e;
-          }
-          return null;
-        };
-        const ptr = findTag(u32(4), 0x8769); // Exif IFD
-        if (ptr === null) return null;
-        const e = findTag(u32(ptr + 8), 0x9003); // DateTimeOriginal，ASCII 20 bytes
-        if (e === null) return null;
-        const at = u32(e + 8);
-        let str = '';
-        for (let i = 0; i < 19; i++) str += String.fromCharCode(v.getUint8(tiff + at + i));
-        const m = str.match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
-        return m ? `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}` : null;
-      }
-      off += 2 + len;
-    }
-  } catch { /* 壞檔或截斷：當作沒有拍攝時刻 */ }
-  return null;
-}
-
 /** 拍攝時刻 → 掛在哪一天（30 小時制：凌晨 0:00–5:59 算前一天；前一天不是展覽日就算當天，例如出發日凌晨） */
 function dayOfTakenAt(takenAt: string): string {
   const date = takenAt.slice(0, 10);
@@ -232,10 +195,12 @@ function dayOfTakenAt(takenAt: string): string {
   return days.some((x) => x.date === prev) ? prev : date;
 }
 
-let pickedTakenAt: string | null = null;
+// 剝除 metadata 前讀出的拍攝時間與地點：時間決定排在牆上哪裡，地點只存資料庫給內部排版用
+let picked: CaptureMeta = { takenAt: null, lat: null, lon: null };
 ($('up-form') as HTMLFormElement).file.addEventListener('change', async (e: Event) => {
   const file = (e.target as HTMLInputElement).files?.[0];
-  pickedTakenAt = file ? await readTakenAt(file) : null;
+  picked = !file ? { takenAt: null, lat: null, lon: null } : isVideoFile(file) ? await readVideoMeta(file) : await readPhotoMeta(file);
+  const pickedTakenAt = picked.takenAt;
   const hint = $('up-taken');
   if (!pickedTakenAt) {
     hint.textContent = file ? '讀不到拍攝時間，會排在當天最後。' : '';
@@ -281,14 +246,25 @@ $('up-form').addEventListener('submit', async (e) => {
   const file = fileInput.files?.[0];
   if (!file) return;
   btn.disabled = true;
-  btn.textContent = '縮圖中……';
+  const video = isVideoFile(file);
+  btn.textContent = video ? '轉檔中……' : '縮圖中……';
   try {
-    const blob = await reencode(file);
     const fd = new FormData();
-    fd.append('file', blob, 'photo.jpg');
+    if (video) {
+      const out = await transcodeVideo(file, (p) => { btn.textContent = `轉檔中 ${Math.round(p * 100)}%`; });
+      fd.append('kind', 'video');
+      fd.append('file', out.file, 'video.mp4');
+      fd.append('poster', out.poster, 'poster.jpg');
+    } else {
+      fd.append('file', await reencode(file), 'photo.jpg');
+    }
     fd.append('day', form.day.value);
     fd.append('caption', form.caption.value);
-    if (pickedTakenAt) fd.append('takenAt', pickedTakenAt);
+    if (picked.takenAt) fd.append('takenAt', picked.takenAt);
+    if (picked.lat !== null && picked.lon !== null) {
+      fd.append('lat', String(picked.lat));
+      fd.append('lon', String(picked.lon));
+    }
     btn.textContent = '上傳中……';
     const { status, data } = await api('/api/photos', { method: 'POST', body: fd });
     if (status !== 201) {
@@ -296,7 +272,7 @@ $('up-form').addEventListener('submit', async (e) => {
       return;
     }
     form.reset();
-    pickedTakenAt = null;
+    picked = { takenAt: null, lat: null, lon: null };
     $('up-taken').textContent = '';
     $('up-ok').textContent = '已上傳，牆上已更新。';
     await loadMyPhotos();
@@ -335,7 +311,7 @@ function photoCard(p: Photo): HTMLElement {
   item.className = 'ep-item';
 
   const img = document.createElement('img');
-  img.src = `/api/media/${p.key}`;
+  img.src = `/api/media/${p.kind === 'video' && p.posterKey ? p.posterKey : p.key}`; // 影片顯示封面
   img.alt = p.caption || p.id;
   img.loading = 'lazy';
   img.width = p.width;

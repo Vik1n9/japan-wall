@@ -9,7 +9,7 @@ type UserRow = {
 };
 type Photo = {
   id: string; author: string; authorName: string; day: string; caption: string;
-  key: string; width: number; height: number; createdAt: string;
+  key: string; width: number; height: number; createdAt: string; kind?: string; posterKey?: string | null;
 };
 type Post = {
   id: string; kind: string; target: string; replyTo: string | null; by: string;
@@ -368,7 +368,7 @@ async function loadContent(): Promise<void> {
     const card = document.createElement('div');
     card.className = 'mod-ph';
     const img = document.createElement('img');
-    img.src = `/api/media/${p.key}`;
+    img.src = `/api/media/${p.kind === 'video' && p.posterKey ? p.posterKey : p.key}`; // 影片顯示封面
     img.alt = p.caption || p.id;
     img.loading = 'lazy';
     const meta = document.createElement('div');

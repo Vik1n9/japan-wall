@@ -162,7 +162,8 @@
 2. **時刻不得編造**。無法從 metadata 取得就標「時刻待補」。
 3. **照片順序目前是推論**（入園 → 潟湖 → 任天堂世界 → 浣熊市警察局 → 傍晚哈利波特區），使用者尚未確認；有原始檔時應以拍攝時間重排。
 4. **隱私**：
-   - 公開前移除所有 GPS／位置資訊（iPhone 短片的 QuickTime metadata 也有座標）。
+   - 公開前移除所有 GPS／位置資訊（iPhone 短片的 QuickTime metadata 也有座標）。拍攝時間與地點可以在剝除前讀出、存在後台資料庫給排版用，但不得出現在任何公開檔案或 API。
+   - 短片**保留聲音**（2026-10-18 Viking 決定：路人聲音屬正常使用範圍，不影響隱私）。原本「去除音軌」的規定廢止。
    - 畫面中有不少**路人正臉**。若要公開，需提醒使用者篩選或替換。
    - 原始檔不進版本控制。
 5. 不要再推薦一般部落格或攝影作品集主題當範本（已被否決）。
@@ -229,6 +230,11 @@ japan-wall/
 - **審核**：`/admin` 的「內容審核」列出全部公開中的照片與投稿，管理員可刪除；刪除＝不再公開（照片檔一併刪除，資料列留作紀錄）。
 - **公開資料不含登入帳號名稱**：牆上只顯示顯示名稱與署名。
 - **資料表變更**：`worker/schema.sql` 是全新資料庫用的；既有資料庫要跑 `worker/migrations/` 裡對應的檔案（例：`001-photos-taken-at.sql` 加 `photos.taken_at`）。
+- **上傳影片**（2026-10-18，Viking 決定）：與照片同一張表（`kind` 區分），一樣依拍攝時間與展品混排、可留言。上限：轉檔後 50MB、60 秒、每人每天 5 支。
+  - 瀏覽器先從原檔讀拍攝時間與地點（`worker/lib/capture-meta.ts`：iPhone 的 `com.apple.quicktime.creationdate`／`location.ISO6709`、Android 的 `udta/©xyz`、3GPP `loci`；都沒有就用 `mvhd` 的 UTC 換算日本時間），再用 Mediabunny（WebCodecs）轉成 H.264＋AAC 的 MP4：橫式寬 ≤1280、直式寬 ≤720（與展品短片相同）、30fps、`tags: {}` 不帶 metadata、旋轉燒進畫面（`allowTransformationMetadata: false`，伺服器讀 `tkhd` 寬高才對）。封面取約 1 秒處的畫面。
+  - 伺服器（`worker/lib/video.ts`）剝除前也會從上傳檔讀一次拍攝資訊（瀏覽器沒送時才用），再重建 `moov`：丟掉 `udta`、`meta`、`uuid` 等可能帶 metadata 的區塊，頂層只留 `ftyp`／`moov`／`mdat`，並修正 `stco`／`co64` 的位移。不認得的結構一律拒收。
+  - 拍攝地點存在 `photos.lat`／`lon`，**任何 API 都不回傳**，只給內部排版用。照片也一樣，從 EXIF 的 GPS 讀。
+  - `/api/media/*` 支援 Range（206），Safari 播影片需要。牆上靜音循環、只在可見時播放；說明卡裡有聲播放。
 - **測試**：改後台後在本機跑 `npm run dev:api`，再跑 `npm run test:api` 與 `npm run test:ui`（需環境變數 `KURA_ADMIN`／`KURA_ADMIN_PW`，本機管理員用 `npm run admin:create -- <帳號> --local` 建立）。
 
 ### 版本

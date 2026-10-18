@@ -32,18 +32,18 @@ const wall = $('wall');
 const map = $('map');
 const isRead = () => body.classList.contains('read');
 
-/* 短片：只在畫面內時播放 */
-if ('IntersectionObserver' in window && !reduce) {
-  const vo = new IntersectionObserver(
+/* 短片：牆上靜音循環、只在畫面內時播放（瀏覽器規定自動播放必須靜音；聲音在說明卡裡聽） */
+const vo = 'IntersectionObserver' in window && !reduce
+  ? new IntersectionObserver(
     (entries) => entries.forEach(({ target, isIntersecting }) => {
       const v = target as HTMLVideoElement;
       if (isIntersecting) v.play().catch(() => {});
       else v.pause();
     }),
     { threshold: 0.35 },
-  );
-  document.querySelectorAll<HTMLVideoElement>('video[data-auto]').forEach((v) => vo.observe(v));
-}
+  )
+  : null;
+document.querySelectorAll<HTMLVideoElement>('video[data-auto]').forEach((v) => vo?.observe(v));
 
 /* 牆面／閱讀模式 */
 const btnW = $('m-wall'), btnR = $('m-read');
@@ -181,7 +181,8 @@ function show(i: number) {
   } else {
     if (m.type === 'video') {
       const v = document.createElement('video');
-      Object.assign(v, { src: m.src, controls: true, muted: true, loop: true, playsInline: true, autoplay: !reduce });
+      // 說明卡裡有聲播放：開卡是使用者點擊，瀏覽器允許有聲自動播放；被擋就留在暫停，按播放即可
+      Object.assign(v, { src: m.src, controls: true, muted: false, loop: true, playsInline: true, autoplay: !reduce });
       if (m.poster) v.poster = m.poster;
       holder.append(v);
     } else {
@@ -195,7 +196,7 @@ function show(i: number) {
     // 上傳的照片：place 放上傳者名字（展品沒有拍攝者，place 是地點）
     $('lb-place').textContent = `${m.place} · ${fmtDate(m.date)}（${wd}）${m.time ? ' ' + m.time : ' · 時刻待補'}`;
     $('lb-medium').textContent = m.type === 'video'
-      ? `短片 · ${m.duration ?? ''} · 已去除聲音${m.source ? ' · ' + m.source : ''}`
+      ? `短片 · ${m.duration ?? ''}${m.source ? ' · ' + m.source : ` · ${m.width}×${m.height}`}`
       : `照片 · ${m.width}×${m.height}`;
     $('lb-p').textContent = m.dyn === 'photo' ? '' : m.note;
   }
@@ -243,7 +244,15 @@ addEventListener('keydown', (e) => {
 type PubPhoto = {
   id: string; authorName: string; day: string; caption: string;
   key: string; mime: string; width: number; height: number; takenAt: string | null; createdAt: string;
+  kind: 'photo' | 'video'; duration: number | null; posterKey: string | null;
 };
+
+/** 秒數 → 「0:12」（與展品短片的 duration 格式相同） */
+function clock(sec: number | null): string | null {
+  if (sec === null || !Number.isFinite(sec)) return null;
+  const s = Math.round(sec);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
 type PubPost = {
   id: string; kind: string; target: string; replyTo: string | null; by: string;
   body: string; postedAt: string;
@@ -264,24 +273,43 @@ function photoButton(p: PubPhoto): HTMLElement {
   const b = document.createElement('button');
   b.className = 'it it-media it-photo';
   b.dataset.photoId = p.id;
-  b.setAttribute('aria-label', `查看照片 ${p.caption || p.authorName}`);
+  const video = p.kind === 'video';
+  b.setAttribute('aria-label', `查看${video ? '影片' : '照片'} ${p.caption || p.authorName}`);
   const fig = document.createElement('figure');
   fig.className = 'plate';
   fig.style.aspectRatio = `${p.width}/${p.height}`;
-  const img = document.createElement('img');
-  img.loading = 'lazy';
-  img.decoding = 'async';
-  img.src = `/api/media/${p.key}`;
-  img.width = p.width;
-  img.height = p.height;
-  img.alt = p.caption || `${p.authorName} 的照片`;
-  fig.append(img);
+  if (video) {
+    // 與展品短片相同：牆上靜音循環、只在畫面內播放；preload none，進到畫面才開始下載
+    const v = document.createElement('video');
+    Object.assign(v, { muted: true, loop: true, playsInline: true, preload: 'none' });
+    v.dataset.auto = '';
+    v.src = `/api/media/${p.key}`;
+    if (p.posterKey) v.poster = `/api/media/${p.posterKey}`;
+    fig.append(v);
+    const d = clock(p.duration);
+    if (d) {
+      const dur = document.createElement('span');
+      dur.className = 'dur';
+      dur.textContent = `▶ ${d}`;
+      fig.append(dur);
+    }
+    vo?.observe(v);
+  } else {
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.src = `/api/media/${p.key}`;
+    img.width = p.width;
+    img.height = p.height;
+    img.alt = p.caption || `${p.authorName} 的照片`;
+    fig.append(img);
+  }
   const cap = document.createElement('span');
   cap.className = 'cap';
   const bb = document.createElement('b');
   const g = document.createElement('span');
   g.className = 'g';
-  g.textContent = '■';
+  g.textContent = video ? '▶' : '■';
   bb.append(g, ` ${p.authorName}`);
   cap.append(bb, p.caption);
   b.append(fig, cap);
@@ -398,6 +426,7 @@ function renderComments(targetId: string): void {
 
 /** 拿掉上一次注入的動態內容（重新載入前用） */
 function clearDynamic(): void {
+  wall.querySelectorAll<HTMLVideoElement>('.col-photos video').forEach((v) => vo?.unobserve(v));
   wall.querySelectorAll('.col-photos, .ema-rack, .ofuda').forEach((el) => el.remove());
   COMMENTS.length = 0;
   dynMedia.clear();
@@ -456,10 +485,11 @@ function injectDynamic(photos: PubPhoto[], posts: PubPost[]): void {
         col.style.setProperty('--colw', `${PHOTO_COLW}px`); // 要有單位：.col 寬度是 calc(var(--colw) * var(--wall-scale))；fitPhotoCols 會再依高度調窄
         for (const { p, time } of group.slice(i, i + PER_COL)) {
           dynMedia.set(p.id, {
-            id: p.id, type: 'photo', dyn: 'photo', title: p.caption || `${p.authorName} 的照片`,
+            id: p.id, type: p.kind === 'video' ? 'video' : 'photo', dyn: 'photo',
+            title: p.caption || `${p.authorName} 的${p.kind === 'video' ? '影片' : '照片'}`,
             place: p.authorName, note: p.caption, date: p.day, time,
-            src: `/api/media/${p.key}`, poster: null, width: p.width, height: p.height,
-            duration: null, source: null,
+            src: `/api/media/${p.key}`, poster: p.posterKey ? `/api/media/${p.posterKey}` : null, width: p.width, height: p.height,
+            duration: clock(p.duration), source: null,
           });
           col.append(photoButton(p));
         }

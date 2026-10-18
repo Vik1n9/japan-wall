@@ -32,10 +32,10 @@
   </div>
   <div class="ed-body">
     <div class="ep-card">
-      <h3>上傳照片</h3>
-      <p class="hint">上傳後立刻公開，依拍攝時間插在當天的展品之間。瀏覽器會先讀出拍攝時間，再縮圖（長邊 ≤2048）並抹掉 EXIF（含 GPS）；每人每天 20 張、單檔 8MB。</p>
+      <h3>上傳照片或影片</h3>
+      <p class="hint">上傳後立刻公開，依拍攝時間插在當天的展品之間。瀏覽器會先讀出拍攝時間與地點（只給排版用、不公開），再轉檔並抹掉檔案裡的所有資訊（含 GPS）。照片每人每天 20 張；影片每人每天 5 支、最長 60 秒、轉檔後 50MB 以內，聲音會保留。</p>
       <form id="up-form">
-        <label>照片（JPEG/PNG/WebP）<input type="file" name="file" accept="image/jpeg,image/png,image/webp" required /></label>
+        <label>照片（JPEG/PNG/WebP）或影片（MP4/MOV）<input type="file" name="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/*" required /></label>
         <p class="hint" id="up-taken" role="status"></p>
         <label>掛在哪一天 <select name="day" id="up-day"></select></label>
         <label>說明（≤300 字，可留空）<input name="caption" maxlength="300" /></label>

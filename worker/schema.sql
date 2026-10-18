@@ -36,7 +36,12 @@ CREATE TABLE IF NOT EXISTS photos (
   bytes       INTEGER NOT NULL,
   width       INTEGER NOT NULL,
   height      INTEGER NOT NULL,
-  taken_at    TEXT,                        -- 拍攝時刻（EXIF DateTimeOriginal，當地時間 YYYY-MM-DDTHH:MM:SS）；讀不到為 null
+  kind        TEXT NOT NULL DEFAULT 'photo', -- photo｜video（影片：r2_key 是 MP4，另有封面 poster_key）
+  duration    REAL,                        -- 影片長度（秒）；照片為 null
+  poster_key  TEXT,                        -- 影片封面（R2 key）；照片為 null
+  taken_at    TEXT,                        -- 拍攝時刻（照片 EXIF DateTimeOriginal／影片 creationdate，當地時間 YYYY-MM-DDTHH:MM:SS）；讀不到為 null
+  lat         REAL,                        -- 拍攝地點（剝除 metadata 前讀出）：只給內部排版用，任何 API 都不回傳
+  lon         REAL,
   status      TEXT NOT NULL DEFAULT 'live' CHECK (status IN ('live', 'removed')),
   created_at  TEXT NOT NULL,
   updated_at  TEXT,

@@ -4,6 +4,10 @@
 // 會建立 smoke-* 測試帳號與投稿，跑完把測試帳號停用、測試內容刪除。只對本機用，不要指向正式站。
 import sharp from 'sharp';
 import zlib from 'node:zlib';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const BASE = process.argv[2] || 'http://localhost:8787';
 const ORIGIN = 'http://localhost:8787';
@@ -209,6 +213,64 @@ async function fetchMedia(key) {
   // 假冒副檔名
   const r4 = await uploadRaw(Buffer.from('GIF89a not really an image'), 'image/jpeg', 'x.jpg');
   check('非圖片內容 → 400', r4.status === 400, String(r4.status));
+}
+
+// ---------- 影片（直接打 API，繞過瀏覽器轉檔：伺服器要能自己剝 metadata） ----------
+let video = null;
+{
+  const dir = mkdtempSync(join(tmpdir(), 'kura-vid-'));
+  const mk = (name, secs, extra = []) => {
+    const out = join(dir, name);
+    execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'testsrc=size=320x240:rate=30', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000',
+      '-t', String(secs), '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', ...extra, out]);
+    return readFileSync(out);
+  };
+  // iPhone 式 metadata：拍攝時間＋GPS；moov 放前面（faststart），剝掉後 mdat 位移要修正
+  const gpsVid = mk('gps.mp4', 2, ['-movflags', '+faststart+use_metadata_tags',
+    '-metadata', 'com.apple.quicktime.creationdate=2026-10-07T15:20:30+0900',
+    '-metadata', 'com.apple.quicktime.location.ISO6709=+34.8572+135.4867+100.000/', '-metadata', 'comment=video-secret']);
+  const poster = await sharp({ create: { width: 32, height: 24, channels: 3, background: '#224466' } }).jpeg().toBuffer();
+  const upVideo = (buf, opts = {}) => {
+    const f = new FormData();
+    f.append('kind', 'video');
+    f.append('file', new Blob([buf], { type: 'video/mp4' }), 'v.mp4');
+    if (opts.poster !== false) f.append('poster', new Blob([poster], { type: 'image/jpeg' }), 'p.jpg');
+    f.append('day', '2026-10-07');
+    f.append('caption', opts.caption ?? '煙霧測試影片');
+    return user('POST', '/api/photos', { form: f });
+  };
+  r = await upVideo(gpsVid);
+  check('上傳影片 → 201', r.status === 201, JSON.stringify(r.data));
+  video = r.data.photo ?? null;
+  if (video) {
+    extraPhotos.push(video.id);
+    check('影片：kind／長度／尺寸／封面', video.kind === 'video' && Math.abs(video.duration - 2) < 0.2 && video.width === 320 && video.height === 240 && !!video.posterKey,
+      JSON.stringify({ k: video.kind, d: video.duration, w: video.width, h: video.height, p: video.posterKey }));
+    check('影片：剝除前讀出拍攝時間（伺服器端）', video.takenAt === '2026-10-07T15:20:30', String(video.takenAt));
+    check('影片：API 不回傳拍攝地點', !('lat' in video) && !JSON.stringify(video).includes('34.857'));
+    const m = await fetch(`${BASE}/api/media/${video.key}`);
+    const out = Buffer.from(await m.arrayBuffer());
+    check('影片：可取回、型別 video/mp4', m.status === 200 && m.headers.get('content-type') === 'video/mp4', `${m.status} ${m.headers.get('content-type')}`);
+    check('影片：GPS、拍攝時間、comment 都剝除', !out.includes('34.857') && !out.includes('video-secret') && !out.includes('creationdate'));
+    const outFile = join(dir, 'out.mp4');
+    (await import('node:fs')).writeFileSync(outFile, out);
+    let decoded = true;
+    try { execFileSync('ffmpeg', ['-v', 'error', '-i', outFile, '-f', 'null', '-']); } catch { decoded = false; }
+    const streams = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type', '-of', 'csv=p=0', outFile]).toString();
+    check('影片：剝完仍可完整解碼、保留聲音', decoded && streams.includes('audio') && streams.includes('video'), streams.replace(/\n/g, ' '));
+    const rg = await fetch(`${BASE}/api/media/${video.key}`, { headers: { Range: 'bytes=0-99' } });
+    const part = Buffer.from(await rg.arrayBuffer());
+    check('影片：Range 請求回 206', rg.status === 206 && part.length === 100 && (rg.headers.get('content-range') || '').startsWith('bytes 0-99/'),
+      `${rg.status} ${part.length} ${rg.headers.get('content-range')}`);
+    const pm = await fetch(`${BASE}/api/media/${video.posterKey}`);
+    check('影片：封面可取回', pm.status === 200, String(pm.status));
+  }
+  r = await upVideo(mk('long.mp4', 62));
+  check('影片超過 60 秒 → 400', r.status === 400, `${r.status} ${JSON.stringify(r.data)}`);
+  r = await upVideo(mk('np.mp4', 1), { poster: false });
+  check('影片沒附封面 → 400', r.status === 400, String(r.status));
+  r = await upVideo(Buffer.from('not a video at all, just text'));
+  check('不是 MP4 → 400', r.status === 400, String(r.status));
 }
 
 // ---------- 公開牆 ----------

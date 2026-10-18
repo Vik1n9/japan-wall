@@ -34,7 +34,7 @@ export default {
 
     /* 公開唯讀（與前台共用模組） */
     if (method === 'GET' && url.pathname.startsWith('/api/media/')) {
-      return mediaResponse(env.UPLOADS, safeDecode(url.pathname.slice('/api/media/'.length)) ?? '');
+      return mediaResponse(env.UPLOADS, safeDecode(url.pathname.slice('/api/media/'.length)) ?? '', request);
     }
     if (method === 'GET' && url.pathname === '/api/public/wall') {
       return publicWallResponse(env.DB);

@@ -32,7 +32,7 @@ export default {
       return res;
     }
     if (request.method === 'GET' && url.pathname.startsWith('/api/media/')) {
-      return mediaResponse(env.UPLOADS, safeDecode(url.pathname.slice('/api/media/'.length)) ?? '');
+      return mediaResponse(env.UPLOADS, safeDecode(url.pathname.slice('/api/media/'.length)) ?? '', request);
     }
 
     const blocked =
