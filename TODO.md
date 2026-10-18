@@ -11,14 +11,11 @@
 - 後台本機測試：`test:api` 142/142（前台加 `KURA_FRONT`）、`test:ui` 60/60 通過（上線後檢查與優化，`3b72318`）。
 - Git：2026-10-18 已全部 push 到 GitHub。之後的 commit 要 push 前先問 Viking。
 
-## 待上線：刪除帳號（main `1353978`，尚未 push、尚未部署）
+## 刪除帳號（2026-10-19 上線）
 
-本機測試 `test:api` 201/201（含 `KURA_TEST_SCHEDULED=1` 的 30 天排程清除）、`test:ui` 76/76。每一步都先問 Viking：
+已 push（`696f303`）、正式資料庫已跑 migration 004、前後台已部署；公開牆、上傳媒體（206）、前台 404、後台未登入 401 都檢查過。
 
-- [ ] push 到 GitHub。
-- [ ] 正式資料庫跑 migration 004：`npx --yes wrangler@4 d1 execute osaka2026 -c wrangler.back.jsonc --remote --file worker/migrations/004-users-deleted-at.sql`（**必須在部署之前**，新版程式會查 `users.deleted_at`）。
-- [ ] `npm run deploy:back`，再 `npm run deploy`（前台的 `/api/media/*` 也改成先查作者是否已刪除）。
-- [ ] 上線檢查：到 `/admin` 刪掉 `shingang`（沒有內容的話應該兩段確認就直接消失）。
+- [ ] Viking 到 `/admin` 刪掉 `shingang`（停用中、沒有內容）：按兩次「刪除」應該直接從清單消失。
 
 ## 2026-10-19 上線的改動
 
