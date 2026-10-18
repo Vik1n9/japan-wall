@@ -9,11 +9,10 @@
 - 五天 66 件展品、短片、視覺素材、屋簷趣事帶、後台 2.0 都已完成。
 - 2026-10-18 前台 https://osaka2026.voriens.dev 與後台 https://kura.osaka2026.voriens.dev 都已部署最新版（含照片改版），Viking 已實測登入、上傳、繪馬、照片留言。改版前上傳的 6 張照片沒有拍攝時刻、排在當天最後，Viking 決定不重傳。之後部署前先問 Viking。
 - 後台本機測試：`test:api` 46/46、`test:ui` 49/49 通過（照片改版，`51c1a57`）。
-- Git：GitHub 上到 `88bc103`，之後的 commit 要 push 前先問 Viking。
+- Git：2026-10-18 已全部 push 到 GitHub。之後的 commit 要 push 前先問 Viking。
 
 ## 等 Viking 決定
 
-- [ ] 要不要刪除舊的 D1 `osaka2026-notes`。
 - [ ] 後台要不要再做幾輪優化。做法：測試 → 修 → commit 循環，只有設計決策才停下來問。
 
 ## 可選（Viking 尚未要求，提出即可，不要自行動手）

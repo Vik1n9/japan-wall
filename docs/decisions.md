@@ -265,7 +265,7 @@ japan-wall/
 
 ## 7. 已定案的事項
 
-- [x] 原 Cloudflare Access 收稿制後台（留言／繪馬投稿、`notes:pull`）從未上線，2026-10-17 經 Viking 決定廢除，改為後台 2.0（帳號密碼登入＋照片上傳＋繪馬留言動態公開＋前後台雙網域）。規格選型紀錄保留在 `docs/admin-design.md`、`docs/notes-spec.md`（均已標記廢棄）。
+- [x] 原 Cloudflare Access 收稿制後台（留言／繪馬投稿、`notes:pull`）從未上線，2026-10-17 經 Viking 決定廢除，改為後台 2.0（帳號密碼登入＋照片上傳＋繪馬留言動態公開＋前後台雙網域）。規格選型紀錄保留在 `docs/admin-design.md`、`docs/notes-spec.md`（均已標記廢棄）。舊收稿制留下的 D1 `osaka2026-notes`（只有一張空的 `posts` 表）已於 2026-10-18 經 Viking 同意刪除。
 - [x] 整趟行程的日期範圍與每天的城市：10-05～10-09，見第 4 節。
 - [x] 網站**公開**（2026-10-15，Viking 決定）。路人正臉已適度虛化。
 - [x] 託管：**Cloudflare Workers 靜態資源**，網址 `https://osaka2026.voriens.dev`（2026-10-15 決定）。設定在 `wrangler.jsonc`，部署用 `npm run deploy`（需先 `npx wrangler login`）。
