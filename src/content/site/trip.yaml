@@ -12,7 +12,7 @@ banner:
   caption: 2026 · 秋
 credits:
   - { label: 策展, value: Viking }
-footnote: 短片已去除聲音並壓縮，照片已轉檔並移除位置資訊。
+footnote: 照片與短片都已轉檔並移除位置等資訊，短片保留現場聲音。
 # 視覺素材：書法標題（清酒標風）、牆腳石垣、天守插圖。以 Viking 拍的大阪城照片為參考、FLUX.2 Klein 4B 浮世繪風格化，裝飾用，不是展品
 art:
   titleV: art/osaka-title-v.svg

@@ -12,6 +12,10 @@ backdrop:
   - { src: art/days/2026-10-07-05.webp, x: 82, y: 34, h: 60, r: 4 }
   - { src: art/days/2026-10-07-06.webp, x: 98, y: 2, h: 46, r: -6 }
   - { src: art/days/2026-10-07-07.webp, x: 52, y: 46, h: 50, r: 7 }
+# 趣事帶（分左右兩張、中間留白）：左＝老老、高高、小小、可愛爬完勝尾寺在達摩堆旁喘氣休息；右＝漂漂、呆呆獨自先去大阪，在路邊茶屋喝抹茶（參考廣重〈袋井 出茶屋ノ圖〉）。原檔在 raw/art/cats/scenes/d3/
+story:
+  - { src: art/story/2026-10-07-left.webp, x: 20 }
+  - { src: art/story/2026-10-07-right.webp, x: 85 }
 columns:
   - width: 200
     items:

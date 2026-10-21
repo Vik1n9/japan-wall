@@ -1,0 +1,96 @@
+---
+// /edit 編輯模式的額外 UI：登入遮罩＋浮動工具列＋變更密碼 modal。
+// 樣式在 src/styles/edit.css，由 WallPage 以 ?url 資產方式條件掛 <link>——
+// Astro 會把 component 內的 <style>/import css 無條件收進頁面 bundle，只有 ?url＋條件 link 能做到前台零痕跡。
+---
+<div class="edit-mask" id="edit-mask" hidden>
+  <div class="em-card">
+    <h1>編輯模式登入</h1>
+    <p class="hint">這面牆的參與者才能進入；帳號由管理員發放。</p>
+    <form id="em-login">
+      <label>帳號 <input name="username" autocomplete="username" required maxlength="32" /></label>
+      <label>密碼 <input name="password" type="password" autocomplete="current-password" required maxlength="128" /></label>
+      <button type="submit">登入</button>
+      <p class="err" id="em-login-err" role="alert"></p>
+    </form>
+  </div>
+</div>
+
+<div class="edit-bar" id="edit-bar" hidden>
+  <span class="who">編輯模式 · <b id="em-who"></b></span>
+  <button type="button" id="em-uploads">我的上傳</button>
+  <button type="button" id="em-admin" hidden>後台</button>
+  <button type="button" id="em-pw">變更密碼</button>
+  <button type="button" id="em-logout">登出</button>
+</div>
+
+<!-- 右側抽屜：上傳照片＋我的照片管理 -->
+<aside class="edit-drawer" id="edit-drawer" hidden aria-label="我的上傳">
+  <div class="ed-head">
+    <h2>我的上傳</h2>
+    <button type="button" class="ed-x" id="ed-close" aria-label="關閉">×</button>
+  </div>
+  <div class="ed-body">
+    <div class="ep-card">
+      <h3>上傳照片或影片</h3>
+      <p class="hint">上傳後立刻公開，依拍攝時間插在當天的展品之間。瀏覽器會先讀出拍攝時間與地點（只給排版用、不公開），再轉檔並抹掉檔案裡的所有資訊（含 GPS）。照片每人每天 20 張；影片每人每天 5 支、最長 60 秒、轉檔後 50MB 以內，聲音會保留。</p>
+      <form id="up-form">
+        <label>照片（JPEG/PNG/WebP）或影片（MP4/MOV）<input type="file" name="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/*" required /></label>
+        <p class="hint" id="up-taken" role="status"></p>
+        <label>掛在哪一天 <select name="day" id="up-day"></select></label>
+        <label>說明（≤300 字，可留空）<input name="caption" maxlength="300" /></label>
+        <button type="submit">上傳</button>
+        <p class="err" id="up-err" role="alert"></p>
+        <p class="ok" id="up-ok" role="status"></p>
+      </form>
+    </div>
+    <div class="ep-card">
+      <h3>我的照片</h3>
+      <div class="ep-grid" id="my-photos"></div>
+    </div>
+    <div class="ep-card">
+      <h3>留言／掛繪馬</h3>
+      <p class="hint">留言掛在展品說明卡下、繪馬像展品一樣掛在當天牆上；送出後立刻公開。</p>
+      <form id="post-form">
+        <label>種類
+          <select name="kind" id="post-kind">
+            <option value="comment" selected>留言</option>
+            <option value="ema">繪馬</option>
+          </select>
+        </label>
+        <label id="post-target-exhibit-label">目標展品 <select name="targetExhibit" id="post-target-exhibit"></select></label>
+        <label id="post-target-day-label" hidden>掛在哪一天 <select name="targetDay" id="post-target-day"></select></label>
+        <label>署名（0～20 字，可留空） <input name="by" maxlength="20" /></label>
+        <label>內容（1～300 字）
+          <textarea name="body" rows="4" maxlength="300" required></textarea>
+          <span class="count" id="post-count">0/300</span>
+        </label>
+        <button type="submit">送出</button>
+        <p class="err" id="post-err" role="alert"></p>
+        <p class="ok" id="post-ok" role="status"></p>
+      </form>
+    </div>
+    <div class="ep-card">
+      <h3>我的投稿</h3>
+      <div id="my-posts"></div>
+    </div>
+  </div>
+</aside>
+
+<div class="edit-pw" id="edit-pw" hidden>
+  <div class="em-card">
+    <h2 id="em-pw-title">變更密碼</h2>
+    <p class="hint" id="em-pw-hint" hidden>這是管理員發給你的初始密碼，變更後才能繼續使用。</p>
+    <form id="em-pw-form">
+      <label>目前密碼 <input name="currentPassword" type="password" autocomplete="current-password" required maxlength="128" /></label>
+      <label>新密碼 <input name="newPassword" type="password" autocomplete="new-password" required minlength="8" maxlength="128" /></label>
+      <div class="row">
+        <button type="submit">確認變更</button>
+        <button type="button" class="ghost" id="em-pw-cancel">取消</button>
+      </div>
+      <p class="err" id="em-pw-err" role="alert"></p>
+    </form>
+  </div>
+</div>
+
+<script>import '../scripts/edit.ts';</script>

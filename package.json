@@ -8,17 +8,23 @@
   },
   "scripts": {
     "dev": "astro dev",
+    "dev:api": "npx --yes wrangler@4 dev -c wrangler.back.jsonc --port 8787",
+    "db:setup:local": "npx --yes wrangler@4 d1 execute osaka2026 -c wrangler.back.jsonc --local --file=worker/schema.sql",
+    "db:setup:remote": "npx --yes wrangler@4 d1 execute osaka2026 -c wrangler.back.jsonc --remote --file=worker/schema.sql",
+    "admin:create": "node scripts/admin-create.mjs",
+    "test:api": "node scripts/api-smoke.mjs",
+    "test:ui": "node scripts/ui-smoke.mjs",
     "ingest": "node scripts/ingest.mjs",
-    "notes:pull": "node scripts/notes-pull.mjs",
     "check": "node scripts/check.mjs",
-    "prebuild": "node scripts/check.mjs",
+    "prebuild": "node scripts/check.mjs && node scripts/gen-targets.mjs",
     "build": "astro build",
     "preview": "astro preview",
-    "deploy": "npm run build && npx --yes wrangler@4 deploy"
+    "deploy": "npm run build && npx --yes wrangler@4 deploy",
+    "deploy:back": "npm run build && npx --yes wrangler@4 deploy -c wrangler.back.jsonc"
   },
   "dependencies": {
     "astro": "7.3.5",
-    "jose": "^6.2.12"
+    "mediabunny": "1.61.1"
   },
   "devDependencies": {
     "exifr": "7.1.3",

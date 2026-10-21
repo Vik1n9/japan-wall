@@ -1,0 +1,138 @@
+---
+// 後台管理頁（只在 kura 網域可達；前台 Worker 對 /admin* 回 404）。
+// 靜態殼＋client-side 打 API：未登入顯示登入卡，非 admin 顯示無權限，admin 顯示管理台。
+import { asset } from '../../lib/wall';
+import '../../styles/admin.css';
+---
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>後台 · 大阪旅行展覽牆</title>
+    <link rel="icon" type="image/svg+xml" href={asset("favicon.svg")} />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@700;900&family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+  </head>
+  <body>
+    <main class="adm" id="adm">
+      <p class="adm-loading" id="adm-loading">載入中……</p>
+
+      <!-- 登入卡（未登入時顯示） -->
+      <section class="card adm-login" id="adm-login" hidden>
+        <h1>後台登入</h1>
+        <p class="hint">僅限受邀帳號；如無帳號請聯絡管理員。</p>
+        <form id="login-form">
+          <label>帳號 <input name="username" autocomplete="username" required maxlength="32" /></label>
+          <label>密碼 <input name="password" type="password" autocomplete="current-password" required maxlength="128" /></label>
+          <button type="submit">登入</button>
+          <p class="err" id="login-err" role="alert"></p>
+        </form>
+      </section>
+
+      <!-- 無權限（登入者非 admin） -->
+      <section class="card" id="adm-forbidden" hidden>
+        <h1>需要管理員權限</h1>
+        <p>目前帳號 <b id="forbidden-who"></b> 不是管理員。</p>
+        <button type="button" class="ghost" id="forbidden-logout">登出</button>
+      </section>
+
+      <!-- 管理台 -->
+      <section id="adm-console" hidden>
+        <header class="adm-head">
+          <h1>後台管理</h1>
+          <div class="who">
+            <span id="console-who"></span>
+            <button type="button" class="ghost" id="btn-change-pw">變更密碼</button>
+            <button type="button" class="ghost" id="btn-logout">登出</button>
+          </div>
+        </header>
+
+        <!-- 強制變更密碼（must_change_pw） -->
+        <div class="card warn" id="must-change" hidden>
+          <h2>請先變更密碼</h2>
+          <p class="hint">這是管理員發給你的初始密碼，變更後才能繼續使用。</p>
+        </div>
+
+        <!-- 變更密碼卡（自助） -->
+        <div class="card" id="change-pw-card" hidden>
+          <h2>變更密碼</h2>
+          <form id="change-pw-form">
+            <label>目前密碼 <input name="currentPassword" type="password" autocomplete="current-password" required maxlength="128" /></label>
+            <label>新密碼 <input name="newPassword" type="password" autocomplete="new-password" required minlength="8" maxlength="128" /></label>
+            <div class="row">
+              <button type="submit">確認變更</button>
+              <button type="button" class="ghost" id="change-pw-cancel">取消</button>
+            </div>
+            <p class="err" id="change-pw-err" role="alert"></p>
+            <p class="ok" id="change-pw-ok" role="status"></p>
+          </form>
+        </div>
+
+        <!-- 建立帳號 -->
+        <div class="card">
+          <h2>建立帳號</h2>
+          <form id="create-form">
+            <div class="grid">
+              <label>帳號 <input name="username" required maxlength="32" pattern="[a-z0-9_.\-]{2,32}" title="2–32 字的小寫 a-z、0-9、_ . -" /></label>
+              <label>顯示名稱 <input name="displayName" required maxlength="20" /></label>
+              <label>角色
+                <select name="role">
+                  <option value="user" selected>一般用戶</option>
+                  <option value="admin">管理員</option>
+                </select>
+              </label>
+              <label>密碼（留空＝自動產生） <input name="password" type="text" autocomplete="off" maxlength="128" placeholder="至少 8 字" /></label>
+            </div>
+            <button type="submit">建立</button>
+            <p class="err" id="create-err" role="alert"></p>
+            <p class="ok" id="create-ok" role="status"></p>
+          </form>
+        </div>
+
+        <!-- 帳號列表 -->
+        <div class="card">
+          <h2>帳號列表</h2>
+          <p class="err" id="users-err" role="alert"></p>
+          <div class="tbl-wrap">
+            <table id="users-tbl">
+              <thead>
+                <tr><th>帳號</th><th>顯示名稱</th><th>角色</th><th>狀態</th><th>建立時間</th><th>最後登入</th><th>操作</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 內容審核：牆上所有公開中的照片與投稿，管理員可刪除不當內容 -->
+        <div class="card" id="mod-card">
+          <div class="mod-head">
+            <h2>內容審核</h2>
+            <div class="tabs" role="tablist">
+              <button type="button" class="tab on" role="tab" aria-selected="true" data-tab="photos">照片 <span id="mod-n-photos">0</span></button>
+              <button type="button" class="tab" role="tab" aria-selected="false" data-tab="posts">投稿 <span id="mod-n-posts">0</span></button>
+              <button type="button" class="ghost" id="mod-reload">重新整理</button>
+            </div>
+          </div>
+          <p class="hint">刪除後牆上立刻消失；照片檔案會一併刪除、無法復原。</p>
+          <p class="err" id="mod-err" role="alert"></p>
+          <div class="mod-photos" id="mod-photos"></div>
+          <div class="mod-posts" id="mod-posts" hidden></div>
+        </div>
+      </section>
+
+      <!-- 一次性密碼顯示（建號/重設後） -->
+      <div class="pw-reveal" id="pw-reveal" hidden>
+        <div class="card">
+          <h2 id="pw-reveal-title">初始密碼</h2>
+          <p class="hint">只顯示這一次，請複製後妥善轉交。</p>
+          <p class="pw"><code id="pw-reveal-value"></code> <button type="button" class="ghost" id="pw-reveal-copy">複製</button></p>
+          <button type="button" id="pw-reveal-close">我已保存</button>
+        </div>
+      </div>
+    </main>
+    <script>import '../../scripts/admin.ts';</script>
+  </body>
+</html>

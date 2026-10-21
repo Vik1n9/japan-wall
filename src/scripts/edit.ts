@@ -1,598 +1,700 @@
-import { MEDIA, buildMap, close, getCur, open, setOnShow, show, type Media, type NoteComment } from './wall';
+// /edit 編輯模式 client 邏輯：登入遮罩、浮動工具列、變更密碼、上傳照片（canvas 縮圖）、我的照片管理。
+// 上傳隱私第一層：這裡先 canvas 重編碼（長邊 ≤2048、JPEG ~85%），EXIF/GPS 自然消失；
+// server（worker/lib/images.ts）還會再剝一次 metadata 防繞過。
+// 重編碼前只讀出 EXIF 的拍攝時刻（DateTimeOriginal）一起送出，牆上依它排序；GPS 等其他欄位不讀不送。
 
-interface ApiPost {
-  id: string;
-  kind: 'comment' | 'ema';
-  target: string;
-  replyTo: string | null;
-  by: string;
-  body: string;
-  status: 'pending' | 'published' | 'rejected';
-  posted: string;
-  mine: boolean;
-}
+import { isVideoFile, readPhotoMeta, readVideoMeta, transcodeVideo, type CaptureMeta } from './upload-media';
 
-const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+type Me = { username: string; displayName: string; role: string; mustChangePw: boolean };
+type Photo = {
+  id: string; author: string; authorName: string; day: string; caption: string;
+  key: string; mime: string; width: number; height: number; takenAt: string | null; createdAt: string; mine: boolean;
+  kind: 'photo' | 'video'; duration: number | null; posterKey: string | null;
+};
+type Post = {
+  id: string; kind: string; target: string; replyTo: string | null; by: string;
+  body: string; author: string; postedAt: string; mine: boolean;
+};
 
-function getSavedBy(): string {
-  try { return localStorage.getItem('notes-by') || ''; } catch { return ''; }
-}
-function setSavedBy(val: string) {
-  try { localStorage.setItem('notes-by', val); } catch {}
-}
-function getDraft(key: string): string {
-  try { return localStorage.getItem(`notes-draft:${key}`) || ''; } catch { return ''; }
-}
-function setDraft(key: string, val: string) {
+const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+
+let me: Me | null = null;
+
+/** 所有 API 呼叫走這裡：網路斷線不丟例外；401＝登入過期（回登入遮罩）；403 mustChangePw＝強制改密碼 */
+async function api(path: string, init?: RequestInit): Promise<{ status: number; data: Record<string, unknown> }> {
+  let res: Response;
   try {
-    if (val) localStorage.setItem(`notes-draft:${key}`, val);
-    else localStorage.removeItem(`notes-draft:${key}`);
-  } catch {}
-}
-
-function emaTilt(id: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
-  const raw = (((h >>> 0) % 601) - 300) / 100;
-  if (Math.abs(raw) < 0.35) return raw < 0 ? -0.6 : 0.6;
-  return raw;
-}
-
-function updateCharCount(el: HTMLElement, text: string, max = 300) {
-  const rem = max - text.length;
-  el.textContent = `剩餘 ${rem} 字`;
-  el.classList.toggle('over', rem < 0);
-}
-
-/** 重新同步牆上所有按鈕的 data-i 與 MEDIA 陣列順序 */
-function reindexWall() {
-  const byId = new Map<string, Media>();
-  for (const m of MEDIA) byId.set(m.id, m);
-
-  const ordered: Media[] = [];
-  document.querySelectorAll<HTMLElement>('#wall .it-media').forEach((btn) => {
-    const id = btn.dataset.exhibitId || btn.dataset.emaId;
-    if (!id) return;
-    const item = byId.get(id);
-    if (!item) return;
-    const idx = ordered.push(item) - 1;
-    btn.dataset.i = String(idx);
-  });
-
-  if (ordered.length === MEDIA.length) {
-    MEDIA.splice(0, MEDIA.length, ...ordered);
-  }
-}
-
-/** 更新牆上展品或繪馬的小紙籤（留言數） */
-function syncOfuda(m: Media) {
-  const btn = document.querySelector<HTMLElement>(
-    m.type === 'ema' ? `#wall .it-ema[data-ema-id="${m.id}"]` : `#wall .it-media[data-exhibit-id="${m.id}"]`,
-  );
-  if (!btn) return;
-  const count = (m.comments ?? []).length;
-  const container = m.type === 'ema' ? btn.querySelector<HTMLElement>('.ema-foot') : btn.querySelector<HTMLElement>('.cap');
-  if (!container) return;
-  let badge = container.querySelector<HTMLElement>('.ofuda');
-  if (count > 0) {
-    if (!badge) {
-      badge = document.createElement('span');
-      badge.className = 'ofuda';
-      if (m.type === 'ema') container.prepend(badge);
-      else container.append(badge);
-    }
-    badge.setAttribute('aria-label', `${count} 則留言`);
-    badge.textContent = `籤 ${count}`;
-  } else if (badge) {
-    badge.remove();
-  }
-}
-
-/** 建立或更新牆上的繪馬 DOM 節點 */
-function ensureEmaOnWall(m: Media) {
-  let btn = document.querySelector<HTMLButtonElement>(`#wall .it-ema[data-ema-id="${m.id}"]`);
-  const author = m.by || '無署名';
-  if (!btn) {
-    const dayEl = document.querySelector<HTMLElement>(`.day[data-date="${m.date}"]`);
-    if (!dayEl) return;
-    const cols = dayEl.querySelector<HTMLElement>('.cols');
-    if (!cols) return;
-    let rack = cols.querySelector<HTMLElement>('.col.ema-rack');
-    if (!rack) {
-      rack = document.createElement('div');
-      rack.className = 'col ema-rack';
-      rack.style.setProperty('--colw', '240px');
-      rack.dataset.dynamic = 'true';
-      const rail = document.createElement('div');
-      rail.className = 'ema-rail';
-      const railSpan = document.createElement('span');
-      railSpan.textContent = '繪馬掛所';
-      rail.append(railSpan);
-      const list = document.createElement('div');
-      list.className = 'ema-list';
-      rack.append(rail, list);
-      cols.append(rack);
-    }
-    const list = rack.querySelector<HTMLElement>('.ema-list')!;
-    btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'it it-media it-ema in-rack';
-    btn.dataset.emaId = m.id;
-    btn.style.setProperty('--tilt', `${m.tilt ?? emaTilt(m.id)}deg`);
-    btn.setAttribute('aria-label', `查看繪馬（${author}）`);
-
-    const frame = document.createElement('span');
-    frame.className = 'ema-frame';
-    const cord = document.createElement('span');
-    cord.className = 'ema-cord';
-    cord.setAttribute('aria-hidden', 'true');
-    const board = document.createElement('span');
-    board.className = 'ema-board';
-    const hole = document.createElement('span');
-    hole.className = 'ema-hole';
-    hole.setAttribute('aria-hidden', 'true');
-    const bodyEl = document.createElement('span');
-    bodyEl.className = 'ema-body';
-    bodyEl.textContent = m.note;
-    const foot = document.createElement('span');
-    foot.className = 'ema-foot';
-    const byEl = document.createElement('span');
-    byEl.className = 'ema-by';
-    byEl.textContent = author;
-    foot.append(byEl);
-    board.append(hole, bodyEl, foot);
-    frame.append(cord, board);
-    btn.append(frame);
-    list.append(btn);
-  }
-
-  btn.classList.toggle('is-pending', m.status === 'pending');
-  btn.classList.toggle('is-rejected', m.status === 'rejected');
-  const foot = btn.querySelector<HTMLElement>('.ema-foot');
-  if (foot) {
-    let stBadge = foot.querySelector<HTMLElement>('.st-badge');
-    if (m.status === 'pending' || m.status === 'rejected') {
-      if (!stBadge) {
-        stBadge = document.createElement('em');
-        foot.prepend(stBadge);
-      }
-      stBadge.className = `st-badge ${m.status}`;
-      stBadge.textContent = m.status === 'pending' ? '待展出' : '未展出';
-    } else if (stBadge) {
-      stBadge.remove();
-    }
-  }
-  syncOfuda(m);
-}
-
-/** 將 API 回傳的單筆投稿合併進 MEDIA 與 DOM（同編號不重複） */
-function mergePost(p: ApiPost) {
-  if (p.kind === 'ema') {
-    let existing = MEDIA.find((m) => m.id === p.id);
-    if (existing) {
-      existing.status = p.status;
-      existing.mine = p.mine;
-      ensureEmaOnWall(existing);
-    } else {
-      const dayEl = document.querySelector<HTMLElement>(`.day[data-date="${p.target}"]`);
-      const place = dayEl?.dataset.place || '';
-      const newEma: Media = {
-        id: p.id,
-        type: 'ema',
-        title: `繪馬 · ${p.by || '無署名'}`,
-        by: p.by,
-        place,
-        note: p.body,
-        date: p.target,
-        time: null,
-        posted: p.posted,
-        tilt: emaTilt(p.id),
-        src: '',
-        poster: null,
-        width: 0,
-        height: 0,
-        duration: null,
-        source: null,
-        status: p.status,
-        mine: p.mine,
-        comments: [],
-      };
-      MEDIA.push(newEma);
-      ensureEmaOnWall(newEma);
-      reindexWall();
-    }
-  } else {
-    const target = MEDIA.find((m) => m.id === p.target);
-    if (!target) return;
-    if (!target.comments) target.comments = [];
-    const existing = target.comments.find((c) => c.id === p.id);
-    if (existing) {
-      existing.status = p.status;
-      existing.mine = p.mine;
-    } else {
-      target.comments.push({
-        id: p.id,
-        target: p.target,
-        replyTo: p.replyTo,
-        by: p.by,
-        body: p.body,
-        posted: p.posted,
-        status: p.status,
-        mine: p.mine,
-      });
-      target.comments.sort((a, b) => a.posted.localeCompare(b.posted) || a.id.localeCompare(b.id));
-    }
-    syncOfuda(target);
-  }
-}
-
-/** 建立兩段式「撤回 → 確定撤回／取消」按鈕組 */
-function createWithdrawControl(label: string, onConfirm: () => Promise<void>): HTMLElement {
-  const wrap = document.createElement('span');
-  wrap.className = 'withdraw-ctrl';
-
-  const trigger = document.createElement('button');
-  trigger.type = 'button';
-  trigger.className = 'btn-link btn-withdraw';
-  trigger.textContent = label;
-
-  const confirmBox = document.createElement('span');
-  confirmBox.className = 'withdraw-confirm';
-  confirmBox.hidden = true;
-
-  const ask = document.createElement('span');
-  ask.textContent = '確定撤回？';
-  const yesBtn = document.createElement('button');
-  yesBtn.type = 'button';
-  yesBtn.className = 'btn-link danger btn-withdraw-confirm';
-  yesBtn.textContent = '確定撤回';
-  const noBtn = document.createElement('button');
-  noBtn.type = 'button';
-  noBtn.className = 'btn-link btn-withdraw-cancel';
-  noBtn.textContent = '取消';
-
-  trigger.onclick = (e) => {
-    e.stopPropagation();
-    trigger.hidden = true;
-    confirmBox.hidden = false;
-  };
-  noBtn.onclick = (e) => {
-    e.stopPropagation();
-    confirmBox.hidden = true;
-    trigger.hidden = false;
-  };
-  yesBtn.onclick = async (e) => {
-    e.stopPropagation();
-    yesBtn.disabled = true;
-    await onConfirm();
-  };
-
-  confirmBox.append(ask, yesBtn, noBtn);
-  wrap.append(trigger, confirmBox);
-  return wrap;
-}
-
-async function withdrawPost(id: string, kind: 'comment' | 'ema', targetId?: string) {
-  const errEl = $('lb-err');
-  errEl.hidden = true;
-  try {
-    const res = await fetch(`/api/posts/${id}`, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
+    res = await fetch(path, {
+      headers: init?.body instanceof FormData ? undefined : { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      ...init,
     });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || `撤回失敗（${res.status}）`);
-    }
-    if (kind === 'comment' && targetId) {
-      const target = MEDIA.find((m) => m.id === targetId);
-      if (target?.comments) {
-        target.comments = target.comments.filter((c) => c.id !== id);
-        syncOfuda(target);
-      }
-      show(getCur());
-    } else if (kind === 'ema') {
-      const btn = document.querySelector<HTMLElement>(`#wall .it-ema[data-ema-id="${id}"]`);
-      const rack = btn?.closest<HTMLElement>('.col.ema-rack');
-      btn?.remove();
-      if (rack && rack.dataset.dynamic === 'true' && !rack.querySelector('.it-ema')) {
-        rack.remove();
-      }
-      const idx = MEDIA.findIndex((m) => m.id === id);
-      if (idx !== -1) MEDIA.splice(idx, 1);
-      reindexWall();
-      buildMap();
-      close();
-    }
-  } catch (err) {
-    errEl.textContent = err instanceof Error ? err.message : '撤回失敗，請檢查網路連線';
-    errEl.hidden = false;
+  } catch {
+    return { status: 0, data: { error: '網路連線失敗，請稍後再試' } };
   }
+  let data: Record<string, unknown> = {};
+  try { data = await res.json(); } catch { /* 非 JSON */ }
+  if (res.status === 401 && me && path !== '/api/login') {
+    me = null;
+    setView();
+    $('em-login-err').textContent = '登入已過期，請重新登入';
+  } else if (res.status === 403 && data.mustChangePw && me) {
+    me.mustChangePw = true;
+    openPw(true);
+  }
+  return { status: res.status, data };
 }
 
-/* 說明卡內的留言與回覆互動 */
-let currentTargetId = '';
-let activeReply: NoteComment | null = null;
-
-const lbForm = $('lb-form') as HTMLFormElement;
-const lbBy = $('lb-by') as HTMLInputElement;
-const lbBody = $('lb-body') as HTMLTextAreaElement;
-const lbCnt = $('lb-cnt');
-const lbErr = $('lb-err');
-const lbSubmit = $('lb-submit') as HTMLButtonElement;
-const lbReplying = $('lb-replying');
-const lbReplyingText = $('lb-replying-text');
-const lbReplyCancel = $('lb-reply-cancel');
-const lbEmaActions = $('lb-ema-actions');
-
-function setReplyTo(c: NoteComment | null) {
-  activeReply = c;
-  if (c) {
-    const flat = c.body.replace(/\s+/g, ' ').trim();
-    const snippet = flat.slice(0, 20) + (flat.length > 20 ? '…' : '');
-    lbReplyingText.textContent = `正在回覆 ${c.by || '無署名'}：${snippet}`;
-    lbReplying.hidden = false;
-    lbBody.focus();
-  } else {
-    lbReplying.hidden = true;
-    lbReplyingText.textContent = '';
-  }
+/** 通知牆面重新載入動態內容（wall.ts 監聽），新增／修改／刪除後馬上看得到 */
+function refreshWall(): void {
+  window.dispatchEvent(new Event('wall:refresh'));
 }
 
-lbReplyCancel.onclick = () => setReplyTo(null);
-
-lbBy.addEventListener('input', () => setSavedBy(lbBy.value.trim()));
-lbBody.addEventListener('input', () => {
-  updateCharCount(lbCnt, lbBody.value);
-  if (currentTargetId) setDraft(`comment:${currentTargetId}`, lbBody.value);
-});
-
-setOnShow((m) => {
-  // 繪馬若為本人待展出，提供撤回按鈕
-  lbEmaActions.replaceChildren();
-  if (m.type === 'ema' && m.mine && m.status === 'pending') {
-    lbEmaActions.hidden = false;
-    lbEmaActions.append(
-      createWithdrawControl('撤回這塊繪馬', () => withdrawPost(m.id, 'ema')),
-    );
-  } else {
-    lbEmaActions.hidden = true;
-  }
-
-  // 為每則留言加上「回覆」與（本人待展出時）「撤回」按鈕
-  const comments = m.comments ?? [];
-  const byId = new Map(comments.map((c) => [c.id, c]));
-  document.querySelectorAll<HTMLElement>('#lb-notes .lb-note').forEach((noteEl) => {
-    const cid = noteEl.dataset.cid;
-    if (!cid) return;
-    const c = byId.get(cid);
-    if (!c) return;
-    const meta = noteEl.querySelector<HTMLElement>('.lb-note-meta');
-    if (!meta) return;
-
-    const act = document.createElement('span');
-    act.className = 'lb-note-act';
-    if (c.status !== 'rejected' && m.status !== 'rejected') {
-      const replyBtn = document.createElement('button');
-      replyBtn.type = 'button';
-      replyBtn.className = 'btn-link btn-reply';
-      replyBtn.textContent = '回覆';
-      replyBtn.onclick = () => setReplyTo(c);
-      act.append(replyBtn);
-    }
-    if (c.mine && c.status === 'pending') {
-      act.append(createWithdrawControl('撤回', () => withdrawPost(c.id, 'comment', m.id)));
-    }
-    meta.append(act);
-  });
-
-  // 切換到不同展品/繪馬時，載入對應草稿與署名
-  if (currentTargetId !== m.id) {
-    currentTargetId = m.id;
-    setReplyTo(null);
-    lbErr.hidden = true;
-    if (!lbBy.value) lbBy.value = getSavedBy();
-    lbBody.value = getDraft(`comment:${m.id}`);
-    updateCharCount(lbCnt, lbBody.value);
-  }
-  lbForm.hidden = m.status === 'rejected';
-});
-
-lbForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (!currentTargetId) return;
-  lbErr.hidden = true;
-
-  const by = lbBy.value.trim();
-  const body = lbBody.value.trim();
-  if (by.length > 20) {
-    lbErr.textContent = '署名最多 20 字';
-    lbErr.hidden = false;
-    return;
-  }
-  if (body.length < 1 || body.length > 300) {
-    lbErr.textContent = '留言內文須為 1～300 字';
-    lbErr.hidden = false;
-    return;
-  }
-
-  lbSubmit.disabled = true;
-  try {
-    const res = await fetch('/api/posts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        kind: 'comment',
-        target: currentTargetId,
-        replyTo: activeReply?.id ?? null,
-        by,
-        body,
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.error || `送出失敗（${res.status}）`);
-    }
-    setSavedBy(by);
-    setDraft(`comment:${currentTargetId}`, '');
-    lbBody.value = '';
-    updateCharCount(lbCnt, '');
-    setReplyTo(null);
-
-    mergePost(data.post as ApiPost);
-    show(getCur());
-    const newEl = document.getElementById(`lb-c-${data.post.id}`);
-    newEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  } catch (err) {
-    lbErr.textContent = err instanceof Error ? err.message : '網路連線失敗，輸入內容已保留，請稍後再試';
-    lbErr.hidden = false;
-  } finally {
-    lbSubmit.disabled = false;
-  }
-});
-
-/* 掛一塊繪馬視窗 */
-const emaModal = $('ema-modal');
-const emaModalDay = $('ema-modal-day');
-const emaForm = $('ema-form') as HTMLFormElement;
-const emaBy = $('ema-by') as HTMLInputElement;
-const emaBody = $('ema-body') as HTMLTextAreaElement;
-const emaCnt = $('ema-cnt');
-const emaErr = $('ema-err');
-const emaSubmit = $('ema-submit') as HTMLButtonElement;
-const emaPreviewBody = $('ema-preview-body');
-const emaPreviewBy = $('ema-preview-by');
-
-let activeEmaDay = '';
-let lastEmaFocus: HTMLElement | null = null;
-
-function syncEmaPreview() {
-  const text = emaBody.value.trim();
-  const by = emaBy.value.trim();
-  emaPreviewBody.textContent = text || '（在右側輸入文字，即時預覽繪馬木牌）';
-  emaPreviewBy.textContent = by || '無署名';
-  updateCharCount(emaCnt, emaBody.value);
-}
-
-function openEmaModal(date: string, label: string, trigger: HTMLElement) {
-  lastEmaFocus = trigger;
-  activeEmaDay = date;
-  emaModalDay.textContent = label;
-  emaErr.hidden = true;
-  emaBy.value = getSavedBy();
-  emaBody.value = getDraft(`ema:${date}`);
-  syncEmaPreview();
-  emaModal.hidden = false;
-  document.body.style.overflow = 'hidden';
-  emaBody.focus();
-}
-
-function closeEmaModal() {
-  emaModal.hidden = true;
-  document.body.style.overflow = '';
-  lastEmaFocus?.focus();
-}
-
-document.querySelectorAll<HTMLButtonElement>('.btn-add-ema').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    openEmaModal(btn.dataset.day || '', btn.dataset.dayLabel || '', btn);
-  });
-});
-
-emaBy.addEventListener('input', () => {
-  setSavedBy(emaBy.value.trim());
-  syncEmaPreview();
-});
-emaBody.addEventListener('input', () => {
-  if (activeEmaDay) setDraft(`ema:${activeEmaDay}`, emaBody.value);
-  syncEmaPreview();
-});
-
-$('ema-x').onclick = closeEmaModal;
-$('ema-cancel').onclick = closeEmaModal;
-emaModal.addEventListener('click', (e) => {
-  if (e.target === emaModal) closeEmaModal();
-});
-addEventListener('keydown', (e) => {
-  if (!emaModal.hidden && e.key === 'Escape') closeEmaModal();
-});
-
-emaForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  if (!activeEmaDay) return;
-  emaErr.hidden = true;
-
-  const by = emaBy.value.trim();
-  const body = emaBody.value.trim();
-  if (by.length > 20) {
-    emaErr.textContent = '署名最多 20 字';
-    emaErr.hidden = false;
-    return;
-  }
-  if (body.length < 1 || body.length > 300) {
-    emaErr.textContent = '繪馬內文須為 1～300 字';
-    emaErr.hidden = false;
-    return;
-  }
-
-  emaSubmit.disabled = true;
-  try {
-    const res = await fetch('/api/posts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        kind: 'ema',
-        target: activeEmaDay,
-        by,
-        body,
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      throw new Error(data.error || `送出失敗（${res.status}）`);
-    }
-    setSavedBy(by);
-    setDraft(`ema:${activeEmaDay}`, '');
-    emaBody.value = '';
-    mergePost(data.post as ApiPost);
-    buildMap();
-    closeEmaModal();
-
-    const idx = MEDIA.findIndex((m) => m.id === data.post.id);
-    if (idx !== -1) open(idx);
-  } catch (err) {
-    emaErr.textContent = err instanceof Error ? err.message : '網路連線失敗，輸入內容已保留，請稍後再試';
-    emaErr.hidden = false;
-  } finally {
-    emaSubmit.disabled = false;
-  }
-});
-
-/* 初始化：載入目前登入者與待展出投稿 */
-async function initEditPage() {
-  const whoEl = $('edit-who');
-  try {
-    const [meRes, postsRes] = await Promise.all([fetch('/api/me'), fetch('/api/posts')]);
-    if (!meRes.ok) {
-      const d = await meRes.json().catch(() => ({}));
-      whoEl.textContent = d.error || `尚未登入（${meRes.status}）`;
-      whoEl.classList.add('err');
+/** 刪除鍵兩段式確認：第一次按變成「確定刪除？」，4 秒內再按才執行（不用 confirm 對話框） */
+function armDelete(btn: HTMLButtonElement, run: () => Promise<void>): void {
+  let timer = 0;
+  const label = btn.textContent || '刪除';
+  btn.addEventListener('click', async () => {
+    if (!btn.classList.contains('armed')) {
+      btn.classList.add('armed');
+      btn.textContent = '確定刪除？';
+      timer = window.setTimeout(() => { btn.classList.remove('armed'); btn.textContent = label; }, 4000);
       return;
     }
-    const me = (await meRes.json()) as { email: string };
-    whoEl.textContent = `目前登入：${me.email}`;
+    clearTimeout(timer);
+    btn.disabled = true;
+    await run();
+    btn.disabled = false;
+    btn.classList.remove('armed');
+    btn.textContent = label;
+  });
+}
 
-    if (postsRes.ok) {
-      const { posts } = (await postsRes.json()) as { posts: ApiPost[] };
-      // 先放繪馬，再掛留言（因為留言可能掛在新繪馬底下）
-      for (const p of posts.filter((x) => x.kind === 'ema')) mergePost(p);
-      for (const p of posts.filter((x) => x.kind === 'comment')) mergePost(p);
-      buildMap();
-    }
-  } catch {
-    whoEl.textContent = '無法連線至投稿伺服器';
-    whoEl.classList.add('err');
+function opsError(host: HTMLElement): HTMLParagraphElement {
+  let el = host.querySelector<HTMLParagraphElement>('.ops-err');
+  if (!el) {
+    el = document.createElement('p');
+    el.className = 'ops-err';
+    el.setAttribute('role', 'alert');
+    host.append(el);
+  }
+  return el;
+}
+
+function setView(): void {
+  const logged = me !== null;
+  $('edit-mask').hidden = logged;
+  $('edit-bar').hidden = !logged;
+  if (logged && me) {
+    $('em-who').textContent = me.displayName;
+    $('em-admin').hidden = me.role !== 'admin';
+    if (me.mustChangePw) openPw(true);
+    void loadMyPhotos();
+    void loadMyPosts();
+    const byInput = ($('post-form') as HTMLFormElement).by as HTMLInputElement;
+    if (!byInput.value) byInput.value = me.displayName;
+  } else {
+    $('edit-drawer').hidden = true;
+    const f = document.getElementById('lb-cmt-form');
+    if (f) f.hidden = true;
   }
 }
 
-initEditPage();
+/* ---------- 登入遮罩 ---------- */
+
+$('em-login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target as HTMLFormElement;
+  const btn = form.querySelector('button[type=submit]') as HTMLButtonElement;
+  btn.disabled = true;
+  $('em-login-err').textContent = '';
+  const { status, data } = await api('/api/login', {
+    method: 'POST',
+    body: JSON.stringify({ username: form.username.value, password: form.password.value }),
+  });
+  btn.disabled = false;
+  if (status !== 200) {
+    $('em-login-err').textContent = (data.error as string) || '登入失敗';
+    return;
+  }
+  me = data.me as Me;
+  form.reset();
+  setView();
+});
+
+/* ---------- 工具列 ---------- */
+
+$('em-logout').addEventListener('click', async () => {
+  await api('/api/logout', { method: 'POST', body: '{}' });
+  me = null;
+  setView();
+});
+
+$('em-admin').addEventListener('click', () => { location.href = '/admin'; });
+
+function openPw(forced: boolean): void {
+  $('em-pw-title').textContent = forced ? '請先變更密碼' : '變更密碼';
+  $('em-pw-hint').hidden = !forced;
+  $('em-pw-cancel').hidden = forced; // 強制變更不給取消
+  $('em-pw-err').textContent = '';
+  $('edit-pw').hidden = false;
+}
+$('em-pw').addEventListener('click', () => openPw(false));
+$('em-pw-cancel').addEventListener('click', () => {
+  if (!me?.mustChangePw) $('edit-pw').hidden = true;
+});
+
+$('em-pw-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target as HTMLFormElement;
+  $('em-pw-err').textContent = '';
+  const { status, data } = await api('/api/change-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      currentPassword: form.currentPassword.value,
+      newPassword: form.newPassword.value,
+    }),
+  });
+  if (status !== 200) {
+    $('em-pw-err').textContent = (data.error as string) || '變更失敗';
+    return;
+  }
+  form.reset();
+  $('edit-pw').hidden = true;
+  if (me) me.mustChangePw = false;
+});
+
+/* ---------- 上傳抽屜 ---------- */
+
+const days: { date: string; label: string }[] = (() => {
+  try {
+    return JSON.parse($('edit-days').textContent || '[]');
+  } catch {
+    return [];
+  }
+})();
+for (const d of days) {
+  const opt = document.createElement('option');
+  opt.value = d.date;
+  opt.textContent = `${d.label}（${d.date}）`;
+  $('up-day').append(opt);
+}
+
+$('em-uploads').addEventListener('click', () => {
+  $('edit-drawer').hidden = !$('edit-drawer').hidden;
+});
+$('ed-close').addEventListener('click', () => { $('edit-drawer').hidden = true; });
+
+/** 拍攝時刻 → 掛在哪一天（30 小時制：凌晨 0:00–5:59 算前一天；前一天不是展覽日就算當天，例如出發日凌晨） */
+function dayOfTakenAt(takenAt: string): string {
+  const date = takenAt.slice(0, 10);
+  if (Number(takenAt.slice(11, 13)) >= 6) return date;
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  const prev = d.toISOString().slice(0, 10);
+  return days.some((x) => x.date === prev) ? prev : date;
+}
+
+// 剝除 metadata 前讀出的拍攝時間與地點：時間決定排在牆上哪裡，地點只存資料庫給內部排版用
+let picked: CaptureMeta = { takenAt: null, lat: null, lon: null };
+($('up-form') as HTMLFormElement).file.addEventListener('change', async (e: Event) => {
+  const file = (e.target as HTMLInputElement).files?.[0];
+  picked = !file ? { takenAt: null, lat: null, lon: null } : isVideoFile(file) ? await readVideoMeta(file) : await readPhotoMeta(file);
+  const pickedTakenAt = picked.takenAt;
+  const hint = $('up-taken');
+  if (!pickedTakenAt) {
+    hint.textContent = file ? '讀不到拍攝時間，會排在當天最後。' : '';
+    return;
+  }
+  const day = dayOfTakenAt(pickedTakenAt);
+  const known = days.some((d) => d.date === day);
+  if (known) ($('up-day') as HTMLSelectElement).value = day;
+  hint.textContent = `拍攝時間 ${pickedTakenAt.slice(0, 16).replace('T', ' ')}${known ? '，已選好那一天' : '，不在展覽日內，請自己選'}。`;
+});
+
+/** canvas 重編碼：長邊 ≤2048、JPEG 85%；順帶抹掉所有 EXIF/GPS */
+async function reencode(file: File): Promise<Blob> {
+  let bmp: ImageBitmap;
+  try {
+    bmp = await createImageBitmap(file);
+  } catch {
+    throw new Error('這個檔案讀不出來（iPhone 的 HEIC 請先在相簿轉成 JPEG，或改用 Safari 上傳）');
+  }
+  const scale = Math.min(1, 2048 / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * scale));
+  const h = Math.max(1, Math.round(bmp.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#fff'; // 透明底轉 JPEG 不要變黑
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(bmp, 0, 0, w, h);
+  bmp.close();
+  const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', 0.85));
+  if (!blob) throw new Error('縮圖失敗');
+  return blob;
+}
+
+$('up-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target as HTMLFormElement;
+  const btn = form.querySelector('button[type=submit]') as HTMLButtonElement;
+  const fileInput = form.file as HTMLInputElement;
+  $('up-err').textContent = '';
+  $('up-ok').textContent = '';
+  const file = fileInput.files?.[0];
+  if (!file) return;
+  btn.disabled = true;
+  const video = isVideoFile(file);
+  btn.textContent = video ? '轉檔中……' : '縮圖中……';
+  try {
+    const fd = new FormData();
+    if (video) {
+      const out = await transcodeVideo(file, (p) => { btn.textContent = `轉檔中 ${Math.round(p * 100)}%`; });
+      fd.append('kind', 'video');
+      fd.append('file', out.file, 'video.mp4');
+      fd.append('poster', out.poster, 'poster.jpg');
+    } else {
+      fd.append('file', await reencode(file), 'photo.jpg');
+    }
+    fd.append('day', form.day.value);
+    fd.append('caption', form.caption.value);
+    if (picked.takenAt) fd.append('takenAt', picked.takenAt);
+    if (picked.lat !== null && picked.lon !== null) {
+      fd.append('lat', String(picked.lat));
+      fd.append('lon', String(picked.lon));
+    }
+    btn.textContent = '上傳中……';
+    const { status, data } = await api('/api/photos', { method: 'POST', body: fd });
+    if (status !== 201) {
+      $('up-err').textContent = (data.error as string) || '上傳失敗';
+      return;
+    }
+    form.reset();
+    picked = { takenAt: null, lat: null, lon: null };
+    $('up-taken').textContent = '';
+    $('up-ok').textContent = '已上傳，牆上已更新。';
+    await loadMyPhotos();
+    refreshWall();
+  } catch (err) {
+    $('up-err').textContent = err instanceof Error ? err.message : '上傳失敗';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '上傳';
+  }
+});
+
+/* ---------- 我的照片 ---------- */
+
+let allPhotos: Photo[] = [];
+
+async function loadMyPhotos(): Promise<void> {
+  const grid = $('my-photos');
+  grid.textContent = '';
+  const { status, data } = await api('/api/photos');
+  if (status !== 200) return;
+  allPhotos = data.photos as Photo[];
+  const mine = allPhotos.filter((p) => p.mine);
+  if (mine.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'ep-empty';
+    empty.textContent = '還沒有上傳任何照片。';
+    grid.append(empty);
+    return;
+  }
+  for (const p of mine) grid.append(photoCard(p));
+}
+
+function photoCard(p: Photo): HTMLElement {
+  const item = document.createElement('div');
+  item.className = 'ep-item';
+
+  const img = document.createElement('img');
+  img.src = `/api/media/${p.kind === 'video' && p.posterKey ? p.posterKey : p.key}`; // 影片顯示封面
+  img.alt = p.caption || p.id;
+  img.loading = 'lazy';
+  img.width = p.width;
+  img.height = p.height;
+  item.append(img);
+
+  const cap = document.createElement('div');
+  cap.className = 'cap';
+  cap.textContent = p.caption || '（無說明）';
+  cap.title = p.caption;
+  item.append(cap);
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  const dayLabel = days.find((d) => d.date === p.day)?.label ?? p.day;
+  meta.textContent = p.takenAt
+    ? `${dayLabel} · 拍攝 ${p.takenAt.slice(5, 16).replace('T', ' ')}`
+    : `${dayLabel} · 上傳 ${p.createdAt.slice(5, 10)}`;
+  item.append(meta);
+
+  const ops = document.createElement('div');
+  ops.className = 'ops';
+
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.textContent = '編輯';
+  editBtn.addEventListener('click', () => {
+    // 行內編輯：說明＋掛在哪一天
+    const form = document.createElement('form');
+    form.className = 'ep-edit';
+    const capIn = document.createElement('input');
+    capIn.name = 'caption'; capIn.maxLength = 300; capIn.value = p.caption; capIn.placeholder = '說明（可留空）';
+    const daySel = document.createElement('select');
+    daySel.name = 'day';
+    for (const d of days) {
+      const opt = document.createElement('option');
+      opt.value = d.date; opt.textContent = d.label; opt.selected = d.date === p.day;
+      daySel.append(opt);
+    }
+    const row = document.createElement('div');
+    row.className = 'ops';
+    const save = document.createElement('button'); save.type = 'submit'; save.textContent = '儲存';
+    const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = '取消';
+    row.append(save, cancel);
+    form.append(capIn, daySel, row);
+    cap.hidden = meta.hidden = ops.hidden = true;
+    item.append(form);
+    capIn.focus();
+    cancel.addEventListener('click', () => { form.remove(); cap.hidden = meta.hidden = ops.hidden = false; });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      save.disabled = true;
+      const { status, data } = await api(`/api/photos/${p.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ caption: capIn.value, day: daySel.value }),
+      });
+      save.disabled = false;
+      if (status !== 200) { opsError(form).textContent = (data.error as string) || '更新失敗'; return; }
+      await loadMyPhotos();
+      refreshWall();
+    });
+  });
+  ops.append(editBtn);
+
+  const delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'del';
+  delBtn.textContent = '刪除';
+  armDelete(delBtn, async () => {
+    const { status, data } = await api(`/api/photos/${p.id}`, { method: 'DELETE', body: '{}' });
+    if (status !== 200) { opsError(item).textContent = (data.error as string) || '刪除失敗'; return; }
+    await loadMyPhotos();
+    refreshWall();
+  });
+  ops.append(delBtn);
+
+  item.append(ops);
+  return item;
+}
+
+/* ---------- 留言／繪馬 ---------- */
+
+let allPosts: Post[] = [];
+
+const exhibits: { id: string; title: string; date: string }[] = (() => {
+  try {
+    return JSON.parse($('edit-exhibits').textContent || '[]');
+  } catch {
+    return [];
+  }
+})();
+
+function dayLabel(date: string): string {
+  return days.find((d) => d.date === date)?.label ?? date;
+}
+
+function targetLabel(p: { kind: string; target: string }): string {
+  if (p.kind === 'ema') return `繪馬 · ${dayLabel(p.target)}`;
+  const ex = exhibits.find((e) => e.id === p.target);
+  if (ex) return `${p.target} ${ex.title}`;
+  const ema = allPosts.find((x) => x.id === p.target);
+  if (ema) return `繪馬 ${p.target}`;
+  const ph = allPhotos.find((x) => x.id === p.target);
+  return ph ? `照片 · ${ph.authorName}${ph.caption ? ' ' + ph.caption : ''}` : p.target;
+}
+
+function buildDayOptions(): void {
+  const sel = $('post-target-day') as HTMLSelectElement;
+  if (sel.options.length) return;
+  for (const d of days) {
+    const opt = document.createElement('option');
+    opt.value = d.date;
+    opt.textContent = `${d.label}（${d.date}）`;
+    sel.append(opt);
+  }
+}
+
+function buildTargetOptions(): void {
+  const sel = $('post-target-exhibit');
+  sel.textContent = '';
+  for (const d of days) {
+    const group = document.createElement('optgroup');
+    group.label = `${d.label}（${d.date}）`;
+    for (const ex of exhibits.filter((e) => e.date === d.date)) {
+      const opt = document.createElement('option');
+      opt.value = ex.id;
+      opt.textContent = `${ex.id} ${ex.title}`;
+      group.append(opt);
+    }
+    if (group.children.length) sel.append(group);
+  }
+  const emas = allPosts.filter((p) => p.kind === 'ema');
+  if (emas.length) {
+    const group = document.createElement('optgroup');
+    group.label = '繪馬';
+    for (const em of emas) {
+      const opt = document.createElement('option');
+      opt.value = em.id;
+      opt.textContent = `${em.id} ${em.by || '（無署名）'}：${em.body.slice(0, 12)}`;
+      group.append(opt);
+    }
+    sel.append(group);
+  }
+}
+
+$('post-kind').addEventListener('change', () => {
+  const isEma = ($('post-kind') as HTMLSelectElement).value === 'ema';
+  $('post-target-exhibit-label').hidden = isEma;
+  $('post-target-day-label').hidden = !isEma;
+});
+
+const postBodyInput = (): HTMLTextAreaElement => ($('post-form') as HTMLFormElement).body as HTMLTextAreaElement;
+postBodyInput().addEventListener('input', () => {
+  $('post-count').textContent = `${postBodyInput().value.length}/300`;
+});
+
+$('post-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target as HTMLFormElement;
+  const btn = form.querySelector('button[type=submit]') as HTMLButtonElement;
+  $('post-err').textContent = '';
+  $('post-ok').textContent = '';
+  const isEma = (form.kind as HTMLSelectElement).value === 'ema';
+  btn.disabled = true;
+  const { status, data } = await api('/api/posts', {
+    method: 'POST',
+    body: JSON.stringify({
+      kind: isEma ? 'ema' : 'comment',
+      target: isEma ? (form.targetDay as HTMLSelectElement).value : (form.targetExhibit as HTMLSelectElement).value,
+      by: form.by.value,
+      body: form.body.value,
+    }),
+  });
+  btn.disabled = false;
+  if (status !== 201) {
+    $('post-err').textContent = (data.error as string) || '送出失敗';
+    return;
+  }
+  form.body.value = '';
+  $('post-count').textContent = '0/300';
+  $('post-ok').textContent = '已送出，牆上已更新。';
+  await loadMyPosts();
+  refreshWall();
+});
+
+async function loadMyPosts(): Promise<void> {
+  const { status, data } = await api('/api/posts');
+  if (status !== 200) return;
+  allPosts = data.posts as Post[];
+  buildDayOptions();
+  buildTargetOptions();
+  const list = $('my-posts');
+  list.textContent = '';
+  const mine = allPosts.filter((p) => p.mine);
+  if (mine.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'ep-empty';
+    empty.textContent = '還沒有任何投稿。';
+    list.append(empty);
+    return;
+  }
+  for (const p of mine) list.append(postItem(p));
+}
+
+function postItem(p: Post): HTMLElement {
+  const item = document.createElement('div');
+  item.className = 'pst-item';
+
+  const head = document.createElement('div');
+  head.className = 'pst-head';
+  const kind = document.createElement('span');
+  kind.className = `pst-kind ${p.kind === 'ema' ? 'ema' : ''}`;
+  kind.textContent = p.kind === 'ema' ? '繪馬' : '留言';
+  head.append(kind);
+  const tgt = document.createElement('span');
+  tgt.className = 'pst-target';
+  tgt.textContent = targetLabel(p);
+  head.append(tgt);
+  item.append(head);
+
+  const body = document.createElement('div');
+  body.className = 'pst-body';
+  body.textContent = p.body;
+  item.append(body);
+
+  const meta = document.createElement('div');
+  meta.className = 'pst-meta';
+  meta.textContent = `${p.by || '（無署名）'} · ${p.postedAt.slice(5, 10)}`;
+  item.append(meta);
+
+  const ops = document.createElement('div');
+  ops.className = 'ops';
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.textContent = '編輯';
+  editBtn.addEventListener('click', () => {
+    const form = document.createElement('form');
+    form.className = 'ep-edit';
+    const bodyIn = document.createElement('textarea');
+    bodyIn.maxLength = 300; bodyIn.rows = 3; bodyIn.required = true; bodyIn.value = p.body;
+    const byIn = document.createElement('input');
+    byIn.maxLength = 20; byIn.value = p.by; byIn.placeholder = '署名（可留空）';
+    const row = document.createElement('div');
+    row.className = 'ops';
+    const save = document.createElement('button'); save.type = 'submit'; save.textContent = '儲存';
+    const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = '取消';
+    row.append(save, cancel);
+    form.append(bodyIn, byIn, row);
+    body.hidden = meta.hidden = ops.hidden = true;
+    item.append(form);
+    bodyIn.focus();
+    cancel.addEventListener('click', () => { form.remove(); body.hidden = meta.hidden = ops.hidden = false; });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      save.disabled = true;
+      const { status, data } = await api(`/api/posts/${p.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ body: bodyIn.value, by: byIn.value }),
+      });
+      save.disabled = false;
+      if (status !== 200) { opsError(form).textContent = (data.error as string) || '更新失敗'; return; }
+      await loadMyPosts();
+      refreshWall();
+    });
+  });
+  ops.append(editBtn);
+
+  const delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'del';
+  delBtn.textContent = '刪除';
+  armDelete(delBtn, async () => {
+    const { status, data } = await api(`/api/posts/${p.id}`, { method: 'DELETE', body: '{}' });
+    if (status !== 200) { opsError(item).textContent = (data.error as string) || '刪除失敗'; return; }
+    await loadMyPosts();
+    refreshWall();
+  });
+  ops.append(delBtn);
+
+  item.append(ops);
+  return item;
+}
+
+/* ---------- 說明卡裡直接留言／回覆（wall.ts 開說明卡時發 wall:lightbox） ---------- */
+
+let lbTarget: string | null = null;
+let lbReplyTo: string | null = null;
+
+function lbForm(): HTMLFormElement {
+  let form = document.getElementById('lb-cmt-form') as HTMLFormElement | null;
+  if (form) return form;
+  form = document.createElement('form');
+  form.id = 'lb-cmt-form';
+  form.className = 'lb-cmt-form';
+  const replying = document.createElement('div');
+  replying.className = 'replying';
+  replying.hidden = true;
+  const replyTxt = document.createElement('span');
+  const replyX = document.createElement('button');
+  replyX.type = 'button';
+  replyX.textContent = '×';
+  replyX.setAttribute('aria-label', '取消回覆');
+  replyX.addEventListener('click', () => setReply(null));
+  replying.append(replyTxt, replyX);
+  const ta = document.createElement('textarea');
+  ta.name = 'body'; ta.rows = 2; ta.maxLength = 300; ta.required = true; ta.placeholder = '留言（1～300 字，送出後立刻公開）';
+  const row = document.createElement('div');
+  row.className = 'row';
+  const by = document.createElement('input');
+  by.name = 'by'; by.maxLength = 20; by.placeholder = '署名（可留空）';
+  const send = document.createElement('button');
+  send.type = 'submit'; send.textContent = '送出';
+  row.append(by, send);
+  const err = document.createElement('p');
+  err.className = 'err'; err.setAttribute('role', 'alert');
+  form.append(replying, ta, row, err);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!lbTarget) return;
+    send.disabled = true;
+    err.textContent = '';
+    const { status, data } = await api('/api/posts', {
+      method: 'POST',
+      body: JSON.stringify({ kind: 'comment', target: lbTarget, replyTo: lbReplyTo, body: ta.value, by: by.value }),
+    });
+    send.disabled = false;
+    if (status !== 201) { err.textContent = (data.error as string) || '送出失敗'; return; }
+    ta.value = '';
+    setReply(null);
+    refreshWall(); // 牆面重新載入後會重開同一張說明卡、留言串跟著更新
+    void loadMyPosts();
+  });
+  $('lb-cmts').after(form);
+  return form;
+}
+
+function setReply(cid: string | null): void {
+  lbReplyTo = cid;
+  const box = lbForm().querySelector<HTMLElement>('.replying')!;
+  box.hidden = !cid;
+  if (cid) {
+    const head = document.querySelector(`#lb-cmts .cmt[data-cid="${cid}"] .cmt-head`)?.textContent || '';
+    box.querySelector('span')!.textContent = `回覆 ${head.split(' · ')[0] || '這則留言'}`;
+    lbForm().querySelector('textarea')!.focus();
+  }
+}
+
+window.addEventListener('wall:lightbox', (e) => {
+  const { id, kind } = (e as CustomEvent<{ id: string; kind: string }>).detail;
+  if (!me) return;
+  const form = lbForm();
+  if (lbTarget !== id) setReply(null);
+  lbTarget = id; // 展品、照片、繪馬都能留言
+  const byIn = form.querySelector<HTMLInputElement>('input[name=by]')!;
+  if (!byIn.value) byIn.value = me.displayName;
+  // 每則留言加「回覆」
+  document.querySelectorAll<HTMLElement>('#lb-cmts .cmt').forEach((c) => {
+    if (c.querySelector('.cmt-reply')) return;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'cmt-reply';
+    b.textContent = '回覆';
+    b.addEventListener('click', () => setReply(c.dataset.cid || null));
+    c.querySelector('.cmt-head')?.append(b);
+  });
+});
+
+/* ---------- 初始 ---------- */
+
+/* 每天標題旁的「掛一塊繪馬」：開抽屜、切繪馬、預選那天 */
+document.querySelectorAll<HTMLButtonElement>('.btn-add-ema').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    buildDayOptions();
+    $('edit-drawer').hidden = false;
+    ($('post-kind') as HTMLSelectElement).value = 'ema';
+    $('post-kind').dispatchEvent(new Event('change'));
+    ($('post-target-day') as HTMLSelectElement).value = btn.dataset.day || '';
+    postBodyInput().focus();
+  });
+});
+
+void (async () => {
+  const { status, data } = await api('/api/me');
+  if (status === 200) me = data.me as Me;
+  setView();
+})();

@@ -1,0 +1,180 @@
+/* 後台管理頁專用樣式（與 wall.css 獨立；只在 /admin 載入） */
+
+:root {
+  --page: #DAD8D2;
+  --panel: #F8F8F6;
+  --ink: #1C1A18;
+  --muted: #5C5953;
+  --rule: #B7B4AC;
+  --hair: #D7D5CF;
+  --red: #C2332A;
+  --ok: #2E6B34;
+  --btn-bg: #1C1A18;
+  --btn-fg: #FFFFFF;
+  --f-display: "Noto Serif TC", "Songti TC", serif;
+  --f-body: "Noto Sans TC", "PingFang TC", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #171614;
+    --panel: #222120;
+    --ink: #ECEAE4;
+    --muted: #9C988F;
+    --rule: #3C3A36;
+    --hair: #32302C;
+    --red: #E0655C;
+    --ok: #7FBF85;
+    --btn-bg: #ECEAE4;
+    --btn-fg: #171614;
+  }
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.adm { max-width: 880px; margin: 0 auto; padding: 28px 16px 64px; }
+.adm-loading { color: var(--muted); text-align: center; padding: 48px 0; }
+
+h1 {
+  font-family: var(--f-display);
+  font-size: 26px;
+  letter-spacing: .04em;
+  margin: 0 0 8px;
+}
+h2 {
+  font-family: var(--f-display);
+  font-size: 18px;
+  letter-spacing: .03em;
+  margin: 0 0 12px;
+}
+.hint { color: var(--muted); font-size: 13px; margin: 4px 0 12px; }
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--hair);
+  border-radius: 10px;
+  padding: 20px;
+  margin: 0 0 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .06);
+}
+.card.warn { border-color: var(--red); }
+
+.adm-head {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  align-items: center; justify-content: space-between;
+  margin-bottom: 16px;
+}
+.adm-head h1 { margin: 0; }
+.who { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.who span { color: var(--muted); font-size: 13px; }
+
+form label { display: block; margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+form input, form select {
+  display: block; width: 100%; margin-top: 4px;
+  padding: 8px 10px;
+  font: inherit; color: var(--ink);
+  background: var(--page);
+  border: 1px solid var(--rule); border-radius: 6px;
+}
+form input:focus, form select:focus { outline: 2px solid var(--red); outline-offset: 1px; border-color: transparent; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+@media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+.row { display: flex; gap: 8px; align-items: center; }
+
+button {
+  font: inherit; font-weight: 500;
+  padding: 8px 18px;
+  color: var(--btn-fg); background: var(--btn-bg);
+  border: 1px solid var(--btn-bg); border-radius: 6px;
+  cursor: pointer;
+}
+button:hover { opacity: .85; }
+button.ghost {
+  color: var(--ink); background: transparent;
+  border: 1px solid var(--rule);
+  padding: 5px 12px; font-size: 13px;
+}
+button.danger { background: var(--red); border-color: var(--red); color: #fff; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+
+.err { color: var(--red); font-size: 13px; min-height: 1.2em; margin: 8px 0 0; }
+.ok { color: var(--ok); font-size: 13px; min-height: 1.2em; margin: 8px 0 0; }
+
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--hair); white-space: nowrap; }
+th { color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--rule); }
+td.name { font-family: var(--f-mono); }
+td .ops { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge {
+  display: inline-block; padding: 1px 8px; border-radius: 999px;
+  font-size: 12px; border: 1px solid var(--rule); color: var(--muted);
+}
+.badge.admin { color: var(--red); border-color: var(--red); }
+.badge.disabled { color: var(--muted); background: var(--hair); }
+.badge.must { color: var(--red); border-style: dashed; }
+/* 待刪除（軟刪除中）的帳號列整列變淡，只有恢復鈕可用 */
+#users-tbl tr.deleted td { opacity: .62; }
+
+/* 一次性密碼 modal */
+.pw-reveal {
+  position: fixed; inset: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, .45);
+  padding: 16px;
+}
+.pw-reveal .card { max-width: 420px; width: 100%; margin: 0; }
+.pw-reveal .pw { font-size: 15px; }
+.pw-reveal code {
+  font-family: var(--f-mono); font-size: 17px;
+  background: var(--page); border: 1px dashed var(--rule);
+  padding: 6px 10px; border-radius: 6px;
+  word-break: break-all;
+}
+
+/* 兩段式確認：第一次按變紅「確定？」，4 秒內再按才執行 */
+button.ghost.armed { color: #fff; background: var(--red); border-color: var(--red); }
+/* 刪除帳號的確認文字較長（帶數量）：允許換行，不要撐開表格 */
+td .ops button.armed { white-space: normal; text-align: left; max-width: 24em; }
+td .rename { display: flex; gap: 6px; align-items: center; }
+td .rename input { margin: 0; padding: 4px 8px; width: 9em; font-size: 13px; }
+
+/* 手機：帳號表格改成一列一張卡，不用左右捲動 */
+@media (max-width: 560px) {
+  #users-tbl thead { display: none; }
+  #users-tbl, #users-tbl tbody, #users-tbl tr, #users-tbl td { display: block; width: 100%; }
+  #users-tbl tr { border: 1px solid var(--hair); border-radius: 8px; padding: 8px 10px; margin-bottom: 10px; }
+  #users-tbl td { border: none; padding: 3px 0; white-space: normal; display: flex; gap: 10px; }
+  #users-tbl td::before { content: attr(data-label); color: var(--muted); min-width: 4.5em; flex: none; }
+}
+
+/* 內容審核 */
+.mod-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.mod-head h2 { margin: 0; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab {
+  color: var(--ink); background: transparent; border: 1px solid var(--rule);
+  padding: 5px 12px; font-size: 13px;
+}
+.tab.on { color: var(--btn-fg); background: var(--btn-bg); border-color: var(--btn-bg); }
+.mod-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.mod-ph { border: 1px solid var(--hair); border-radius: 8px; overflow: hidden; background: var(--page); display: flex; flex-direction: column; }
+.mod-ph img { display: block; width: 100%; height: auto; aspect-ratio: 4/3; object-fit: cover; background: var(--hair); }
+.mod-ph .meta, .mod-po .meta { font-size: 12px; color: var(--muted); }
+.mod-ph .meta { padding: 6px 8px 0; }
+.mod-ph .cap { font-size: 13px; padding: 2px 8px 6px; overflow-wrap: anywhere; flex: 1; }
+.mod-ph .ops, .mod-po .ops { padding: 0 8px 8px; display: flex; gap: 6px; }
+.mod-po { border: 1px solid var(--hair); border-radius: 8px; padding: 10px 12px 2px; margin-bottom: 10px; background: var(--page); }
+.mod-po .head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 4px; }
+.mod-po .body { font-size: 14px; white-space: pre-line; overflow-wrap: anywhere; margin: 4px 0 6px; }
+.mod-po .ops { padding: 0 0 8px; }
+.mod-empty { color: var(--muted); font-size: 13px; }

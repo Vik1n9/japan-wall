@@ -1,25 +1,30 @@
-// Cloudflare Workers（靜態資源＋留言與繪馬 API）：npm run deploy
+// 前台 Worker（純展示）：npm run deploy
+// 只有 /api/*、/edit*、/admin* 進 Worker 回 404；/media/*.mp4 進 Worker 做 Range 切片（Safari 播放需要 206），
+// 其餘直接由靜態資源回應、不計費。
+// 這個部署裡沒有任何登入/後台程式碼——後台在 wrangler.back.jsonc（kura 網域）。
 {
   "name": "osaka2026",
-  "main": "worker/index.ts",
+  "main": "worker/front.ts",
   "compatibility_date": "2026-10-01",
-  // 只有 /api/* 進 Worker，其餘路徑直接由靜態資源回應、不計費
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*", "/edit", "/edit/*", "/admin", "/admin/*", "/media/*.mp4"]
   },
+  // 階段 6：前台動態渲染需要的唯讀綁定（與後台同一個 D1/R2）
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "osaka2026-notes",
-      "database_id": "dc0e8bef-117d-436a-8005-b12f3cb109d2"
+      "database_name": "osaka2026",
+      "database_id": "b517067c-48fa-4d82-b267-0db4be6d1f19"
     }
   ],
-  "vars": {
-    "EDITORS": "viking@example.com,friend1@example.com",
-    "ALLOWED_ORIGINS": "https://osaka2026.voriens.dev"
-  },
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      "bucket_name": "osaka2026-uploads"
+    }
+  ],
   // 綁定自訂網域；不另外開 workers.dev 網址
   "routes": [{ "pattern": "osaka2026.voriens.dev", "custom_domain": true }],
   "workers_dev": false

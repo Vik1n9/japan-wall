@@ -3,3 +3,17 @@
   Cache-Control: public, max-age=86400
 /art/*
   Cache-Control: public, max-age=86400
+
+# 後台與編輯頁禁止被嵌入框架（防點擊劫持）；公開牆（/）不加，牆本身就是要給人看的
+/admin
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+/admin/*
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+/edit
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+/edit/*
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'

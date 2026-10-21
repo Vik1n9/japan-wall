@@ -43,7 +43,7 @@ const site = defineCollection({
   }),
 });
 
-/** 欄位裡的一個項目：展品、文字卡、心得欄位、或指定位置的繪馬 */
+/** 欄位裡的一個項目：展品、文字卡、心得欄位 */
 const columnItem = z.union([
   z.object({ exhibit: z.string() }),
   z.object({
@@ -54,7 +54,6 @@ const columnItem = z.union([
     }),
   }),
   z.object({ slot: z.string() }),
-  z.object({ ema: z.string() }),
 ]);
 
 /** 每天一個檔案：src/content/days/YYYY-MM-DD.yaml。負責「怎麼排」 */
@@ -71,6 +70,12 @@ const days = defineCollection({
     backdrop: z
       .array(z.object({ src: z.string(), x: z.number(), y: z.number().default(0), h: z.number().default(50), r: z.number().default(0) }))
       .default([]),
+    // 當天的趣事帶（裝飾，不是展品）：六隻貓走在屋簷上，透明背景、不加說明文字。x：圖片中心在當天寬度的位置（%）
+    // 可以是一張，或分成幾張各自定位（例：左右兩側各一張、中間留白）
+    story: z
+      .union([z.object({ src: z.string(), x: z.number().default(50) }), z.array(z.object({ src: z.string(), x: z.number().default(50) }))])
+      .optional()
+      .transform((s) => (s === undefined ? [] : Array.isArray(s) ? s : [s])),
     columns: z
       .array(
         z.object({
@@ -118,36 +123,4 @@ const exhibits = defineCollection({
   }),
 });
 
-const isoTimestamp = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/, '投稿時間須為含時區的 ISO 8601 字串（加引號）');
-
-/** 同行友人的留言與繪馬：src/content/notes/n-YYYYMMDD-xxxx.yaml（由 notes:pull 產生，原文照錄） */
-const notes = defineCollection({
-  loader: glob({ pattern: '*.yaml', base: './src/content/notes', generateId: fileId }),
-  schema: z
-    .object({
-      kind: z.enum(['comment', 'ema']),
-      target: z.string(),
-      replyTo: z.string().nullable().default(null),
-      by: z.string().max(20, '署名最多 20 字').default(''),
-      body: z.string().min(1, '內文不可為空').max(300, '內文最多 300 字'),
-      posted: isoTimestamp,
-    })
-    .superRefine((val, ctx) => {
-      if (val.kind === 'ema') {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(val.target)) {
-          ctx.addIssue({ code: 'custom', path: ['target'], message: '繪馬的 target 須為日期 YYYY-MM-DD' });
-        }
-        if (val.replyTo !== null) {
-          ctx.addIssue({ code: 'custom', path: ['replyTo'], message: '繪馬不可有 replyTo' });
-        }
-      } else {
-        if (!/^(JP-\d{2}-\d{2}|n-\d{8}-[a-z0-9]{4})$/.test(val.target)) {
-          ctx.addIssue({ code: 'custom', path: ['target'], message: '留言的 target 須為展品編號（JP-）或繪馬編號（n-）' });
-        }
-      }
-    }),
-});
-
-export const collections = { site, days, exhibits, notes };
+export const collections = { site, days, exhibits };

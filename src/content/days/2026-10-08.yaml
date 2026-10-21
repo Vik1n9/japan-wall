@@ -12,6 +12,10 @@ backdrop:
   - { src: art/days/2026-10-08-05.webp, x: 64, y: 30, h: 58, r: 3 }
   - { src: art/days/2026-10-08-06.webp, x: 82, y: 2, h: 42, r: -2 }
   - { src: art/days/2026-10-08-07.webp, x: 96, y: 50, h: 34, r: 5 }
+# 趣事帶（分左右兩張、中間留白）：左＝老老拍照、小小悠閒躺著坐御座船；右＝高高、可愛、呆呆、漂漂吃螃蟹，上方巨大螃蟹招牌（無店名）。原檔在 raw/art/cats/scenes/d4/
+story:
+  - { src: art/story/2026-10-08-left.webp, x: 13 }
+  - { src: art/story/2026-10-08-right.webp, x: 87 }
 columns:
   - width: 300
     items:
