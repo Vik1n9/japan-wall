@@ -52,7 +52,7 @@
 
 - [Astro](https://astro.build) 靜態建置。內容全是 YAML 資料檔：展品資訊（`exhibits/`）與排版（`days/`）分開管理。
 - Cloudflare Workers：前台 `osaka2026` 與後台 `osaka2026-kura` 兩個 Worker，共用 D1 資料庫與 R2 儲存。
-- 素材處理：sharp 轉 WebP、ffmpeg 剪輯短片（防手震、電影級運鏡速度、保留聲音）；上傳的影片用 [Mediabunny](https://mediabunny.dev)（WebCodecs）在瀏覽器轉檔。裝飾圖以本機圖片模型（FLUX.2 Klein、Qwen-Image）生成與風格化。
+- 素材處理：sharp 轉 WebP、ffmpeg 剪輯短片（防手震、電影級運鏡速度、保留聲音）；上傳的影片用 [Mediabunny](https://mediabunny.dev)（WebCodecs）在瀏覽器轉檔。裝飾圖以本機圖片模型（FLUX.2 Klein、Qwen-Image）生成與風格化，工具在獨立專案 `tools/imggen`。
 
 ## 快速開始
 
